@@ -1,0 +1,30 @@
+services:
+  go_api:
+    build:
+      dockerfile: ./Dockerfile
+    volumes:
+      # Important to bind/mount your codebase dir to /app dir for live reload
+      - ./:/app
+    ports:
+      - 8080:8080
+    environment:
+      DB_HOST: psql_db
+
+    depends_on:
+      - psql_db
+  psql_db:
+    image: postgres
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: example
+    ports:
+      # host port: postgres tcp port
+      - "5432:5432"
+    volumes:
+      # Mount database data so that even if the container got deleted, the volume would still be there unless deleted by us
+      - psql_db_data:/var/lib/postgresql/data
+      # Uncomment below if you want to use an initialization script
+      # - "./<your_sql_file_name_here>.sql:/docker-entrypoint-initdb.d/1.sql"
+
+volumes:
+  psql_db_data:

@@ -1,0 +1,320 @@
+{
+  "nodes": [
+    {
+      "id": "f13bd",
+      "position": {
+        "x": 0,
+        "y": 238.5
+      },
+      "data": {
+        "tableName": "Users",
+        "columns": [
+          {
+            "columnId": "b5cab",
+            "columnName": "id",
+            "attribute": {
+              "type": "text",
+              "nullable": false,
+              "autoIncrement": true,
+              "defaultValue": "",
+              "indexType": "Primary key"
+            }
+          },
+          {
+            "columnId": "5ee6c",
+            "columnName": "email",
+            "attribute": {
+              "type": "varchar(255)",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "Unique"
+            }
+          },
+          {
+            "columnId": "ae5eb",
+            "columnName": "first_name",
+            "attribute": {
+              "type": "varchar(50)",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "ba21d",
+            "columnName": "last_name",
+            "attribute": {
+              "type": "varchar(50)",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "f9276",
+            "columnName": "profile_url",
+            "attribute": {
+              "type": "text",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "55e36",
+            "columnName": "created_at",
+            "attribute": {
+              "type": "timestamp",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "7c73b",
+            "columnName": "updated_at",
+            "attribute": {
+              "type": "timestamp",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          }
+        ]
+      },
+      "type": "table"
+    },
+    {
+      "id": "dba58",
+      "position": {
+        "x": 370,
+        "y": 0
+      },
+      "data": {
+        "tableName": "OAuth_Providers",
+        "columns": [
+          {
+            "columnId": "424a0",
+            "columnName": "id",
+            "attribute": {
+              "type": "text",
+              "nullable": false,
+              "autoIncrement": true,
+              "defaultValue": "",
+              "indexType": "Primary key"
+            }
+          },
+          {
+            "columnId": "a525b",
+            "columnName": "provider_type",
+            "attribute": {
+              "type": "varchar(50)",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            },
+            "userComment": "Eg, \"google\", \"github\""
+          },
+          {
+            "columnId": "13751",
+            "columnName": "provider_user_id",
+            "attribute": {
+              "type": "text",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "Unique"
+            }
+          },
+          {
+            "columnId": "50456",
+            "columnName": "access_token",
+            "attribute": {
+              "type": "text",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "35fe3",
+            "columnName": "refresh_token",
+            "attribute": {
+              "type": "text",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "5a4c8",
+            "columnName": "user_id",
+            "attribute": {
+              "type": "text",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "d3bd5",
+            "columnName": "created_at",
+            "attribute": {
+              "type": "timestamp",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "e35da",
+            "columnName": "updated_at",
+            "attribute": {
+              "type": "timestamp",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          }
+        ]
+      },
+      "type": "table"
+    },
+    {
+      "id": "4c5ba",
+      "position": {
+        "x": 370,
+        "y": 436
+      },
+      "data": {
+        "tableName": "Tokens",
+        "columns": [
+          {
+            "columnId": "afb40",
+            "columnName": "id",
+            "attribute": {
+              "type": "text",
+              "nullable": false,
+              "autoIncrement": true,
+              "defaultValue": "",
+              "indexType": "Primary key"
+            }
+          },
+          {
+            "columnId": "afc94",
+            "columnName": "access_token",
+            "attribute": {
+              "type": "text",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "null",
+              "indexType": "Unique"
+            }
+          },
+          {
+            "columnId": "f2bc3",
+            "columnName": "refresh_token",
+            "attribute": {
+              "type": "text",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "null",
+              "indexType": "Unique"
+            }
+          },
+          {
+            "columnId": "902be",
+            "columnName": "can_access",
+            "attribute": {
+              "type": "bool",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "true",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "59aa5",
+            "columnName": "can_refresh",
+            "attribute": {
+              "type": "bool",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "true",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "d81eb",
+            "columnName": "user_id",
+            "attribute": {
+              "type": "text",
+              "nullable": false,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "18e6f",
+            "columnName": "created_at",
+            "attribute": {
+              "type": "timestamp",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          },
+          {
+            "columnId": "03040",
+            "columnName": "updated_at",
+            "attribute": {
+              "type": "timestamp",
+              "nullable": true,
+              "autoIncrement": false,
+              "defaultValue": "",
+              "indexType": "None"
+            }
+          }
+        ]
+      },
+      "type": "table"
+    }
+  ],
+  "edges": [
+    {
+      "id": "vueflow__edge-dba58dba58-left-5a4c8-f13bdf13bd-right-b5cab",
+      "source": "dba58",
+      "target": "f13bd",
+      "type": "erd",
+      "sourceHandle": "dba58-left-5a4c8",
+      "targetHandle": "f13bd-right-b5cab"
+    },
+    {
+      "id": "vueflow__edge-4c5ba4c5ba-left-d81eb-f13bdf13bd-left-b5cab",
+      "source": "4c5ba",
+      "target": "f13bd",
+      "type": "erd",
+      "sourceHandle": "4c5ba-left-d81eb",
+      "targetHandle": "f13bd-left-b5cab"
+    }
+  ],
+  "viewport": {
+    "x": 180.1251022957083,
+    "y": 116.6459775910912,
+    "zoom": 0.9015664704733937
+  }
+}

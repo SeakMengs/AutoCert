@@ -1,0 +1,18 @@
+meta {
+  name: Register user
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{url}}/api/v1/users/register
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  email: examplezz@gmail.com
+  firstName: banana
+  lastName: car
+  password: 1234567
+}

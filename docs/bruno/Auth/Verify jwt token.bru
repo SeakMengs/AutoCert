@@ -1,0 +1,15 @@
+meta {
+  name: Verify jwt token
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{url}}/api/v1/auth/jwt/verify/{{jwtToken}}
+  body: none
+  auth: none
+}
+
+docs {
+  Only verify the jwt token, does not check if the token exist in database or not
+}
