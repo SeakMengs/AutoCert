@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/auth"
+	"github.com/SeakMengs/AutoCert/internal/auth"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

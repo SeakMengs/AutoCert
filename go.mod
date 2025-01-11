@@ -1,4 +1,4 @@
-module github.com/SeakMengs/go-api-boilerplate
+module github.com/SeakMengs/AutoCert
 
 go 1.23.2
 

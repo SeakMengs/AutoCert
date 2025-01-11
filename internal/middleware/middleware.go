@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	ratelimiter "github.com/SeakMengs/go-api-boilerplate/internal/rate_limiter"
+	ratelimiter "github.com/SeakMengs/AutoCert/internal/rate_limiter"
 	"go.uber.org/zap"
 )
 

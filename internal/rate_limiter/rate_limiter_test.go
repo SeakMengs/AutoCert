@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/config"
 )
 
 // Test: Allow 2 requests per 4 seconds

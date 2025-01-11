@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/config"
 	"go.uber.org/zap"
 )
 

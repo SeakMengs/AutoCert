@@ -1,7 +1,7 @@
 package route
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/controller"
+	"github.com/SeakMengs/AutoCert/internal/controller"
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,8 +1,8 @@
 package ratelimiter
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"go.uber.org/zap"
 )
 

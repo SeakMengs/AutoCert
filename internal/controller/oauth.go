@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/constant"
-	"github.com/SeakMengs/go-api-boilerplate/internal/model"
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/constant"
+	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 )

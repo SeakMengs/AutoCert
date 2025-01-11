@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 )
 

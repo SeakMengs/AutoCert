@@ -3,8 +3,8 @@ package controller
 import (
 	"net/http"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/model"
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,6 +26,7 @@ func (uc UserController) GetUserById(ctx *gin.Context) {
 	})
 }
 
+// TODO: remove this
 func (uc UserController) RegisterUser(ctx *gin.Context) {
 	var newUser model.User
 	if err := ctx.ShouldBind(&newUser); err != nil {

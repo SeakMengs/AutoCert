@@ -1,15 +1,15 @@
 package main
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
-	"github.com/SeakMengs/go-api-boilerplate/internal/database"
-	"github.com/SeakMengs/go-api-boilerplate/internal/env"
-	"github.com/SeakMengs/go-api-boilerplate/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/database"
+	"github.com/SeakMengs/AutoCert/internal/env"
+	"github.com/SeakMengs/AutoCert/internal/model"
 	"go.uber.org/zap"
 )
 
 func init() {
-	env.LoadEnv()
+	env.LoadEnv(".env")
 }
 
 func main() {

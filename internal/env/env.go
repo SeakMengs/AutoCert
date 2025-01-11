@@ -8,8 +8,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func LoadEnv() {
-	if err := godotenv.Load(".env"); err != nil {
+func LoadEnv(envPath string) {
+	if envPath == "" {
+		envPath = ".env"
+	}
+
+	if err := godotenv.Load(envPath); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

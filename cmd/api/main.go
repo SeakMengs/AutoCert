@@ -1,25 +1,25 @@
 package main
 
 import (
-	appcontext "github.com/SeakMengs/go-api-boilerplate/internal/app_context"
-	"github.com/SeakMengs/go-api-boilerplate/internal/auth"
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
-	"github.com/SeakMengs/go-api-boilerplate/internal/controller"
-	"github.com/SeakMengs/go-api-boilerplate/internal/database"
-	"github.com/SeakMengs/go-api-boilerplate/internal/env"
-	"github.com/SeakMengs/go-api-boilerplate/internal/mailer"
-	"github.com/SeakMengs/go-api-boilerplate/internal/middleware"
-	ratelimiter "github.com/SeakMengs/go-api-boilerplate/internal/rate_limiter"
-	"github.com/SeakMengs/go-api-boilerplate/internal/repository"
-	"github.com/SeakMengs/go-api-boilerplate/internal/route"
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	appcontext "github.com/SeakMengs/AutoCert/internal/app_context"
+	"github.com/SeakMengs/AutoCert/internal/auth"
+	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/controller"
+	"github.com/SeakMengs/AutoCert/internal/database"
+	"github.com/SeakMengs/AutoCert/internal/env"
+	"github.com/SeakMengs/AutoCert/internal/mailer"
+	"github.com/SeakMengs/AutoCert/internal/middleware"
+	ratelimiter "github.com/SeakMengs/AutoCert/internal/rate_limiter"
+	"github.com/SeakMengs/AutoCert/internal/repository"
+	"github.com/SeakMengs/AutoCert/internal/route"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 // this function run before main
 func init() {
-	env.LoadEnv()
+	env.LoadEnv(".env")
 }
 
 func main() {

@@ -1,10 +1,10 @@
 package appcontext
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/auth"
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
-	"github.com/SeakMengs/go-api-boilerplate/internal/mailer"
-	"github.com/SeakMengs/go-api-boilerplate/internal/repository"
+	"github.com/SeakMengs/AutoCert/internal/auth"
+	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/mailer"
+	"github.com/SeakMengs/AutoCert/internal/repository"
 	"go.uber.org/zap"
 )
 

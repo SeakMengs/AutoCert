@@ -4,7 +4,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/config"
 	"github.com/joho/godotenv"
 )
 

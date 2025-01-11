@@ -1,7 +1,7 @@
 package controller
 
 import (
-	appcontext "github.com/SeakMengs/go-api-boilerplate/internal/app_context"
+	appcontext "github.com/SeakMengs/AutoCert/internal/app_context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )

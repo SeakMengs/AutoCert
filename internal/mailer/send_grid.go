@@ -6,7 +6,7 @@ import (
 	"html/template"
 	"time"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"go.uber.org/zap"

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/env"
+	"github.com/SeakMengs/AutoCert/internal/env"
 )
 
 type Config struct {

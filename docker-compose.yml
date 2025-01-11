@@ -1,5 +1,5 @@
 services:
-  go_api:
+  autocert_api:
     build:
       dockerfile: ./Dockerfile
     volumes:

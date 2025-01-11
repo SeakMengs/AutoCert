@@ -3,7 +3,7 @@ package controller
 import (
 	"net/http"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,6 +11,7 @@ type AuthController struct {
 	*baseController
 }
 
+// TODO: remove this
 func (ac AuthController) LoginWithEmail(ctx *gin.Context) {
 	type LoginBody struct {
 		Email    string `json:"email" form:"email" binding:"required"`

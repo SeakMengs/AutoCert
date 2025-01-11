@@ -3,7 +3,7 @@ package util
 import (
 	"net/http"
 
-	constant "github.com/SeakMengs/go-api-boilerplate/internal/constant"
+	constant "github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/gin-gonic/gin"
 )
 

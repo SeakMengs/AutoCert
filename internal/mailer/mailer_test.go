@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/config"
 	"github.com/joho/godotenv"
 )
 

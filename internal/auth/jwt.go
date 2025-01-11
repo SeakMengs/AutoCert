@@ -4,8 +4,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/SeakMengs/go-api-boilerplate/internal/config"
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 )

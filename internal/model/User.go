@@ -1,7 +1,7 @@
 package model
 
 import (
-	"github.com/SeakMengs/go-api-boilerplate/internal/util"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )

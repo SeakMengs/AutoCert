@@ -10,6 +10,12 @@ Boilerplate for Go api. This boilerplate is using the following tools:
 
 # Develop
 
+Clone the project including its submodule
+
+```sh
+git clone --recursive https://github.com/SeakMengs/AutoCert.git
+```
+
 Development is divided into two environment, `docker` and `local`.
 
 ## Docker environment
