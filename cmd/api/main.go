@@ -15,6 +15,8 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 )
 
 // this function run before main
@@ -39,6 +41,19 @@ func main() {
 	}
 	defer sqlDb.Close()
 	logger.Info("Database connected \n")
+
+	// Custom validation
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		if err := v.RegisterValidation("strNotEmpty", util.StrNotEmpty); err != nil {
+			return
+		}
+		if err = v.RegisterValidation("cmin", util.CustomMin); err != nil {
+			return
+		}
+		if err = v.RegisterValidation("cmax", util.CustomMax); err != nil {
+			return
+		}
+	}
 
 	rateLimiter := ratelimiter.NewRateLimiter(cfg.RateLimiter, logger)
 	mail := mailer.NewSendgrid(cfg.Mail.SEND_GRID.API_KEY, cfg.Mail.FROM_EMAIL, cfg.IsProduction(), logger)
