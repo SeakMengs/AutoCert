@@ -69,6 +69,12 @@ func main() {
 	}
 
 	_middleware := middleware.NewMiddleware(app.Logger, rateLimiter)
+
+	if cfg.ENV == "production" {
+		logger.Info("Running in production mode")
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := gin.Default()
 
 	// docs: https://github.com/gin-contrib/cors?tab=readme-ov-file#using-defaultconfig-as-start-point

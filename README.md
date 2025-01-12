@@ -16,6 +16,12 @@ Clone the project including its submodule
 git clone --recursive https://github.com/SeakMengs/AutoCert.git
 ```
 
+**Note:** To update the submodule to the latest commit, run the following command
+
+```sh
+git submodule update --recursive --remote
+```
+
 Development is divided into two environment, `docker` and `local`.
 
 ## Docker environment
@@ -53,7 +59,7 @@ cd /app
 go run ./cmd/migrate/main.go
 ```
 
-## Local environment
+## Local development
 
 Develop local with hot reload
 
@@ -101,4 +107,29 @@ To test rate limit by performing http request
 
 ```sh
 ./scripts/test_rate_limit.sh
+```
+
+## Production deployment
+
+### Option 1: Docker
+
+<!-- TODO: fix this -->
+<!-- To deploy to production using docker, make sure you have docker installed then run the following command:
+
+```sh
+ENV=production docker compose up --build
+``` -->
+
+### Option 2: Local
+
+To deploy to production locally, make sure you have the following environment variable set in your `.env` file
+
+```sh
+ENV=production
+```
+
+Then run the following command:
+
+```sh
+go build -o ./bin/main ./cmd/api && ./bin/main
 ```
