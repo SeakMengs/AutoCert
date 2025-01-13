@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -60,7 +61,6 @@ func (ur *UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model
 		Email:     newUser.Email,
 		FirstName: newUser.FirstName,
 		LastName:  newUser.LastName,
-		Password:  newUser.Password,
 	}).Error; err != nil {
 		return err
 	}
@@ -73,15 +73,17 @@ func (ur *UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, ne
 	ur.logger.Debugf("Get user and create user with data (Transaction): %v \n", newUser)
 
 	db := ur.getDB(tx)
-	return ur.withTx(db, func(tx *gorm.DB) error {
-		// Example transaction test || Uncomment to test that it will not save in database
-		// if err := r.Create(ctx, tx, newUser); err != nil {
-		// 	return err
-		// }
+	txErr := ur.withTx(db, func(tx *gorm.DB) error {
+		existingUser, err := ur.GetByEmail(ctx, tx, newUser.Email)
+		if err != nil {
+			// Since not found is not an error, we can ignore it
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		}
 
-		existingUser, _ := ur.GetByEmail(ctx, tx, newUser.Email)
 		if strings.EqualFold(existingUser.Email, newUser.Email) {
-			return fmt.Errorf("User with %s already exist", existingUser.Email)
+			return fmt.Errorf("user with %s already exist", existingUser.Email)
 		}
 
 		// Create a new user with the transaction
@@ -91,4 +93,6 @@ func (ur *UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, ne
 
 		return nil
 	})
+
+	return txErr
 }

@@ -18,22 +18,22 @@ func TestJWT(t *testing.T) {
 
 	jwtService := NewJwt(cfg.Auth, nil)
 	refreshToken, accessToken, err := jwtService.GenerateRefreshAndAccessToken(JWTPayload{
-		UserID: "id1234",
-		Email:  "test@gmail.com",
+		ID:    "id1234",
+		Email: "test@gmail.com",
 	})
-	// t.Errorf("Refrestoken: %s, Accestoken: %s, Error: %v", *refreshToken, *accessToken, err)
+	t.Errorf("Refrestoken: %s, Accestoken: %s, Error: %v", *refreshToken, *accessToken, err)
 	//
 	if err != nil {
 		t.Errorf(
 			"An error occurred during refresh token and access token generation. Error: %v", err)
 	}
 
-	if err := jwtService.VerifyJwtToken(*refreshToken); err != nil {
+	if _, err := jwtService.VerifyJwtToken(*refreshToken); err != nil {
 		t.Errorf(
 			"An error occurred during refresh token verification. Error: %v", err)
 	}
 
-	if err := jwtService.VerifyJwtToken(*accessToken); err != nil {
+	if _, err := jwtService.VerifyJwtToken(*accessToken); err != nil {
 		t.Errorf(
 			"An error occurred during access token verification. Error: %v", err)
 	}

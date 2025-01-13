@@ -12,4 +12,42 @@ get {
 
 docs {
   Only verify the jwt token, does not check if the token exist in database or not
+  
+  Suuccess response
+  
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {
+      "payload": {
+        "user": {
+          "userId": "id1234",
+          "email": "test@gmail.com",
+          "firstName": "",
+          "lastName": ""
+        },
+        "iat": 1736789735,
+        "exp": 1736790035
+      },
+      "tokenValid": true
+    }
+  }
+  
+  Error response
+  
+  {
+    "success": false,
+    "message": "Request unsuccessful.",
+    "error": [
+      {
+        "field": "Unknown",
+        "message": "token is malformed: could not JSON decode claim: invalid character '\\x01' in string literal"
+      }
+    ],
+    "data": {
+      "tokenValid": false
+    }
+  }
+  
+  
 }

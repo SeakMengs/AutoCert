@@ -32,7 +32,7 @@ func (oc OAuthController) ContinueWithGoogle(ctx *gin.Context) {
 
 	state, err := util.GenerateNChar(16)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", err, nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
 		return
 	}
 
@@ -78,7 +78,9 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 	code := ctx.Query("code")
 	userInfo, err := oc.getGoogleUserInfo(code)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", err, nil)
+		oc.app.Logger.Debug("OAuth: Google, Error: Failed to get user info")
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
 		return
 	}
 
@@ -87,12 +89,13 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 		Email:     userInfo.Email,
 		FirstName: userInfo.GivenName,
 		LastName:  userInfo.Name,
-		Password:  "",
 	})
 
 	user, err := oc.app.Repository.User.GetByEmail(ctx, nil, userInfo.Email)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", err, nil)
+		oc.app.Logger.Debug("OAuth: Google, Error: Failed to get user by email")
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
 		return
 	}
 
@@ -106,7 +109,9 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 
 	refreshToken, accessToken, err := oc.app.Repository.JWT.GenRefreshAndAccessToken(ctx, nil, *user)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", err, nil)
+		oc.app.Logger.Debug("OAuth: Google, Error: Failed to generate refresh and access token")
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
 		return
 	}
 

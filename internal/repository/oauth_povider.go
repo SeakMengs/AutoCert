@@ -21,6 +21,7 @@ func (opr *OAuthProviderRepository) CreateOrUpdateByProviderUserId(ctx context.C
 	defer cancel()
 
 	// Assign mean it will create or update regardless of whether record is found or not
+	// It check based on where condition
 	if err := db.WithContext(ctx).Model(&model.OAuthProvider{}).Where(&model.OAuthProvider{ProviderUserId: newOAuthProvider.ProviderUserId}).Assign(model.OAuthProvider{
 		ProviderType:   newOAuthProvider.ProviderType,
 		ProviderUserId: newOAuthProvider.ProviderUserId,
