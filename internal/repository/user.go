@@ -47,7 +47,7 @@ func (ur UserRepository) GetByEmail(ctx context.Context, tx *gorm.DB, email stri
 	return user, nil
 }
 
-func (ur *UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model.User) error {
+func (ur UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model.User) error {
 	ur.logger.Debugf("Create user with data: %v \n", newUser)
 
 	db := ur.getDB(tx)
@@ -69,7 +69,7 @@ func (ur *UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model
 }
 
 // Example transaction
-func (ur *UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, newUser model.User) error {
+func (ur UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, newUser model.User) error {
 	ur.logger.Debugf("Get user and create user with data (Transaction): %v \n", newUser)
 
 	db := ur.getDB(tx)

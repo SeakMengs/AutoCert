@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
@@ -112,6 +113,13 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 		oc.app.Logger.Debug("OAuth: Google, Error: Failed to generate refresh and access token")
 
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
+		return
+	}
+
+	if refreshToken == nil || accessToken == nil {
+		oc.app.Logger.Debug("OAuth: Google, Error: Failed to generate refresh and access token")
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(errors.New("failed to generate refresh and access token"), nil), nil)
 		return
 	}
 

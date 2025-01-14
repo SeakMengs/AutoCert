@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 
 	"github.com/SeakMengs/AutoCert/internal/auth"
 	constant "github.com/SeakMengs/AutoCert/internal/constant"
@@ -40,4 +41,72 @@ func (jr JWTRepository) GenRefreshAndAccessToken(ctx context.Context, tx *gorm.D
 	}
 
 	return refreshToken, accessToken, err
+}
+
+func (jr JWTRepository) GetTokenByRefreshToken(ctx context.Context, tx *gorm.DB, refreshToken string) (*model.Token, error) {
+	jr.logger.Debugf("Get token by  refresh token: %s \n", refreshToken)
+
+	db := jr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var token model.Token
+
+	if err := db.WithContext(ctx).Model(&model.Token{}).Where(model.Token{
+		RefreshToken: refreshToken,
+	}).First(&token).Error; err != nil {
+		return nil, err
+	}
+
+	return &token, nil
+}
+
+/*
+ * Refresh token by deleting the old token and generating new refresh and access token
+ */
+func (jr JWTRepository) RefreshToken(ctx context.Context, tx *gorm.DB, refreshToken string) (*string, *string, error) {
+	jr.logger.Debugf("Refresh token: %s \n", refreshToken)
+
+	db := jr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var newRefreshToken, newAccessToken *string
+
+	txErr := jr.withTx(db, func(tx *gorm.DB) error {
+		token, err := jr.GetTokenByRefreshToken(ctx, tx, refreshToken)
+		if err != nil {
+			return err
+		}
+
+		if !token.CanRefresh {
+			return errors.New("token is valid but cannot be refreshed")
+		}
+
+		if err := tx.WithContext(ctx).Model(&model.Token{}).Where(model.Token{
+			RefreshToken: refreshToken,
+		}).Delete(&model.Token{}).Error; err != nil {
+			return err
+		}
+
+		var user model.User
+		if err := tx.WithContext(ctx).Model(&model.User{}).Where(model.User{
+			ID: token.UserID,
+		}).First(&user).Error; err != nil {
+			return err
+		}
+
+		newRefreshToken, newAccessToken, err = jr.GenRefreshAndAccessToken(ctx, tx, user)
+		if err != nil {
+			return err
+		}
+
+		if newRefreshToken == nil || newAccessToken == nil {
+			return errors.New("failed to generate refresh and access token")
+		}
+
+		return nil
+	})
+
+	return newRefreshToken, newAccessToken, txErr
 }

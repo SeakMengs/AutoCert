@@ -13,7 +13,7 @@ type OAuthProviderRepository struct {
 }
 
 // Create new oauth or update existing oauth provider accessToken by provider user id
-func (opr *OAuthProviderRepository) CreateOrUpdateByProviderUserId(ctx context.Context, tx *gorm.DB, newOAuthProvider model.OAuthProvider) error {
+func (opr OAuthProviderRepository) CreateOrUpdateByProviderUserId(ctx context.Context, tx *gorm.DB, newOAuthProvider model.OAuthProvider) error {
 	opr.logger.Debugf("Create or update OAuth provider with data: %v \n", newOAuthProvider)
 
 	db := opr.getDB(tx)
