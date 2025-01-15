@@ -80,6 +80,7 @@ func main() {
 	// docs: https://github.com/gin-contrib/cors?tab=readme-ov-file#using-defaultconfig-as-start-point
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = []string{"*"}
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With", "Accept"}
 	r.Use(cors.New(corsConfig))
 	r.Use(_middleware.RateLimiterMiddleware)
 

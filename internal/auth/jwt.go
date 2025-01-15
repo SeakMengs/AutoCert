@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
@@ -43,6 +45,7 @@ type JWTClaims struct {
 	User JWTPayload `json:"user"`
 	IAT  int64      `json:"iat"`
 	EXP  int64      `json:"exp"`
+	Type string     `json:"type"`
 }
 
 // Return refreshToken, accessToken, error
@@ -54,6 +57,7 @@ func (j JWT) GenerateRefreshAndAccessToken(payload JWTPayload) (*string, *string
 		"user": payload,
 		"iat":  time.Now().Unix(),
 		"exp":  time.Now().Add(7 * 24 * time.Hour).Unix(),
+		"type": constant.JWT_TYPE_REFRESH,
 	}
 	refresh := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshToken, err := refresh.SignedString([]byte(j.jwtSecret))
@@ -66,6 +70,7 @@ func (j JWT) GenerateRefreshAndAccessToken(payload JWTPayload) (*string, *string
 		"user": payload,
 		"iat":  time.Now().Unix(),
 		"exp":  time.Now().Add(5 * time.Minute).Unix(),
+		"type": constant.JWT_TYPE_ACCESS,
 	}
 	access := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessToken, err := access.SignedString([]byte(j.jwtSecret))
@@ -91,20 +96,20 @@ func (j JWT) VerifyJwtToken(token string) (*JWTClaims, error) {
 		return nil, errors.New("jwt token is not valid")
 	}
 
-	// Directly map claims to JWTClaims
-	user, ok := claims["user"].(map[string]interface{})
-	if !ok {
-		return nil, errors.New("invalid token: user field is missing or malformed")
+	// Marshal claims to JSON so we can unmarshal into a struct later
+	claimsJSON, err := json.Marshal(claims)
+	if err != nil {
+		j.logger.Debugf("Failed to marshal claims. Error: %v", err)
+		return nil, errors.New("failed to process token claims")
 	}
 
-	return &JWTClaims{
-		User: JWTPayload{
-			ID:        user["id"].(string),
-			Email:     user["email"].(string),
-			FirstName: user["firstName"].(string),
-			LastName:  user["lastName"].(string),
-		},
-		IAT: int64(claims["iat"].(float64)),
-		EXP: int64(claims["exp"].(float64)),
-	}, nil
+	// Unmarshal into a JWTClaims struct
+	var jwtClaims JWTClaims
+	err = json.Unmarshal(claimsJSON, &jwtClaims)
+	if err != nil {
+		j.logger.Debugf("Failed to unmarshal claims to JWTClaims. Error: %v", err)
+		return nil, errors.New("invalid token structure")
+	}
+
+	return &jwtClaims, nil
 }

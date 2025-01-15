@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 )
@@ -12,7 +13,7 @@ type AuthController struct {
 	*baseController
 }
 
-func (ac AuthController) VerifyJwtToken(ctx *gin.Context) {
+func (ac AuthController) VerifyJwtAccessToken(ctx *gin.Context) {
 	token := ctx.Param("token")
 
 	// Keep in mind that verify jwt token does not check database.
@@ -26,6 +27,13 @@ func (ac AuthController) VerifyJwtToken(ctx *gin.Context) {
 
 	if jwtClaims == nil {
 		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessage(errors.New("jwt claim empty"), nil), gin.H{
+			"tokenValid": false,
+		})
+		return
+	}
+
+	if jwtClaims.Type != constant.JWT_TYPE_ACCESS {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessage(errors.New("invalid jwt token type"), nil), gin.H{
 			"tokenValid": false,
 		})
 		return
@@ -55,6 +63,11 @@ func (ac AuthController) RefreshAccessToken(ctx *gin.Context) {
 		return
 	}
 
+	if jwtClaims.Type != constant.JWT_TYPE_REFRESH {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessage(errors.New("invalid jwt token type"), nil), nil)
+		return
+	}
+
 	newRefreshToken, newAccessToken, err := ac.app.Repository.JWT.RefreshToken(ctx, nil, refreshToken)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessage(err, nil), nil)
@@ -62,7 +75,7 @@ func (ac AuthController) RefreshAccessToken(ctx *gin.Context) {
 	}
 
 	if newRefreshToken == nil || newAccessToken == nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(errors.New("failed to refresh token"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessage(errors.New("failed to refresh token"), nil), nil)
 		return
 	}
 
