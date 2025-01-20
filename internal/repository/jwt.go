@@ -19,8 +19,11 @@ func (jr JWTRepository) GenRefreshAndAccessToken(ctx context.Context, tx *gorm.D
 	jr.logger.Debugf("Generate refresh and access token for userId: %s \n", user.ID)
 
 	refreshToken, accessToken, err := jr.jwtService.GenerateRefreshAndAccessToken(auth.JWTPayload{
-		ID:    user.ID,
-		Email: user.Email,
+		ID:         user.ID,
+		Email:      user.Email,
+		FirstName:  user.FirstName,
+		LastName:   user.LastName,
+		ProfileURL: user.ProfileURL,
 	})
 	if err != nil {
 		return nil, nil, err

@@ -1,7 +1,8 @@
 package controller
 
 import (
-	"github.com/SeakMengs/AutoCert/internal/util"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -10,11 +11,11 @@ type IndexController struct {
 }
 
 func (ic IndexController) Index(ctx *gin.Context) {
-	util.ResponseSuccess(ctx, gin.H{
-		"message": "Welcome to the api",
-	})
-
-	// ctx.JSON(http.StatusUnauthorized, gin.H{
-	// 	"message": "Unauthorized refresh access token test",
+	// util.ResponseSuccess(ctx, gin.H{
+	// 	"message": "Welcome to the api",
 	// })
+
+	ctx.JSON(http.StatusUnauthorized, gin.H{
+		"message": "Unauthorized refresh access token test",
+	})
 }

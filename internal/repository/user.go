@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	constant "github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -68,6 +67,20 @@ func (ur UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model.
 	return nil
 }
 
+func (ur UserRepository) Update(ctx context.Context, tx *gorm.DB, user model.User) error {
+	ur.logger.Debugf("Update user with data: %v \n", user)
+
+	db := ur.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	if err := db.WithContext(ctx).Model(&model.User{}).Where(&model.User{ID: user.ID}).Updates(&user).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Example transaction
 func (ur UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, newUser model.User) error {
 	ur.logger.Debugf("Get user and create user with data (Transaction): %v \n", newUser)
@@ -82,7 +95,19 @@ func (ur UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, new
 			}
 		}
 
-		if strings.EqualFold(existingUser.Email, newUser.Email) {
+		if existingUser != nil {
+			// update profile if profile is different
+			if existingUser.ProfileURL != newUser.ProfileURL {
+				ur.logger.Debugf("Update user profile with data: %v \n", newUser)
+
+				existingUser.ProfileURL = newUser.ProfileURL
+				if err := ur.Update(ctx, tx, *existingUser); err != nil {
+					return err
+				}
+
+				return nil
+			}
+
 			return fmt.Errorf("user with %s already exist", existingUser.Email)
 		}
 

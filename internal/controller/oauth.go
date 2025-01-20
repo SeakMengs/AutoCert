@@ -49,7 +49,7 @@ func (oc OAuthController) getGoogleUserInfo(code string) (*GoogleUser, error) {
 	// Exchange the authorization code for an access token
 	token, err := oc.googleOAuthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to exchange token")
+		oc.app.Logger.Debugf("OAuth: Google, Error: Failed to exchange token. Err %v", err)
 		return nil, err
 	}
 
@@ -57,7 +57,7 @@ func (oc OAuthController) getGoogleUserInfo(code string) (*GoogleUser, error) {
 	client := oc.googleOAuthConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to fetch user info")
+		oc.app.Logger.Debugf("OAuth: Google, Error: Failed to fetch user info. Err %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -69,6 +69,8 @@ func (oc OAuthController) getGoogleUserInfo(code string) (*GoogleUser, error) {
 		oc.app.Logger.Debug("OAuth: Google, Error: Failed to decode user info")
 		return nil, err
 	}
+
+	oc.app.Logger.Debugf("OAuth: Google, User info: %v", userInfo)
 
 	return &userInfo, nil
 }
@@ -87,9 +89,10 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 
 	// If new user, create account, else do nothing
 	oc.app.Repository.User.CheckDupAndCreate(ctx, nil, model.User{
-		Email:     userInfo.Email,
-		FirstName: userInfo.GivenName,
-		LastName:  userInfo.Name,
+		Email:      userInfo.Email,
+		FirstName:  userInfo.GivenName,
+		LastName:   userInfo.Name,
+		ProfileURL: userInfo.Picture,
 	})
 
 	user, err := oc.app.Repository.User.GetByEmail(ctx, nil, userInfo.Email)

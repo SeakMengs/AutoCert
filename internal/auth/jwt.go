@@ -35,10 +35,11 @@ func NewJwt(cfg config.AuthConfig, logger *zap.SugaredLogger) *JWT {
 }
 
 type JWTPayload struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	ID         string `json:"id"`
+	Email      string `json:"email"`
+	FirstName  string `json:"firstName"`
+	LastName   string `json:"lastName"`
+	ProfileURL string `json:"profileURL"`
 }
 
 type JWTClaims struct {
