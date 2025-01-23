@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	constant "github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -57,9 +56,10 @@ func (ur UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model.
 	// if err := db.WithContext(ctx).Model(&model.User{}).Omit(user.ID).Create(&user).Error; err != nil {
 
 	if err := db.WithContext(ctx).Model(&model.User{}).Create(&model.User{
-		Email:     newUser.Email,
-		FirstName: newUser.FirstName,
-		LastName:  newUser.LastName,
+		Email:      newUser.Email,
+		FirstName:  newUser.FirstName,
+		LastName:   newUser.LastName,
+		ProfileURL: newUser.ProfileURL,
 	}).Error; err != nil {
 		return err
 	}
@@ -87,32 +87,18 @@ func (ur UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, new
 
 	db := ur.getDB(tx)
 	txErr := ur.withTx(db, func(tx *gorm.DB) error {
-		existingUser, err := ur.GetByEmail(ctx, tx, newUser.Email)
+		_, err := ur.GetByEmail(ctx, tx, newUser.Email)
 		if err != nil {
-			// Since not found is not an error, we can ignore it
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
-			}
-		}
 
-		if existingUser != nil {
-			// update profile if profile is different
-			if existingUser.ProfileURL != newUser.ProfileURL {
-				ur.logger.Debugf("Update user profile with data: %v \n", newUser)
-
-				existingUser.ProfileURL = newUser.ProfileURL
-				if err := ur.Update(ctx, tx, *existingUser); err != nil {
+			// If user not found, create a new user
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				if err := ur.Create(ctx, tx, newUser); err != nil {
 					return err
 				}
 
 				return nil
 			}
 
-			return fmt.Errorf("user with %s already exist", existingUser.Email)
-		}
-
-		// Create a new user with the transaction
-		if err := ur.Create(ctx, tx, newUser); err != nil {
 			return err
 		}
 

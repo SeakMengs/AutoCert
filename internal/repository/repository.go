@@ -52,7 +52,7 @@ func (b baseRepository) withTx(db *gorm.DB, fn func(*gorm.DB) error) error {
 	}()
 
 	if err := fn(tx); err != nil {
-		b.logger.Info("withTx() Error during transaction, perform rollback")
+		b.logger.Debugf("withTx() Error during transaction, perform rollback. Error: %v", err)
 		tx.Rollback()
 		return err
 	}
