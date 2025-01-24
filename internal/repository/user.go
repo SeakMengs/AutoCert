@@ -55,11 +55,10 @@ func (ur UserRepository) CreateOrUpdateByEmail(ctx context.Context, tx *gorm.DB,
 	// Assign mean it will create or update regardless of whether record is found or not
 	// It check based on where condition
 	if err := db.WithContext(ctx).Model(&model.User{}).Where(&model.User{Email: newUser.Email}).Assign(model.User{
-		Email:     newUser.Email,
-		FirstName: newUser.FirstName,
-		LastName:  newUser.LastName,
-		// ProfileURL: newUser.ProfileURL,
-		ProfileURL: "I'm not supposed to be updated",
+		Email:      newUser.Email,
+		FirstName:  newUser.FirstName,
+		LastName:   newUser.LastName,
+		ProfileURL: newUser.ProfileURL,
 	}).FirstOrCreate(&user).Error; err != nil {
 		return user, err
 	}

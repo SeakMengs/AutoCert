@@ -74,11 +74,13 @@ func (ac AuthController) RefreshAccessToken(ctx *gin.Context) {
 
 	newRefreshToken, newAccessToken, err := ac.app.Repository.JWT.RefreshToken(ctx, tx, refreshToken)
 	if err != nil {
+		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 
 	if newRefreshToken == nil || newAccessToken == nil {
+		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("failed to refresh token"), nil), nil)
 		return
 	}
