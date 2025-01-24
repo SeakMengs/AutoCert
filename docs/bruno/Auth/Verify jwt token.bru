@@ -4,13 +4,25 @@ meta {
   seq: 2
 }
 
-get {
-  url: {{url}}/api/v1/auth/jwt/access/verify/{{accessToken}}
-  body: none
+post {
+  url: {{url}}/api/v1/auth/jwt/access/verify
+  body: multipartForm
   auth: none
 }
 
+body:multipart-form {
+  token: {{accessToken}}
+}
+
 docs {
+  Take
+  
+  type Form struct {
+  		Token string `json:"token" form:"token" binding:"required,strNotEmpty"`
+  	}
+  
+  --
+  
   Only verify the jwt token, does not check if the token exist in database or not
   
   Suuccess response

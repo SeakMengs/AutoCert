@@ -43,27 +43,36 @@ func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTIn
 // Note: GORM perform write (create/update/delete) operations run inside a transaction to ensure data consistency | So this function is helpful only if we disable auto transaction
 // Docs: https://gorm.io/docs/transactions.html#Disable-Default-Transaction
 func (b baseRepository) withTx(db *gorm.DB, fn func(*gorm.DB) error) error {
-	tx := db.Begin()
-	if err := tx.Error; err != nil {
-		return err
+	// tx := db.Begin()
+	// if err := tx.Error; err != nil {
+	// 	return err
+	// }
+
+	// defer func() {
+	// 	// https://gorm.io/docs/transactions.html#A-Specific-Example
+	// 	// If panic is throw rollback
+	// 	if r := recover(); r != nil {
+	// 		b.logger.Error("withTx() Transaction panic, perform rollback")
+	// 		tx.Rollback()
+	// 	}
+	// }()
+
+	// if err := fn(tx); err != nil {
+	// 	b.logger.Debugf("withTx() Error during transaction, perform rollback. Error: %v", err)
+	// 	tx.Rollback()
+	// 	return err
+	// }
+
+	// return tx.Commit().Error
+	err := db.Transaction(func(tx *gorm.DB) error {
+		return fn(tx)
+	})
+
+	if err != nil {
+		b.logger.Error("withTx Transaction error: %v", err)
 	}
 
-	defer func() {
-		// https://gorm.io/docs/transactions.html#A-Specific-Example
-		// If panic is throw rollback
-		if r := recover(); r != nil {
-			b.logger.Error("withTx() Transaction panic, perform rollback")
-			tx.Rollback()
-		}
-	}()
-
-	if err := fn(tx); err != nil {
-		b.logger.Debugf("withTx() Error during transaction, perform rollback. Error: %v", err)
-		tx.Rollback()
-		return err
-	}
-
-	return tx.Commit().Error
+	return err
 }
 
 func (b baseRepository) getDB(tx *gorm.DB) *gorm.DB {

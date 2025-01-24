@@ -14,7 +14,20 @@ type AuthController struct {
 }
 
 func (ac AuthController) VerifyJwtAccessToken(ctx *gin.Context) {
-	token := ctx.Param("token")
+	type Form struct {
+		Token string `json:"token" form:"token" binding:"required,strNotEmpty"`
+	}
+	var form Form
+
+	err := ctx.ShouldBind(&form)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), gin.H{
+			"tokenValid": false,
+		})
+		return
+	}
+
+	token := form.Token
 
 	// Keep in mind that verify jwt token does not check database.
 	jwtClaims, err := ac.app.JWTService.VerifyJwtToken(token)
