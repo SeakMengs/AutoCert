@@ -27,8 +27,8 @@ func init() {
 func main() {
 	cfg := config.GetConfig()
 
-	logger := util.NewLogger()
-	logger.Infof("Configuration: %+v \n", cfg)
+	logger := util.NewLogger(cfg.ENV)
+	logger.Debugf("Configuration: %+v \n", cfg)
 
 	db, err := database.ConnectReturnGormDB(cfg.DB)
 	if err != nil {

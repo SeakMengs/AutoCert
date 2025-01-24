@@ -5,19 +5,23 @@ import (
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/util"
 )
 
 // Test: Allow 2 requests per 4 seconds
 func TestAllowRequest(t *testing.T) {
 	const TIME_FRAME_SECOND = 4
 	const REQUEST_PER_TIME_FRAME = 2
+
+	_cfg := config.GetConfig()
+	logger := util.NewLogger(_cfg.ENV)
 	cfg := config.RateLimiterConfig{
 		RequestsPerTimeFrame: REQUEST_PER_TIME_FRAME,
 		TimeFrame:            TIME_FRAME_SECOND * time.Second,
 		Enabled:              true,
 	}
 
-	limiter := NewRateLimiter(cfg, nil)
+	limiter := NewRateLimiter(cfg, logger)
 
 	ip := "192.168.1.1"
 

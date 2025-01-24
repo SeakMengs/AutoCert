@@ -69,7 +69,7 @@ Example output:
 	]
 
 If customField is provided, it will replace the field name with the custom field name
-Example usage: GenerateErrorMessage(err, map[string]string{"name": "CHANGEDFIELDNAME"})
+Example usage: GenerateErrorMessages(err, map[string]string{"name": "CHANGEDFIELDNAME"})
 Example output:
 
 	 [
@@ -79,7 +79,7 @@ Example output:
 	  }
 	]
 */
-func GenerateErrorMessage(err error, customField map[string]string) []ApiError {
+func GenerateErrorMessages(err error, customField map[string]string) []ApiError {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		out := make([]ApiError, len(ve))
@@ -108,10 +108,10 @@ func GenerateErrorMessage(err error, customField map[string]string) []ApiError {
 
 /*
 Extract error from validator and return the first error as a string
-Usage: GenerateErrorMessageAsString(err, map[string]string{"email": "Email"})
+Usage: GenerateErrorMessagesAsString(err, map[string]string{"email": "Email"})
 Example output: "Email is required"
 */
-func GenerateErrorMessageAsString(err error, customField map[string]string) string {
+func GenerateErrorMessagesAsString(err error, customField map[string]string) string {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		if len(ve) > 0 {

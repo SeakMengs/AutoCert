@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"time"
 
-	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"go.uber.org/zap"
@@ -21,11 +20,6 @@ type SendGridMailer struct {
 }
 
 func NewSendgrid(apiKey string, fromEmail string, isProduction bool, logger *zap.SugaredLogger) *SendGridMailer {
-	// For unit test
-	if logger == nil {
-		logger = util.NewLogger()
-	}
-
 	client := sendgrid.NewSendClient(apiKey)
 
 	return &SendGridMailer{

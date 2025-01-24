@@ -27,7 +27,7 @@ func (opr OAuthProviderRepository) CreateOrUpdateByProviderUserId(ctx context.Co
 		ProviderUserId: newOAuthProvider.ProviderUserId,
 		AccessToken:    newOAuthProvider.AccessToken,
 		UserID:         newOAuthProvider.UserID,
-	}).FirstOrCreate(&newOAuthProvider).Error; err != nil {
+	}).FirstOrCreate(&model.OAuthProvider{}).Error; err != nil {
 		return err
 	}
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/SeakMengs/AutoCert/internal/config"
 	"github.com/SeakMengs/AutoCert/internal/constant"
-	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 )
@@ -23,11 +22,6 @@ type JWTInterface interface {
 }
 
 func NewJwt(cfg config.AuthConfig, logger *zap.SugaredLogger) *JWT {
-	// For unit test
-	if logger == nil {
-		logger = util.NewLogger()
-	}
-
 	return &JWT{
 		jwtSecret: cfg.JWT_SECRET,
 		logger:    logger,

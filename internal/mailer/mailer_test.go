@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/joho/godotenv"
 )
 
@@ -15,8 +16,9 @@ func TestSendMail(t *testing.T) {
 	}
 
 	cfg := config.GetConfig()
+	logger := util.NewLogger(cfg.ENV)
 	// isProduction = false to ensure that the send mail test always run in sandbox mode which won't send actual email to the user
-	mail := NewSendgrid(cfg.Mail.SEND_GRID.API_KEY, cfg.Mail.FROM_EMAIL, false, nil)
+	mail := NewSendgrid(cfg.Mail.SEND_GRID.API_KEY, cfg.Mail.FROM_EMAIL, false, logger)
 
 	vars := struct {
 		Username      string

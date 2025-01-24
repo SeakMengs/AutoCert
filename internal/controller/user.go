@@ -16,7 +16,7 @@ func (uc UserController) GetUserById(ctx *gin.Context) {
 	userId := ctx.Param("user_id")
 	user, err := uc.app.Repository.User.GetById(ctx, nil, userId)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 

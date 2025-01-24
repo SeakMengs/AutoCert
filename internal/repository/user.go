@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 
 	constant "github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -45,65 +44,25 @@ func (ur UserRepository) GetByEmail(ctx context.Context, tx *gorm.DB, email stri
 	return user, nil
 }
 
-func (ur UserRepository) Create(ctx context.Context, tx *gorm.DB, newUser model.User) error {
-	ur.logger.Debugf("Create user with data: %v \n", newUser)
+func (ur UserRepository) CreateOrUpdateByEmail(ctx context.Context, tx *gorm.DB, newUser model.User) (*model.User, error) {
+	ur.logger.Debugf("Create or update by email with data: %v \n", newUser)
 
 	db := ur.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	// Use omit if u want to prevent insert id
-	// if err := db.WithContext(ctx).Model(&model.User{}).Omit(user.ID).Create(&user).Error; err != nil {
-
-	if err := db.WithContext(ctx).Model(&model.User{}).Create(&model.User{
-		Email:      newUser.Email,
-		FirstName:  newUser.FirstName,
-		LastName:   newUser.LastName,
-		ProfileURL: newUser.ProfileURL,
-	}).Error; err != nil {
-		return err
+	var user *model.User
+	// Assign mean it will create or update regardless of whether record is found or not
+	// It check based on where condition
+	if err := db.WithContext(ctx).Model(&model.User{}).Where(&model.User{Email: newUser.Email}).Assign(model.User{
+		Email:     newUser.Email,
+		FirstName: newUser.FirstName,
+		LastName:  newUser.LastName,
+		// ProfileURL: newUser.ProfileURL,
+		ProfileURL: "I'm not supposed to be updated",
+	}).FirstOrCreate(&user).Error; err != nil {
+		return user, err
 	}
 
-	return nil
-}
-
-func (ur UserRepository) Update(ctx context.Context, tx *gorm.DB, user model.User) error {
-	ur.logger.Debugf("Update user with data: %v \n", user)
-
-	db := ur.getDB(tx)
-	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
-	defer cancel()
-
-	if err := db.WithContext(ctx).Model(&model.User{}).Where(&model.User{ID: user.ID}).Updates(&user).Error; err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Example transaction
-func (ur UserRepository) CheckDupAndCreate(ctx context.Context, tx *gorm.DB, newUser model.User) error {
-	ur.logger.Debugf("Get user and create user with data (Transaction): %v \n", newUser)
-
-	db := ur.getDB(tx)
-	txErr := ur.withTx(db, func(tx *gorm.DB) error {
-		_, err := ur.GetByEmail(ctx, tx, newUser.Email)
-		if err != nil {
-
-			// If user not found, create a new user
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				if err := ur.Create(ctx, tx, newUser); err != nil {
-					return err
-				}
-
-				return nil
-			}
-
-			return err
-		}
-
-		return nil
-	})
-
-	return txErr
+	return user, nil
 }

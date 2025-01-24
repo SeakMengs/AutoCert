@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/joho/godotenv"
 )
 
@@ -15,14 +16,16 @@ func TestJWT(t *testing.T) {
 	}
 
 	cfg := config.GetConfig()
+	logger := util.NewLogger(cfg.ENV)
 
-	jwtService := NewJwt(cfg.Auth, nil)
+	jwtService := NewJwt(cfg.Auth, logger)
 	refreshToken, accessToken, err := jwtService.GenerateRefreshAndAccessToken(JWTPayload{
 		ID:    "id1234",
 		Email: "test@gmail.com",
 	})
-	t.Errorf("Refrestoken: %s, Accestoken: %s, Error: %v", *refreshToken, *accessToken, err)
-	//
+
+	// t.Errorf("Refrestoken: %s, Accestoken: %s, Error: %v", *refreshToken, *accessToken, err)
+
 	if err != nil {
 		t.Errorf(
 			"An error occurred during refresh token and access token generation. Error: %v", err)

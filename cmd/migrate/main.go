@@ -17,7 +17,7 @@ func main() {
 	defer logger.Sync()
 	cfg := config.GetConfig()
 
-	logger.Infof("Database configuration: %+v", cfg.DB)
+	logger.Debugf("Database configuration: %+v", cfg.DB)
 
 	db, err := database.ConnectReturnGormDB(cfg.DB)
 	if err != nil {

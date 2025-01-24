@@ -33,7 +33,7 @@ func (oc OAuthController) ContinueWithGoogle(ctx *gin.Context) {
 
 	state, err := util.GenerateNChar(16)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (oc OAuthController) getGoogleUserInfo(code string) (*GoogleUser, error) {
 	// Exchange the authorization code for an access token
 	token, err := oc.googleOAuthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		oc.app.Logger.Debugf("OAuth: Google, Error: Failed to exchange token. Err %v", err)
+		oc.app.Logger.Debugf("OAuth: Google, Failed to exchange code for token. Error: %v", err)
 		return nil, err
 	}
 
@@ -57,7 +57,7 @@ func (oc OAuthController) getGoogleUserInfo(code string) (*GoogleUser, error) {
 	client := oc.googleOAuthConfig.Client(context.Background(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
-		oc.app.Logger.Debugf("OAuth: Google, Error: Failed to fetch user info. Err %v", err)
+		oc.app.Logger.Debugf("OAuth: Google, Failed to get user info. Error: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -66,7 +66,7 @@ func (oc OAuthController) getGoogleUserInfo(code string) (*GoogleUser, error) {
 	userInfo.AccessToken = token.AccessToken
 
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to decode user info")
+		oc.app.Logger.Debug("OAuth: Google, Failed to decode user info. Error: %v", err)
 		return nil, err
 	}
 
@@ -81,48 +81,60 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 	code := ctx.Query("code")
 	userInfo, err := oc.getGoogleUserInfo(code)
 	if err != nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to get user info")
+		oc.app.Logger.Debug("OAuth: Google callback, Failed to get user info. Error: %v", err)
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 
+	tx := oc.app.Repository.DB.Begin()
+	defer tx.Commit()
+	oc.app.Logger.Debugf("OAuth: Google callback, Transaction begin")
+
 	// If new user, create account, else do nothing
-	oc.app.Repository.User.CheckDupAndCreate(ctx, nil, model.User{
+	user, err := oc.app.Repository.User.CreateOrUpdateByEmail(ctx, tx, model.User{
 		Email:      userInfo.Email,
 		FirstName:  userInfo.GivenName,
 		LastName:   userInfo.Name,
 		ProfileURL: userInfo.Picture,
 	})
-
-	user, err := oc.app.Repository.User.GetByEmail(ctx, nil, userInfo.Email)
 	if err != nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to get user by email")
+		tx.Rollback()
+		oc.app.Logger.Debugf("OAuth: Google callback, Failed to create or update user. Error: %v", err)
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 
 	// Creare or update oauth provider such that we can store the access token
-	oc.app.Repository.OAuthProvider.CreateOrUpdateByProviderUserId(ctx, nil, model.OAuthProvider{
+	err = oc.app.Repository.OAuthProvider.CreateOrUpdateByProviderUserId(ctx, tx, model.OAuthProvider{
 		ProviderUserId: userInfo.ID,
 		ProviderType:   constant.OAUTH_PROVIDER_GOOGLE,
 		AccessToken:    userInfo.AccessToken,
 		UserID:         user.ID,
 	})
-
-	refreshToken, accessToken, err := oc.app.Repository.JWT.GenRefreshAndAccessToken(ctx, nil, *user)
 	if err != nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to generate refresh and access token")
+		tx.Rollback()
+		oc.app.Logger.Debug("OAuth: Google callback, Failed to create or update oauth provider. Error: %v", err)
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	refreshToken, accessToken, err := oc.app.Repository.JWT.GenRefreshAndAccessToken(ctx, tx, *user)
+	if err != nil {
+		tx.Rollback()
+		oc.app.Logger.Debug("OAuth: Google callback, Failed to generate refresh and access token. Error: %v", err)
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 
 	if refreshToken == nil || accessToken == nil {
-		oc.app.Logger.Debug("OAuth: Google, Error: Failed to generate refresh and access token")
+		tx.Rollback()
+		oc.app.Logger.Debug("OAuth: Google callback, Failed to generate refresh and access token")
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessage(errors.New("failed to generate refresh and access token"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(errors.New("failed to generate refresh and access token"), nil), nil)
 		return
 	}
 

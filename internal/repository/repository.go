@@ -13,6 +13,11 @@ type baseRepository struct {
 }
 
 type Repository struct {
+	// DB can be used for transaction. Example usage:
+	// tx := r.DB.Begin()
+	// defer tx.Commit()
+	// Then pass tx to the repository function. and use tx.Rollback() if error occurred
+	DB            *gorm.DB
 	User          *UserRepository
 	JWT           *JWTRepository
 	OAuthProvider *OAuthProviderRepository
@@ -27,6 +32,7 @@ func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTIn
 	_userRepo := &UserRepository{baseRepository: br}
 
 	return &Repository{
+		DB:            db,
 		User:          _userRepo,
 		JWT:           &JWTRepository{baseRepository: br, user: _userRepo},
 		OAuthProvider: &OAuthProviderRepository{baseRepository: br},
@@ -46,7 +52,7 @@ func (b baseRepository) withTx(db *gorm.DB, fn func(*gorm.DB) error) error {
 		// https://gorm.io/docs/transactions.html#A-Specific-Example
 		// If panic is throw rollback
 		if r := recover(); r != nil {
-			b.logger.Info("withTx() Transaction panic, perform rollback")
+			b.logger.Error("withTx() Transaction panic, perform rollback")
 			tx.Rollback()
 		}
 	}()
