@@ -14,6 +14,7 @@ type Config struct {
 	RateLimiter RateLimiterConfig
 	Mail        MailConfig
 	Auth        AuthConfig
+	Minio       MinioConfig
 }
 
 type RateLimiterConfig struct {
@@ -34,11 +35,11 @@ type GoogleOAuthConfig struct {
 }
 
 type DatabaseConfig struct {
-	DB_HOST      string
-	DB_PORT      string
-	DB_DATABASE  string
-	DB_USERNAME  string
-	DB_PASSWORD  string
+	HOST         string
+	PORT         string
+	DATABASE     string
+	USERNAME     string
+	PASSWORD     string
 	MaxOpenConns int
 	MaxIdleConns int
 	MaxIdleTime  string
@@ -51,6 +52,13 @@ type MailConfig struct {
 
 type SendGridConfig struct {
 	API_KEY string
+}
+
+type MinioConfig struct {
+	ACCESS_KEY string
+	SECRET_KEY string
+	ENDPOINT   string
+	USE_SSL    bool
 }
 
 func (c Config) IsProduction() bool {
@@ -67,11 +75,11 @@ func GetConfig() Config {
 		Port: env.GetString("PORT", "8080"),
 		ENV:  env.GetString("ENV", "development"),
 		DB: DatabaseConfig{
-			DB_HOST:      env.GetString("DB_HOST", "127.0.0.1"),
-			DB_PORT:      env.GetString("DB_PORT", "5432"),
-			DB_USERNAME:  env.GetString("DB_USERNAME", "root"),
-			DB_PASSWORD:  env.GetString("DB_PASSWORD", ""),
-			DB_DATABASE:  env.GetString("DB_DATABASE", "database_name"),
+			HOST:         env.GetString("DB_HOST", "127.0.0.1"),
+			PORT:         env.GetString("DB_PORT", "5432"),
+			USERNAME:     env.GetString("DB_USERNAME", "root"),
+			PASSWORD:     env.GetString("DB_PASSWORD", ""),
+			DATABASE:     env.GetString("DB_DATABASE", "database_name"),
 			MaxOpenConns: env.GetInt("DB_MAX_OPEN_CONNS", 30),
 			MaxIdleConns: env.GetInt("DB_MAX_IDLE_CONNS", 30),
 			MaxIdleTime:  env.GetString("DB_MAX_IDLE_TIME", "15m"),
@@ -95,6 +103,13 @@ func GetConfig() Config {
 				ClientSecret: env.GetString("GOOGLE_OAUTH_CLIENT_SECRET", ""),
 				RedirectURL:  env.GetString("GOOGLE_OAUTH_CALLBACK", "http://localhost:8080/api/v1/oauth/google/callback"),
 			},
+		},
+		Minio: MinioConfig{
+			ACCESS_KEY: env.GetString("MINIO_ACCESS_KEY", ""),
+			SECRET_KEY: env.GetString("MINIO_SECRET_KEY", ""),
+			// If using docker, specify container service name or service host name
+			ENDPOINT: env.GetString("MINIO_ENDPOINT", "s3-minio:9000"),
+			USE_SSL:  env.GetBool("MINIO_USE_SSL", false),
 		},
 	}
 }

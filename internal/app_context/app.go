@@ -5,6 +5,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/config"
 	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/repository"
+	"github.com/minio/minio-go/v7"
 	"go.uber.org/zap"
 )
 
@@ -24,4 +25,6 @@ type Application struct {
 
 	// JWTService manages JWT operations for authentication such as generate, verify, refresh token.
 	JWTService auth.JWTInterface
+
+	S3 *minio.Client
 }

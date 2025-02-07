@@ -17,6 +17,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 // this function run before main
@@ -42,6 +44,15 @@ func main() {
 	defer sqlDb.Close()
 	logger.Info("Database connected \n")
 
+	s3, err := minio.New(cfg.Minio.ENDPOINT, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.Minio.ACCESS_KEY, cfg.Minio.SECRET_KEY, ""),
+		Secure: cfg.Minio.USE_SSL,
+	})
+	if err != nil {
+		logger.Error("Error connecting to minio")
+		logger.Panic(err)
+	}
+
 	// Custom validation
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		if err := v.RegisterValidation("strNotEmpty", util.StrNotEmpty); err != nil {
@@ -66,6 +77,7 @@ func main() {
 		Logger:     logger,
 		Mailer:     mail,
 		JWTService: jwtService,
+		S3:         s3,
 	}
 
 	_middleware := middleware.NewMiddleware(app.Logger, rateLimiter)
