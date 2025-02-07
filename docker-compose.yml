@@ -11,7 +11,7 @@ services:
     environment:
       DB_HOST: psql-db
     depends_on:
-      - psql_db
+      - psql-db
     # Check if the database is ready before starting the service because the service depends on the database
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "root", "-h", "psql_db"]
