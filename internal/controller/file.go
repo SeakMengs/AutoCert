@@ -78,7 +78,8 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 		return
 	}
 
-	_, err = fc.app.S3.PutObject(context.Background(), PUBLIC_BUCKET_NAME, file.Filename, src, file.Size, minio.PutObjectOptions{
+	fileName := util.AddUniqueSuffixToFilename(file.Filename)
+	_, err = fc.app.S3.PutObject(context.Background(), PUBLIC_BUCKET_NAME, fileName, src, file.Size, minio.PutObjectOptions{
 		ContentType: file.Header.Get("Content-Type"),
 	})
 	if err != nil {
@@ -86,5 +87,8 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 		return
 	}
 
-	util.ResponseSuccess(ctx, gin.H{})
+	util.ResponseSuccess(ctx, gin.H{
+		"fileName": fileName,
+		"route":    fmt.Sprintf("api/v1/files/%s", fileName),
+	})
 }

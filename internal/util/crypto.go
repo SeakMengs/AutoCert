@@ -1,15 +1,13 @@
 package util
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"io"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 func GenerateNChar(n int) (string, error) {
-	data := make([]byte, n)
-	if _, err := io.ReadFull(rand.Reader, data); err != nil {
+	id, err := gonanoid.New(n)
+	if err != nil {
 		return "", err
 	}
-	return base64.StdEncoding.EncodeToString(data), nil
+	return id, nil
 }
