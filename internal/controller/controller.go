@@ -15,6 +15,7 @@ type Controller struct {
 	Index *IndexController
 	Auth  *AuthController
 	OAuth *OAuthController
+	File  *FileController
 }
 
 func newBaseController(app *appcontext.Application) *baseController {
@@ -37,5 +38,6 @@ func NewController(app *appcontext.Application) *Controller {
 		Index: &IndexController{baseController: bc},
 		Auth:  &AuthController{baseController: bc},
 		OAuth: &OAuthController{baseController: bc, googleOAuthConfig: googleOAuthConfig},
+		File:  &FileController{baseController: bc},
 	}
 }

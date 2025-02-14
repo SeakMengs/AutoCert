@@ -1,12 +1,15 @@
-# Yato - Go api boilerplate
+# AutoCert
 
-Boilerplate for Go api. This boilerplate is using the following tools:
+A Variable Data Printing, E-Signing, and Certificate Repository Platform. This project use the following tools:
 
 - Gin as the http framework
 - Gorm as the ORM
 - Postgresql as the database
 - Rate limit using fixed window algorithm
 - Mailer using Sendgrid
+- JWT for authentication
+- MiniO for file storage
+- Google oauth for authorization
 
 # Develop
 
@@ -42,14 +45,14 @@ First get the name of the docker image with the following command
 docker ps -l
 
 # Output should look something like this
-# CONTAINER ID   IMAGE                       COMMAND              CREATED         STATUS                     PORTS     NAMES
-# 17f0071b0f17   go-api-boilerplate-go_api   "air -c .air.toml"   6 minutes ago   Exited (0) 4 minutes ago             go-api-boilerplate-go_api-1
+# CONTAINER ID   IMAGE                   COMMAND              CREATED             STATUS                         PORTS                    NAMES
+# 07ec003243de   autocert-autocert-api   "air -c .air.toml"   About an hour ago   Up About an hour (unhealthy)   0.0.0.0:8080->8080/tcp   autocert-autocert-api-1
 ```
 
 To mount into the docker bash run the following command
 
 ```sh
-docker exec -it go-api-boilerplate-go_api-1 bash
+docker exec -it autocert-autocert-api-1 bash
 ```
 
 After mount into docker bash, you can perform some action such as migration.

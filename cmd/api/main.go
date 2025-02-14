@@ -102,9 +102,10 @@ func main() {
 
 	rApi := r.Group("/api")
 
-	route.V1_Users(rApi, _controller.User)
 	route.V1_Auth(rApi, _controller.Auth)
 	route.V1_OAuth(rApi, _controller.OAuth)
+	route.V1_Users(rApi, _controller.User)
+	route.V1_File(rApi, _controller.File)
 
 	if err := r.Run("0.0.0.0:" + app.Config.Port); err != nil {
 		logger.Panic("Error running server: %v \n", err)
