@@ -18,10 +18,10 @@ type Size struct {
 }
 
 type BaseAnnotate struct {
-	ID       string       `json:"id"`
-	Position Position     `json:"position"`
-	Size     Size         `json:"size"`
-	Type     AnnotateType `json:"type"`
+	ID   string       `json:"id"`
+	Type AnnotateType `json:"type"`
+	Position
+	Size
 }
 
 type ColumnAnnotate struct {
