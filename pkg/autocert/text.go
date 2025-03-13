@@ -49,17 +49,16 @@ func (r *Rect) toMM() Rect {
 }
 
 type TextRenderer struct {
-	cfg  *Config
+	cfg  Config
 	rect Rect
 	// Font detail such as name, size, color, weight
 	font Font
-	// FontFamily is the font family that will be to load font face
-	fontFamily             *canvas.FontFamily
-	makeFontFitRectBoxBool bool
-	removeLineBreaksBool   bool
+	// FontFamily is the struct that allow us to use font face function
+	fontFamily *canvas.FontFamily
+	setting    Settings
 }
 
-func NewTextRenderer(cfg *Config, rect Rect, font Font, makeFontFitRectBox bool, removeLineBreaks bool) *TextRenderer {
+func NewTextRenderer(cfg Config, rect Rect, font Font, setting Settings) *TextRenderer {
 	fontLoader := NewFontLoader(cfg)
 	fontFamily, err := fontLoader.LoadFont(font.Name, font.GetFontStyle())
 	if err != nil {
@@ -70,19 +69,18 @@ func NewTextRenderer(cfg *Config, rect Rect, font Font, makeFontFitRectBox bool,
 	}
 
 	return &TextRenderer{
-		cfg:                    cfg,
-		rect:                   rect,
-		font:                   font,
-		fontFamily:             fontFamily,
-		makeFontFitRectBoxBool: makeFontFitRectBox,
-		removeLineBreaksBool:   removeLineBreaks,
+		cfg:        cfg,
+		rect:       rect,
+		font:       font,
+		fontFamily: fontFamily,
+		setting:    setting,
 	}
 }
 
 func (tr *TextRenderer) drawText(ctx *canvas.Context, text string, alignment TextAlign) {
 	fontSize := tr.font.Size
-	if tr.makeFontFitRectBoxBool {
-		fontSize = tr.makeFontFitRectBox(text)
+	if tr.setting.TextFitRectBox {
+		fontSize = tr.getFontSizeFitRectBox(text)
 	}
 
 	// Create the font face
@@ -127,7 +125,7 @@ func (tr *TextRenderer) drawRightAlignedText(ctx *canvas.Context, text string) {
 }
 
 // Adjusts the font size to fit the text within the specified dimensions
-func (tr *TextRenderer) makeFontFitRectBox(text string) float64 {
+func (tr *TextRenderer) getFontSizeFitRectBox(text string) float64 {
 	rectMM := tr.rect.toMM()
 	fontSize := 1.0
 	var textWidthMM, textHeightMM float64
@@ -154,14 +152,14 @@ func (tr *TextRenderer) removeLineBreaks(text string) string {
 	return strings.TrimSpace(re.ReplaceAllString(text, ""))
 }
 
-func (tr *TextRenderer) RenderSvgTextAsPdf(text string, align TextAlign, output string) error {
+func (tr *TextRenderer) RenderSvgTextAsPdf(text string, align TextAlign, outFile string) error {
 	rectMM := tr.rect.toMM()
 	c := canvas.New(rectMM.Width, rectMM.Height)
 	canvasCtx := canvas.NewContext(c)
 	// Change coordination from bottom-left to top-left
 	canvasCtx.SetCoordSystem(canvas.CartesianIV)
 
-	if tr.removeLineBreaksBool {
+	if tr.setting.RemoveLineBreaksBool {
 		text = tr.removeLineBreaks(text)
 	}
 
@@ -176,7 +174,7 @@ func (tr *TextRenderer) RenderSvgTextAsPdf(text string, align TextAlign, output 
 		tr.drawCenteredText(canvasCtx, text)
 	}
 
-	if err := renderers.Write(output, c); err != nil {
+	if err := renderers.Write(outFile, c); err != nil {
 		return fmt.Errorf("failed to write PDF: %v", err)
 	}
 

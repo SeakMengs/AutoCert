@@ -26,21 +26,24 @@ type BaseAnnotate struct {
 
 type ColumnAnnotate struct {
 	BaseAnnotate
-	Text       string     `json:"text"`
+	// column name in the CSV file
+	Value      string     `json:"value"`
+	FontName   string     `json:"fontName"`
+	FontColor  string     `json:"fontColor"`
 	FontSize   float64    `json:"fontSize"`
-	FontName   string     `json:"FontName"`
 	FontWeight FontWeight `json:"fontWeight"`
 }
 
 type SignatureAnnotate struct {
 	BaseAnnotate
-	Data  string `json:"data"`
-	Email string `json:"email"`
+	SignatureFilePath string `json:"signatureFilePath"`
+	Email             string `json:"email"`
 }
 
-type AnnotateState interface {
-	GetType() AnnotateType
+// Each page has a list of annotates
+type PageSignatureAnnotations map[uint][]SignatureAnnotate
+type PageColumnAnnotations map[uint][]ColumnAnnotate
+type PageAnnotations struct {
+	PageSignatureAnnotations PageSignatureAnnotations
+	PageColumnAnnotations    PageColumnAnnotations
 }
-
-func (c ColumnAnnotate) GetType() AnnotateType    { return AnnotateTypeColumn }
-func (s SignatureAnnotate) GetType() AnnotateType { return AnnotateTypeSignature }

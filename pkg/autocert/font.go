@@ -110,22 +110,22 @@ func GetAvailableFonts(path string) ([]*FontMetadata, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fonts, fmt.Errorf("Error reading font_metadata.json: %v", err)
+		return fonts, fmt.Errorf("error reading font_metadata.json: %v", err)
 	}
 
 	if err := json.Unmarshal(data, &fonts); err != nil {
-		return fonts, fmt.Errorf("Error unmarshalling JSON: %v", err)
+		return fonts, fmt.Errorf("error unmarshalling JSON: %v", err)
 	}
 
 	return fonts, nil
 }
 
 type FontLoader struct {
-	Cfg            *Config
+	Cfg            Config
 	AvailableFonts []*FontMetadata
 }
 
-func NewFontLoader(cfg *Config) *FontLoader {
+func NewFontLoader(cfg Config) *FontLoader {
 	// Load the font metadata from the JSON file
 	fonts, err := GetAvailableFonts(cfg.FontMetadataPath)
 	if err != nil {

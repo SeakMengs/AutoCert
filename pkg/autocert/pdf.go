@@ -32,9 +32,9 @@ func ApplyWatermarkToPdf(inFile string, outFile string, selectedPages []string, 
 // Apply qr code to the bottom right corner of a PDF file
 // if array of selected pages is provided, will apply to those pages
 // otherwise apply to all pages
-func EmbedQRCodeToPdf(inFile, outFile, qrCodePath string, selectePage []string) error {
+func EmbedQRCodeToPdf(inFile, outFile, qrCodeFile string, selectePage []string) error {
 	description := "pos: br, off: 0 0, scale: 1 abs, rotation: 0"
-	err := api.AddImageWatermarksFile(inFile, outFile, selectePage, true, qrCodePath, description, nil)
+	err := api.AddImageWatermarksFile(inFile, outFile, selectePage, true, qrCodeFile, description, nil)
 	if err != nil {
 		return fmt.Errorf("failed to embed QR code in PDF: %w", err)
 	}

@@ -19,8 +19,8 @@ type Config struct {
 	FallbackFont string
 }
 
-func NewDefaultConfig() *Config {
-	cfg := &Config{
+func NewDefaultConfig() Config {
+	cfg := Config{
 		FontMetadataPath: "font_metadata.json",
 		OutputDir:        "autocert_tmp/output",
 		TmpDir:           "autocert_tmp/tmp",
