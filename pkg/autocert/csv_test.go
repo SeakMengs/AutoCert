@@ -52,6 +52,18 @@ func TestParseCSVToMap(t *testing.T) {
 				{"header1": "value3", "header2": "value4"},
 			},
 		},
+		{
+			name: "Duplicate Headers",
+			records: [][]string{
+				{"header1", "header2", "header1"},
+				{"value1", "value2", "value3"},
+				{"value4", "value5", "value6"},
+			},
+			expected: []map[string]string{
+				{"header1": "value1", "header2": "value2", "header1_1": "value3"},
+				{"header1": "value4", "header2": "value5", "header1_1": "value6"},
+			},
+		},
 	}
 
 	for _, tt := range tests {

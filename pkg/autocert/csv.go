@@ -37,12 +37,22 @@ func ReadCSV(filename string) ([][]string, error) {
 //		return nil, err
 //	}
 func ParseCSVToMap(records [][]string) ([]map[string]string, error) {
-
 	if len(records) == 0 {
 		return []map[string]string{}, nil
 	}
 
 	headers := records[0]
+	headerCount := make(map[string]int)
+
+	// Check for duplicate headers and rename them
+	for i, header := range headers {
+		if count, exists := headerCount[header]; exists {
+			headerCount[header]++
+			headers[i] = fmt.Sprintf("%s_%d", header, count+1)
+		} else {
+			headerCount[header] = 0
+		}
+	}
 
 	result := make([]map[string]string, 0, len(records)-1)
 

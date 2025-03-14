@@ -39,7 +39,9 @@ func main() {
 
 	// Define paths for the template PDF and CSV.
 	templatePath := "autocert_tmp/certificate_merged.pdf"
-	tempSignaturePath := "autocert_tmp/signature.pdf"
+	// tempSignaturePath := "autocert_tmp/svg_signature.pdf"
+	// tempSignaturePath := "autocert_tmp/svg_signature_pdfcpu.pdf"
+	tempSignaturePath := "autocert_tmp/signature.svg"
 	csvPath := "autocert_tmp/example.csv"
 	font := "Microsoft YaHei"
 
@@ -47,10 +49,22 @@ func main() {
 	jsonData := `{
   "1": [
     {
-      "id": "GhI4Hl0Yu4L3YX8sWCiLX",
+      "id": "-TFoKkQcOIxXMACN9g8iB",
+      "type": "signature",
+      "x": 702.14,
+      "y": 0,
+      "width": 140,
+      "height": 90,
+      "signatureData": "signatureData",
+      "email": "lol@gmail.com",
+      "status": "not_invited",
+      "color": "#FFC4C4"
+    },
+    {
+      "id": "oQdk4uWOWw70ZsVnPq78J",
       "type": "column",
-      "x": 182.03041728281474,
-      "y": 295.19509180561346,
+      "x": 181.0302501548872,
+      "y": 294.1944304774588,
       "value": "name3",
       "width": 478.05481796023753,
       "height": 40,
@@ -59,45 +73,21 @@ func main() {
       "fontWeight": "regular",
       "fontColor": "#000000",
       "color": "#FFC4C4"
-    },
-    {
-      "id": "Bt2a3ZVxT6biqmuyw70YJ",
-      "type": "signature",
-      "x": 531.0887449295309,
-      "y": 393.2599019647663,
-      "width": 124.99749308108669,
-      "height": 74.99008007768069,
-      "signatureData": "data:image/svg+xml;base64,...",
-      "email": "seakmeng@gmail.com",
-      "status": "not_invited",
-      "color": "#FFC4C4"
     }
   ],
   "2": [
     {
-      "id": "xyWVn7GBiKlMqw7V_R5h7",
+      "id": "Dc3G0GXWw0XXFcysyWPdK",
       "type": "column",
-      "x": 224,
-      "y": 195.99999999999997,
+      "x": 411,
+      "y": 408,
       "value": "name3",
-      "width": 442,
+      "width": 251,
       "height": 40,
       "fontName": "Arial",
       "fontSize": 24,
       "fontWeight": "regular",
       "fontColor": "#000000",
-      "color": "#FFC4C4"
-    },
-	{
-      "id": "Bt2a3ZVxT6biqmuyw70YJ",
-      "type": "signature",
-      "x": 531.0887449295309,
-      "y": 393.2599019647663,
-      "width": 124.99749308108669,
-      "height": 74.99008007768069,
-      "signatureData": "data:image/svg+xml;base64,...",
-      "email": "seakmeng@gmail.com",
-      "status": "not_invited",
       "color": "#FFC4C4"
     }
   ]
@@ -118,6 +108,7 @@ func main() {
 	// Process each page's annotations
 	for pageStr, items := range annotations {
 		var page uint
+		// Convert the page string to an integer
 		fmt.Sscanf(pageStr, "%d", &page)
 
 		for _, item := range items {
