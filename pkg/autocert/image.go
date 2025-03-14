@@ -5,36 +5,27 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/h2non/bimg"
+	"github.com/noelyahan/impexp"
+	"github.com/noelyahan/mergi"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers"
 )
 
 // Require libvips to be installed on the system.
 func ResizeImage(inFile, outFile string, width, height float64) error {
-	buffer, err := bimg.Read(inFile)
+	img, err := mergi.Import(impexp.NewFileImporter(inFile))
 	if err != nil {
-		return fmt.Errorf("failed to read image: %v", err)
+		return err
 	}
 
-	options := bimg.Options{
-		Width:        int(width),
-		Height:       int(height),
-		Quality:      100,
-		Lossless:     true,
-		Compression:  0,
-		Interpolator: bimg.Bicubic,
-		Rotate:       0,
+	resized, err := mergi.Resize(img, uint(width), uint(height))
+	if err != nil {
+		return err
 	}
 
-	newImage, err := bimg.NewImage(buffer).Process(options)
+	err = mergi.Export(impexp.NewFileExporter(resized, outFile))
 	if err != nil {
-		return fmt.Errorf("failed to process image: %v", err)
-	}
-
-	err = bimg.Write(outFile, newImage)
-	if err != nil {
-		return fmt.Errorf("failed to write image: %v", err)
+		return err
 	}
 
 	return nil
@@ -51,19 +42,19 @@ func SvgToPdf(inFile, outFile string, width, height float64) error {
 
 	svgData, err := os.Open(inFile)
 	if err != nil {
-		return fmt.Errorf("failed to read SVG file: %v", err)
+		return err
 	}
 	defer svgData.Close()
 
 	svg, err := canvas.ParseSVG(svgData)
 	if err != nil {
-		return fmt.Errorf("failed to parse SVG: %v", err)
+		return err
 	}
 
 	svg.Fit(pxToMM(0))
 
 	if err := renderers.Write(outFile, svg); err != nil {
-		return fmt.Errorf("failed to write PDF: %v", err)
+		return err
 	}
 
 	return ResizePdf(outFile, outFile, []string{"1"}, width, height)

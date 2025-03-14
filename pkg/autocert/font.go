@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,17 +46,17 @@ type FontMetadata struct {
 func getFontMetadataByPath(fontPath string) (*FontMetadata, error) {
 	fontBytes, err := os.ReadFile(fontPath)
 	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
+		return nil, err
 	}
 
 	font, err := sfnt.Parse(fontBytes)
 	if err != nil {
-		return nil, fmt.Errorf("parsing font: %w", err)
+		return nil, err
 	}
 
 	name, err := font.Name(nil, sfnt.NameIDFamily)
 	if err != nil {
-		return nil, fmt.Errorf("retrieving font name: %w", err)
+		return nil, err
 	}
 
 	return &FontMetadata{
@@ -86,7 +85,7 @@ func ScanFontDir(dir string) ([]FontMetadata, error) {
 
 		meta, err := getFontMetadataByPath(path)
 		if err != nil {
-			log.Printf("Skipping %q: %v", path, err)
+			fmt.Printf("Skipping %q: %v", path, err)
 			return nil
 		}
 
@@ -110,11 +109,11 @@ func GetAvailableFonts(path string) ([]*FontMetadata, error) {
 
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return fonts, fmt.Errorf("error reading font_metadata.json: %v", err)
+		return fonts, fmt.Errorf("error reading %s: %v", path, err)
 	}
 
 	if err := json.Unmarshal(data, &fonts); err != nil {
-		return fonts, fmt.Errorf("error unmarshalling JSON: %v", err)
+		return fonts, fmt.Errorf("error unmarshalling %s: %v", path, err)
 	}
 
 	return fonts, nil
@@ -125,17 +124,17 @@ type FontLoader struct {
 	AvailableFonts []*FontMetadata
 }
 
-func NewFontLoader(cfg Config) *FontLoader {
+func NewFontLoader(cfg Config) (*FontLoader, error) {
 	// Load the font metadata from the JSON file
 	fonts, err := GetAvailableFonts(cfg.FontMetadataPath)
 	if err != nil {
-		log.Fatalf("failed to load font metadata: %v", err)
+		return nil, err
 	}
 
 	return &FontLoader{
 		Cfg:            cfg,
 		AvailableFonts: fonts,
-	}
+	}, nil
 }
 
 func (fl *FontLoader) GetAvailableFontMetadataByName(fontName string) (*FontMetadata, error) {
@@ -144,13 +143,14 @@ func (fl *FontLoader) GetAvailableFontMetadataByName(fontName string) (*FontMeta
 			return font, nil
 		}
 	}
+
 	return nil, fmt.Errorf("font %s not found", fontName)
 }
 
 func (fl *FontLoader) LoadFont(fontName string, fontStyle canvas.FontStyle) (*canvas.FontFamily, error) {
 	fontMetadata, err := fl.GetAvailableFontMetadataByName(fontName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get font metadata: %v", err)
+		return nil, err
 	}
 
 	if fontMetadata == nil {
@@ -160,7 +160,7 @@ func (fl *FontLoader) LoadFont(fontName string, fontStyle canvas.FontStyle) (*ca
 	fontFamily := canvas.NewFontFamily(fontMetadata.Name)
 	err = fontFamily.LoadFontFile(fontMetadata.Path, fontStyle)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load font file: %v", err)
+		return nil, err
 	}
 
 	// TODO: load fallback font

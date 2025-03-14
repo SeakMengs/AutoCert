@@ -2,7 +2,6 @@ package autocert
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 
@@ -58,14 +57,18 @@ type TextRenderer struct {
 	setting    Settings
 }
 
-func NewTextRenderer(cfg Config, rect Rect, font Font, setting Settings) *TextRenderer {
-	fontLoader := NewFontLoader(cfg)
+func NewTextRenderer(cfg Config, rect Rect, font Font, setting Settings) (*TextRenderer, error) {
+	fontLoader, err := NewFontLoader(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	fontFamily, err := fontLoader.LoadFont(font.Name, font.GetFontStyle())
 	if err != nil {
-		log.Fatalf("failed to load font: %v", err)
+		return nil, err
 	}
 	if fontFamily == nil {
-		log.Fatalf("font face is nil")
+		return nil, fmt.Errorf("font family not found: %s", font.Name)
 	}
 
 	return &TextRenderer{
@@ -74,7 +77,7 @@ func NewTextRenderer(cfg Config, rect Rect, font Font, setting Settings) *TextRe
 		font:       font,
 		fontFamily: fontFamily,
 		setting:    setting,
-	}
+	}, nil
 }
 
 func (tr *TextRenderer) drawText(ctx *canvas.Context, text string, alignment TextAlign) {
@@ -175,7 +178,7 @@ func (tr *TextRenderer) RenderSvgTextAsPdf(text string, align TextAlign, outFile
 	}
 
 	if err := renderers.Write(outFile, c); err != nil {
-		return fmt.Errorf("failed to write PDF: %v", err)
+		return err
 	}
 
 	return nil

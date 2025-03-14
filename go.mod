@@ -8,14 +8,16 @@ require (
 	github.com/go-playground/validator/v10 v10.22.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
-	github.com/h2non/bimg v1.1.9
 	github.com/joho/godotenv v1.5.1
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/minio/minio-go/v7 v7.0.84
+	github.com/noelyahan/impexp v0.0.0-20201209034304-ee159d84b42f
+	github.com/noelyahan/mergi v0.0.0-20241105055807-221cd737ac6b
 	github.com/pdfcpu/pdfcpu v0.9.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/tdewolff/canvas v0.0.0-20250209140343-015076d8ff76
+	github.com/wamuir/svg-qr-code v0.0.0-20210725140500-9525ec975db7
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.31.0
 	golang.org/x/image v0.23.0
@@ -68,6 +70,8 @@ require (
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
+	github.com/noelyahan/mergitrans v0.0.0-20190507035323-73e76dcd7d2a // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -80,7 +84,6 @@ require (
 	github.com/tdewolff/parse/v2 v2.7.21-0.20250206205826-9029f397cf8a // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	github.com/wamuir/svg-qr-code v0.0.0-20210725140500-9525ec975db7 // indirect
 	github.com/wcharczuk/go-chart/v2 v2.1.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.11.0 // indirect

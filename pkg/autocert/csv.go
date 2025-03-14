@@ -12,7 +12,7 @@ func ReadCSV(filename string) ([][]string, error) {
 	// Open the file
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("error opening file: %w", err)
+		return nil, fmt.Errorf("error opening file %s: %w", filename, err)
 	}
 	defer file.Close()
 
@@ -22,7 +22,7 @@ func ReadCSV(filename string) ([][]string, error) {
 	// Read all records
 	records, err := reader.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("error reading CSV: %w", err)
+		return nil, fmt.Errorf("error reading CSV %s: %w", filename, err)
 	}
 
 	return records, nil

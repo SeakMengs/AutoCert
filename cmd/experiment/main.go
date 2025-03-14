@@ -39,9 +39,10 @@ func main() {
 
 	// Define paths for the template PDF and CSV.
 	templatePath := "autocert_tmp/certificate_merged.pdf"
-	// tempSignaturePath := "autocert_tmp/svg_signature.pdf"
+	// tempSignaturePath := "autocert_tmp/svg_signature.svg"
+	// tempSignaturePath := "autocert_tmp/signature.png"
 	// tempSignaturePath := "autocert_tmp/svg_signature_pdfcpu.pdf"
-	tempSignaturePath := "autocert_tmp/signature.svg"
+	tempSignaturePath := "autocert_tmp/bluesign.svg"
 	csvPath := "autocert_tmp/example.csv"
 	font := "Microsoft YaHei"
 
@@ -49,24 +50,24 @@ func main() {
 	jsonData := `{
   "1": [
     {
-      "id": "-TFoKkQcOIxXMACN9g8iB",
+      "id": "nrh2oeIuJ0UCu9nNUuNB2",
       "type": "signature",
-      "x": 702.14,
-      "y": 0,
-      "width": 140,
-      "height": 90,
-      "signatureData": "signatureData",
+      "x": 526.0879092898931,
+      "y": 387.2559339958386,
+      "width": 181.03025015488723,
+      "height": 98.06481015915296,
+      "signatureData": "",
       "email": "lol@gmail.com",
       "status": "not_invited",
       "color": "#FFC4C4"
     },
     {
-      "id": "oQdk4uWOWw70ZsVnPq78J",
+      "id": "hOEF_lATl-Ym9n1ABwmsw",
       "type": "column",
-      "x": 181.0302501548872,
-      "y": 294.1944304774588,
-      "value": "name3",
-      "width": 478.05481796023753,
+      "x": 184.03075153866985,
+      "y": 295.1950918056134,
+      "value": "name2",
+      "width": 476.05448370438245,
       "height": 40,
       "fontName": "Arial",
       "fontSize": 24,
@@ -77,17 +78,15 @@ func main() {
   ],
   "2": [
     {
-      "id": "Dc3G0GXWw0XXFcysyWPdK",
-      "type": "column",
-      "x": 411,
-      "y": 408,
-      "value": "name3",
-      "width": 251,
-      "height": 40,
-      "fontName": "Arial",
-      "fontSize": 24,
-      "fontWeight": "regular",
-      "fontColor": "#000000",
+      "id": "PTSRoOZK5FXiv5PzabzM0",
+      "type": "signature",
+      "x": 227,
+      "y": 168,
+      "width": 140,
+      "height": 90,
+      "signatureData": "",
+      "email": "seakmeng@gmail.com",
+      "status": "not_invited",
       "color": "#FFC4C4"
     }
   ]

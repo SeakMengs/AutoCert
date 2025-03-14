@@ -13,7 +13,7 @@ import (
 func GenerateQRCode(link, outFile string, size int) error {
 	err := qrcode.WriteFile(link, qrcode.Highest, size, outFile)
 	if err != nil {
-		return fmt.Errorf("failed to generate QR code: %w", err)
+		return err
 	}
 	return nil
 }
@@ -25,17 +25,17 @@ func GenerateQRCodeAsPdf(link, outFile string, size int) error {
 
 	qr, err := qrsvg.New(link)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	tmpQrSvg, err := os.CreateTemp("", "autocert_qr_*.svg")
 	if err != nil {
-		return fmt.Errorf("failed to create temporary SVG file: %w", err)
+		return err
 	}
 	defer os.Remove(tmpQrSvg.Name())
 
 	if err := os.WriteFile(tmpQrSvg.Name(), []byte(qr.String()), 0644); err != nil {
-		return fmt.Errorf("failed to save SVG QR code to file: %w", err)
+		return err
 	}
 
 	return SvgToPdf(tmpQrSvg.Name(), outFile, float64(size), float64(size))

@@ -32,7 +32,7 @@ func ApplyWatermarkToPdf(inFile string, outFile string, selectedPages []string, 
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to apply watermark to PDF: %w", err)
+		return err
 	}
 	return nil
 }
@@ -56,7 +56,7 @@ func EmbedQRCodeToPdf(inFile, outFile, qrCodeFile string, selectedPages []string
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to embed QR code to PDF: %w", err)
+		return err
 	}
 	return nil
 }
@@ -72,7 +72,7 @@ func ResizePdf(inFile, outFile string, selectedPage []string, width, height floa
 	}
 	err := api.ResizeFile(inFile, outFile, selectedPage, &resizeModel, nil)
 	if err != nil {
-		return fmt.Errorf("failed to resize PDF: %w", err)
+		return err
 	}
 
 	return nil

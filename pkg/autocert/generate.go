@@ -79,7 +79,7 @@ func (cg *CertificateGenerator) applySignatures(inputFile string) (string, error
 		for _, annot := range sigAnnots {
 			tmpOut, err := os.CreateTemp(cg.GetTmpDir(), "autocert_*.pdf")
 			if err != nil {
-				return "", fmt.Errorf("failed to create temporary file to apply signatures: %w", err)
+				return "", err
 			}
 
 			selectedPages := []string{fmt.Sprintf("%d", page)}
@@ -120,7 +120,6 @@ func (cg *CertificateGenerator) normalizeSignatureFormat(signatureFile string, a
 		}
 
 		return tmpImg.Name(), nil
-
 	case ".svg":
 		tmpSvg, err := os.CreateTemp(cg.GetTmpDir(), "autocert_svg_sig_*.pdf")
 		if err != nil {
@@ -130,11 +129,10 @@ func (cg *CertificateGenerator) normalizeSignatureFormat(signatureFile string, a
 		if err := SvgToPdf(signatureFile, tmpSvg.Name(), annot.Width, annot.Height); err != nil {
 			return "", fmt.Errorf("failed to convert SVG to PDF for annotation %s: %w", annot.ID, err)
 		}
-		return tmpSvg.Name(), nil
 
+		return tmpSvg.Name(), nil
 	case ".pdf":
 		return signatureFile, nil
-
 	default:
 		return "", fmt.Errorf("unsupported signature file type: %s", filepath.Ext(signatureFile))
 	}
@@ -153,13 +151,13 @@ func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uin
 	// Create temporary output file
 	tmpOut, err := os.CreateTemp(dir, "autocert_*.pdf")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temporary file: %w", err)
+		return "", err
 	}
 
 	// Create temporary text file for rendering the text
 	txtFile, err := os.CreateTemp(dir, "autocert_svg_text_*.pdf")
 	if err != nil {
-		return "", fmt.Errorf("failed to create temporary text file: %w", err)
+		return "", err
 	}
 
 	rect := Rect{
@@ -175,13 +173,17 @@ func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uin
 	}
 
 	// Render text and apply as watermark
-	textRenderer := NewTextRenderer(cg.Cfg, rect, font, cg.Settings)
+	textRenderer, err := NewTextRenderer(cg.Cfg, rect, font, cg.Settings)
+	if err != nil {
+		return "", err
+	}
+
 	if err := textRenderer.RenderSvgTextAsPdf(annot.Value, TextAlignCenter, txtFile.Name()); err != nil {
-		return "", fmt.Errorf("failed to render text for annotation %s: %w", annot.ID, err)
+		return "", err
 	}
 
 	if err := ApplyWatermarkToPdf(currentFile, tmpOut.Name(), selectedPages, txtFile.Name(), annot.X, annot.Y); err != nil {
-		return "", fmt.Errorf("failed to apply text watermark for annotation %s: %w", annot.ID, err)
+		return "", err
 	}
 
 	return tmpOut.Name(), nil
@@ -190,19 +192,19 @@ func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uin
 func copyFile(src, dst string) error {
 	sourceFile, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("failed to open source file: %w", err)
+		return err
 	}
 	defer sourceFile.Close()
 
 	destFile, err := os.Create(dst)
 	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
+		return err
 	}
 	defer destFile.Close()
 
 	_, err = io.Copy(destFile, sourceFile)
 	if err != nil {
-		return fmt.Errorf("failed to copy file content: %w", err)
+		return err
 	}
 
 	return nil
@@ -236,14 +238,14 @@ func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, er
 	// Apply signatures to the base template
 	baseFile, err := cg.applySignatures(cg.TemplatePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to apply signatures: %w", err)
+		return nil, err
 	}
 
 	// Handle case with no CSV file
 	if cg.CSVPath == "" {
 		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(outputFilePattern, 1))
 		if err := os.Rename(baseFile, outputFile); err != nil {
-			return nil, fmt.Errorf("failed to finalize certificate: %w", err)
+			return nil, err
 		}
 		return []string{outputFile}, nil
 	}
@@ -302,12 +304,12 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern stri
 func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
 	records, err := ReadCSV(cg.CSVPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV: %w", err)
+		return nil, err
 	}
 
 	dataMaps, err := ParseCSVToMap(records)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse CSV: %w", err)
+		return nil, err
 	}
 
 	return dataMaps, nil
@@ -351,7 +353,7 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 	// Copy the base file for this worker
 	workerBaseFile := filepath.Join(j.tmpDir, "base.pdf")
 	if err := copyFile(baseFile, workerBaseFile); err != nil {
-		return "", fmt.Errorf("failed to copy base file: %w", err)
+		return "", err
 	}
 
 	// Apply text annotations
@@ -375,7 +377,7 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 	if cg.Settings.EmbedQRCode {
 		tmpQrCodeFile, err := os.CreateTemp(j.tmpDir, "autocert_qr_*.pdf")
 		if err != nil {
-			return "", fmt.Errorf("failed to create temporary QR code file: %w", err)
+			return "", err
 		}
 		defer os.Remove(tmpQrCodeFile.Name())
 
