@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/SeakMengs/AutoCert/internal/util"
+	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 )
@@ -91,4 +93,40 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 		"fileName": fileName,
 		"route":    fmt.Sprintf("api/v1/files/%s", fileName),
 	})
+}
+
+// TODO: update this temp
+func (fc FileController) ServePdfContentThumbnail(ctx *gin.Context) {
+	pdfPath := "autocert_tmp/certificate_merged.pdf"
+	outDir := "autocert_tmp/tmp"
+	selectedPages := ctx.Params.ByName("page")
+	if selectedPages == "" {
+		selectedPages = "1"
+	}
+
+	tempOutDir, err := os.MkdirTemp(outDir, "autocert_pdf_thumbnail_*")
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create temporary directory",
+		})
+		return
+	}
+	defer os.RemoveAll(tempOutDir)
+
+	pngFile, err := autocert.PdfToPngByPage(pdfPath, tempOutDir, selectedPages)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to convert PDF to PNG",
+		})
+		return
+	}
+
+	if pngFile == nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to create PNG file",
+		})
+		return
+	}
+
+	ctx.File(*pngFile)
 }

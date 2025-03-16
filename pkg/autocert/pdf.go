@@ -2,11 +2,14 @@ package autocert
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
+	"github.com/sunshineplan/imgconv"
 )
 
 // Apply pdf or image watermark to a PDF file,
@@ -76,4 +79,54 @@ func ResizePdf(inFile, outFile string, selectedPage []string, width, height floa
 	}
 
 	return nil
+}
+
+// Extracts a specific page from a PDF file and converts it to PNG.
+// It takes the input PDF file path, output directory path, and the page number to extract.
+// If page does not exist, will throw an error.
+// Return file path to the converted png image
+func PdfToPngByPage(inFile, outDir string, selectedPages string) (*string, error) {
+	// Create output directory if it doesn't exist
+	if _, err := os.Stat(outDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			return nil, err
+		}
+	}
+
+	// Extract the selected page from the PDF
+	if err := api.ExtractPagesFile(inFile, outDir, []string{selectedPages}, nil); err != nil {
+		return nil, err
+	}
+
+	// Build the path to the extracted PDF page
+	// pdfcpu names output files as: inFile_page_selectedPages.pdf
+	base := filepath.Base(inFile)
+	ext := filepath.Ext(inFile)
+	fileName := strings.TrimSuffix(base, ext)
+	srcPdf := filepath.Join(outDir, fmt.Sprintf("%s_page_%s%s", fileName, selectedPages, ext))
+
+	// Clean up the extracted PDF file when we're done
+	defer os.Remove(srcPdf)
+
+	// Open the extracted PDF page for conversion
+	src, err := imgconv.Open(srcPdf)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create output PNG file
+	imgExt := ".png"
+	outFilePath := filepath.Join(outDir, fmt.Sprintf("%s_page_%s%s", fileName, selectedPages, imgExt))
+	outFile, err := os.Create(outFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer outFile.Close()
+
+	// Convert PDF page to PNG
+	if err := imgconv.Write(outFile, src, &imgconv.FormatOption{Format: imgconv.PNG}); err != nil {
+		return nil, err
+	}
+
+	return &outFilePath, nil
 }
