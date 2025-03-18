@@ -21,7 +21,11 @@ func (ur UserRepository) GetById(ctx context.Context, tx *gorm.DB, userId string
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	if err := db.WithContext(ctx).Model(&model.User{}).Where(&model.User{ID: userId}).First(&user).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&model.User{}).Where(&model.User{
+		BaseModel: model.BaseModel{
+			ID: userId,
+		},
+	}).First(&user).Error; err != nil {
 		return user, err
 	}
 

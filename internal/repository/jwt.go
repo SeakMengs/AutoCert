@@ -94,7 +94,9 @@ func (jr JWTRepository) RefreshToken(ctx context.Context, tx *gorm.DB, refreshTo
 
 		var user model.User
 		if err := tx2.WithContext(ctx).Model(&model.User{}).Where(model.User{
-			ID: token.UserID,
+			BaseModel: model.BaseModel{
+				ID: token.UserID,
+			},
 		}).First(&user).Error; err != nil {
 			return err
 		}
