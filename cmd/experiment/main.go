@@ -170,11 +170,11 @@ func main() {
 	}
 
 	// Create a CertificateGenerator.
-	generator := autocert.NewCertificateGenerator("lol", templatePath, csvPath, cfg, pageAnnotations, settings)
+	cg := autocert.NewCertificateGenerator("lol", templatePath, csvPath, cfg, pageAnnotations, settings)
 
 	// Generate certificates.
 	// The outputFilePattern is a format string; here, certificates will be named "certificate_0.pdf", "certificate_1.pdf", etc.
-	generatedFiles, err := generator.Generate("certificate_%d.pdf")
+	generatedFiles, err := cg.Generate("certificate_%d.pdf")
 	if err != nil {
 		log.Fatalf("Certificate generation failed: %v", err)
 	}
@@ -183,6 +183,12 @@ func main() {
 	for _, file := range generatedFiles {
 		absPath, _ := filepath.Abs(file)
 		fmt.Println(absPath)
+	}
+
+	mergeOutPut := filepath.Join(cg.GetOutputDir(), "final.pdf")
+	err = autocert.MergePdf(generatedFiles, mergeOutPut)
+	if err != nil {
+		log.Fatalf("Failed to merge PDFs: %v", err)
 	}
 
 	then := time.Now()

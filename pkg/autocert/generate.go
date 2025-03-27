@@ -231,6 +231,10 @@ type Result struct {
 	err error
 }
 
+// Generate certificate based on the provided template and CSV data and annotations type.
+// Returns a list of generated certificate file paths or each row in the CSV.
+// If no CSV is provided, it will generate a single certificate and apply the annotations.
+// The output file names will be based on the provided pattern. Eg. "certificate_%d.pdf"
 func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, error) {
 	// Clean up temporary files when done
 	defer os.RemoveAll(cg.GetTmpDir())
@@ -241,7 +245,7 @@ func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, er
 		return nil, err
 	}
 
-	// Handle case with no CSV file
+	// Handle case with no CSV file, just generate a single certificate
 	if cg.CSVPath == "" {
 		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(outputFilePattern, 1))
 		if err := os.Rename(baseFile, outputFile); err != nil {

@@ -130,3 +130,11 @@ func PdfToPngByPage(inFile, outDir string, selectedPages string) (*string, error
 
 	return &outFilePath, nil
 }
+
+// Merge inFiles by concatenation in the order specified and write the result to outfile.
+// outfile will be overwritten if it exists.
+func MergePdf(inFiles []string, outFile string) error {
+	// If divider page is true, a blank page will be inserted between each input file.
+	dividerPage := false
+	return api.MergeCreateFile(inFiles, outFile, dividerPage, nil)
+}
