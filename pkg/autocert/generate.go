@@ -83,7 +83,7 @@ func (cg *CertificateGenerator) applySignatures(inputFile string) (string, error
 			}
 
 			selectedPages := []string{fmt.Sprintf("%d", page)}
-			var signatureFile = annot.SignatureFilePath
+			signatureFile := annot.SignatureFilePath
 
 			// Skip if the signature file does not exist
 			if _, err := os.Stat(signatureFile); os.IsNotExist(err) {
@@ -274,7 +274,7 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern stri
 
 	// Start worker pool
 	var wg sync.WaitGroup
-	for w := 0; w < maxWorkers; w++ {
+	for range maxWorkers {
 		wg.Add(1)
 		go cg.certificateWorker(jobs, results, baseFile, &wg)
 	}
@@ -323,15 +323,8 @@ func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
 func determineWorkerCount(jobCount int) int {
 	// It defaults to the value of runtime.NumCPU (core count)
 	// Note: Can change to more than core count if needed
-	maxWorkers := runtime.GOMAXPROCS(0)
-
-	if maxWorkers < 1 {
-		maxWorkers = 1
-	}
-
-	if maxWorkers > jobCount {
-		maxWorkers = jobCount
-	}
+	// max worker should be at least 1 and should not exceed job count
+	maxWorkers := min(max(runtime.GOMAXPROCS(0), 1), jobCount)
 
 	fmt.Printf("Using %d workers for processing\n", maxWorkers)
 
@@ -425,7 +418,7 @@ func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount
 
 	// Build result list in the correct order
 	generatedFiles := make([]string, 0, totalCount)
-	for i := 0; i < totalCount; i++ {
+	for i := range totalCount {
 		if file, ok := resultMap[i]; ok {
 			generatedFiles = append(generatedFiles, file)
 		} else {

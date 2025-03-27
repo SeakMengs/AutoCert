@@ -60,11 +60,11 @@ func (j JWT) GenerateRefreshAndAccessToken(payload JWTPayload) (*string, *string
 		return nil, nil, err
 	}
 
-	// Create access token with 5-minute expiration
+	// Create access token with 15-minute expiration
 	accessClaims := jwt.MapClaims{
 		"user": payload,
 		"iat":  time.Now().Unix(),
-		"exp":  time.Now().Add(5 * time.Minute).Unix(),
+		"exp":  time.Now().Add(15 * time.Minute).Unix(),
 		"type": constant.JWT_TYPE_ACCESS,
 	}
 	access := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
