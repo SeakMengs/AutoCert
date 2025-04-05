@@ -8,8 +8,8 @@ type ProjectLogs struct {
 	Description string `gorm:"type:text;not null;" json:"description" form:"description" binding:"required"`
 	Timestamp   string `gorm:"type:timestamp;not null;" json:"timestamp" form:"timestamp" binding:"required"`
 
-	ProjectID string  `gorm:"type:text;not null" json:"project_id" form:"project_id"`
-	Project   Project `json:"project" form:"project"`
+	ProjectID string  `gorm:"type:text;not null" json:"projectId" form:"projectId"`
+	Project   Project `gorm:"constraint:OnDelete:SET NULL" json:"project" form:"project"`
 }
 
 func (pl ProjectLogs) TableName() string {

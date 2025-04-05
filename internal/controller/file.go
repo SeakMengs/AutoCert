@@ -17,11 +17,6 @@ type FileController struct {
 	*baseController
 }
 
-const (
-	PUBLIC_BUCKET_NAME    = "public"
-	ENCRYPTED_BUCKET_NAME = "encrypted"
-)
-
 func createBucketIfNotExists(s3 *minio.Client, bucketName string) error {
 	exists, err := s3.BucketExists(context.Background(), bucketName)
 	if err != nil {
@@ -41,7 +36,7 @@ func createBucketIfNotExists(s3 *minio.Client, bucketName string) error {
 func (fc FileController) ReadFilePublic(ctx *gin.Context) {
 	objectName := ctx.Params.ByName("objectName")
 
-	object, err := fc.app.S3.GetObject(context.Background(), PUBLIC_BUCKET_NAME, objectName, minio.GetObjectOptions{})
+	object, err := fc.app.S3.GetObject(context.Background(), fc.app.Config.Minio.BUCKET, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error getting object", util.GenerateErrorMessages(err, nil), nil)
 		return
@@ -74,14 +69,14 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 	}
 	defer src.Close()
 
-	err = createBucketIfNotExists(fc.app.S3, PUBLIC_BUCKET_NAME)
+	err = createBucketIfNotExists(fc.app.S3, fc.app.Config.Minio.BUCKET)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating bucket", util.GenerateErrorMessages(err, nil), nil)
 		return
 	}
 
-	fileName := util.AddUniqueSuffixToFilename(file.Filename)
-	_, err = fc.app.S3.PutObject(context.Background(), PUBLIC_BUCKET_NAME, fileName, src, file.Size, minio.PutObjectOptions{
+	fileName := util.AddUniquePrefixToFileName(file.Filename)
+	_, err = fc.app.S3.PutObject(context.Background(), fc.app.Config.Minio.BUCKET, fileName, src, file.Size, minio.PutObjectOptions{
 		ContentType: file.Header.Get("Content-Type"),
 	})
 	if err != nil {

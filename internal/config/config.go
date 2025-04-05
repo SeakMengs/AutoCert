@@ -57,6 +57,7 @@ type SendGridConfig struct {
 type MinioConfig struct {
 	ACCESS_KEY string
 	SECRET_KEY string
+	BUCKET     string
 	ENDPOINT   string
 	USE_SSL    bool
 }
@@ -107,6 +108,7 @@ func GetConfig() Config {
 		Minio: MinioConfig{
 			ACCESS_KEY: env.GetString("MINIO_ACCESS_KEY", ""),
 			SECRET_KEY: env.GetString("MINIO_SECRET_KEY", ""),
+			BUCKET:     env.GetString("MINIO_BUCKET", "autocert"),
 			// If using docker, specify container service name or service host name
 			ENDPOINT: env.GetString("MINIO_ENDPOINT", "s3-minio:9000"),
 			USE_SSL:  env.GetBool("MINIO_USE_SSL", false),

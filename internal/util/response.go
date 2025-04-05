@@ -10,7 +10,7 @@ import (
 type Response struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
-	Error   any    `json:"error,omitempty"`
+	Errors  any    `json:"errors,omitempty"`
 	Data    any    `json:"data,omitempty"`
 }
 
@@ -40,7 +40,7 @@ func BuildResponseFailed(message string, err any, data any) Response {
 	return Response{
 		Success: false,
 		Message: message,
-		Error:   err,
+		Errors:  err,
 		Data:    data,
 	}
 }

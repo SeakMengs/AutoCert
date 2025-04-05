@@ -5,25 +5,16 @@ import (
 	"testing"
 )
 
-func TestAddUniqueSuffixToFilename(t *testing.T) {
+func TestAddUniquePrefixToFileName(t *testing.T) {
 	filename := "testfile.txt"
-	result := AddUniqueSuffixToFilename(filename)
+	result := AddUniquePrefixToFileName(filename)
 
-	if !strings.HasPrefix(result, "testfile_") || !strings.HasSuffix(result, ".txt") {
-		t.Errorf("Expected filename to have unique suffix, got %s", result)
+	if !strings.HasSuffix(result, "_testfile.txt") {
+		t.Errorf("Expected filename to have unique prefix, got %s", result)
 	}
 
-	if len(result) != len(filename)+UNIQUE_ID_LENGTH+1 {
-		t.Errorf("Expected filename length to be %d, got %d. Result %s", len(filename)+UNIQUE_ID_LENGTH+1, len(result), result)
-	}
-}
-
-func TestRemoveUniqueSuffixFromFilename(t *testing.T) {
-	filename := "testfile_1234567890abcdef.txt"
-	expected := "testfile.txt"
-	result := RemoveUniqueSuffixFromFilename(filename)
-
-	if result != expected {
-		t.Errorf("Expected %s, got %s", expected, result)
+	prefix := strings.Split(result, "_")[0]
+	if len(prefix) == 0 {
+		t.Errorf("Expected a non-empty unique prefix, got %s", prefix)
 	}
 }
