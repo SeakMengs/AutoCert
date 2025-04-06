@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -17,6 +18,13 @@ type ProjectController struct {
 	*baseController
 }
 
+const (
+	ErrTemplateFileRequired                 = "template file is required"
+	ErrTemplateFileIsInvalidOrNotSupported  = "template file is invalid or not supported"
+	ErrFailedToGetPageCountFromTemplateFile = "failed to get page count from template file"
+	ErrInvalidPageNumber                    = "page number must be between 1 and %d for the provided template, but got %d"
+)
+
 func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	type Request struct {
 		Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`
@@ -26,26 +34,30 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 
 	user, err := pc.getAuthUser(ctx)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	err = ctx.ShouldBind(&body)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	file, err := ctx.FormFile("templateFile")
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "No template file uploaded", util.GenerateErrorMessages(fmt.Errorf("template file is required"), nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "No template file uploaded", util.GenerateErrorMessages(errors.New(ErrTemplateFileRequired), "templateFile"), nil)
 		return
 	}
 
 	// create temp file for validate and optimized pdf
 	tempFile, err := os.CreateTemp("", "template-*.pdf")
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer os.Remove(tempFile.Name())
@@ -53,44 +65,50 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	// Optimize also validate the file
 	err = autocert.OptimizePdf(*file, tempFile.Name())
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(errors.New(ErrTemplateFileIsInvalidOrNotSupported), "templateFile"), nil)
 		return
 	}
 
 	src, err := os.Open(tempFile.Name())
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to open optimized file", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to open optimized file", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer src.Close()
 
 	outDir, err := os.MkdirTemp("", "extracted-")
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp directory", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp directory", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer os.RemoveAll(outDir)
 
 	pageCount, err := autocert.GetPageCount(src)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(errors.New(ErrFailedToGetPageCountFromTemplateFile), "templateFile"), nil)
 		return
 	}
 	if body.Page > 0 && body.Page > uint(pageCount) {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid page number", util.GenerateErrorMessages(fmt.Errorf("page number must be between 1 and %d for the provided template, but got %d", pageCount, body.Page), nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid page number", util.GenerateErrorMessages(fmt.Errorf(ErrInvalidPageNumber, pageCount, body.Page), "templateFile"), nil)
 		return
 	}
 
 	// extract the pdf file with selected page, will be removed after function end
 	finalPdf, err := autocert.ExtractPdfByPage(src.Name(), outDir, fmt.Sprintf("%d", body.Page))
 	if err != nil || finalPdf == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(err, nil), nil)
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(errors.New(ErrTemplateFileIsInvalidOrNotSupported), "templateFile"), nil)
 		return
 	}
 
 	info, err := pc.uploadFileToS3ByPath(finalPdf)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -109,29 +127,34 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	})
 	if err != nil {
 		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	util.ResponseSuccess(ctx, nil)
 }
 
+const (
+	ErrProjectIdRequired = "project ID is required"
+	ErrProjectNotFound   = "project not found"
+)
+
 func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(fmt.Errorf("project ID is required"), nil, "projectId"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
 		return
 	}
 
 	user, err := pc.getAuthUser(ctx)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	role, _, err := pc.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -143,36 +166,39 @@ func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
 func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(fmt.Errorf("project ID is required"), nil, "projectId"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
 		return
 	}
 
 	user, err := pc.getAuthUser(ctx)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	role, project, err := pc.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	if project == nil {
-		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(fmt.Errorf("project not found"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound)), nil)
 		return
 	}
 
 	signatories, err := pc.app.Repository.Project.GetProjectSignatories(ctx, nil, project.ID)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project signatories", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project signatories", util.GenerateErrorMessages(err), nil)
 		return
+	}
+	if len(signatories) == 0 {
+		signatories = []repository.ProjectSignatory{}
 	}
 
 	templateUrl, err := project.TemplateFile.ToPresignedUrl(ctx, pc.app.S3)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get template file URL", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get template file URL", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -201,13 +227,13 @@ func (pc ProjectController) GetProjectList(ctx *gin.Context) {
 
 	user, err := pc.getAuthUser(ctx)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	err = ctx.ShouldBindQuery(&params)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -226,7 +252,7 @@ func (pc ProjectController) GetProjectList(ctx *gin.Context) {
 
 	projectList, totalCount, err := pc.app.Repository.Project.GetProjectsForOwner(ctx, nil, user, params.Search, params.Status, params.Page, params.PageSize)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project list", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project list", util.GenerateErrorMessages(err), nil)
 		return
 	}
 

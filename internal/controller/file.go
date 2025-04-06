@@ -38,14 +38,14 @@ func (fc FileController) ReadFilePublic(ctx *gin.Context) {
 
 	object, err := fc.app.S3.GetObject(context.Background(), fc.app.Config.Minio.BUCKET, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error getting object", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error getting object", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer object.Close()
 
 	info, err := object.Stat()
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error retrieving object info", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error retrieving object info", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -58,20 +58,20 @@ func (fc FileController) ReadFilePublic(ctx *gin.Context) {
 func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 	file, err := ctx.FormFile("file")
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "No file uploaded", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "No file uploaded", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	src, err := file.Open()
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error opening file", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error opening file", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer src.Close()
 
 	err = createBucketIfNotExists(fc.app.S3, fc.app.Config.Minio.BUCKET)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating bucket", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating bucket", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 		ContentType: file.Header.Get("Content-Type"),
 	})
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error uploading file", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error uploading file", util.GenerateErrorMessages(err), nil)
 		return
 	}
 

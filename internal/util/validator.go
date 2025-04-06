@@ -58,61 +58,87 @@ func msgForTag(fe validator.FieldError, customField *map[string]string) string {
 }
 
 /*
-Extract error from validator and return as an array of ApiError
+GenerateErrorMessages extracts validation errors and returns them as an array of ApiError.
+Each ApiError contains the field name and a descriptive error message.
+
 Example output:
 
-	 [
+	[
 	  {
-	    "field": "Name",
-	    "message": "Name must not be empty or contain only whitespace charaters"
+		"field": "Name",
+		"message": "Name must not be empty or contain only whitespace characters"
 	  }
 	]
 
-If customField is provided, it will replace the field name with the custom field name
-Example usage: GenerateErrorMessages(err, map[string]string{"name": "CHANGEDFIELDNAME"})
+If a customField map is provided, it will replace the field name with the corresponding custom field name.
+Example usage:
+
+	GenerateErrorMessages(err, map[string]string{"name": "CHANGEDFIELDNAME"})
+
 Example output:
 
-	 [
+	[
 	  {
-	    "field": "Name",
-	    "message": "CHANGEDFIELDNAME must not be empty or contain only whitespace charaters"
+		"field": "CHANGEDFIELDNAME",
+		"message": "CHANGEDFIELDNAME must not be empty or contain only whitespace characters"
 	  }
 	]
+
+Optional Parameters:
+- customField (map[string]string): A map to override field names in the error messages.
+- fieldName (string): A specific field name to field names in the error messages.
 */
-func GenerateErrorMessages(err error, customField map[string]string, fieldName ...string) []ApiError {
+func GenerateErrorMessages(err error, optionalParams ...interface{}) []ApiError {
+	var customField map[string]string
+	var fieldName string
+
+	// Parse optional parameters
+	for _, param := range optionalParams {
+		switch v := param.(type) {
+		case map[string]string:
+			customField = v
+		case string:
+			fieldName = v
+		}
+	}
+
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		out := make([]ApiError, len(ve))
 		for i, fe := range ve {
 			field := fe.Field()
-			if len(fieldName) > 0 {
-				field = fieldName[0] // Override field name if specified
+			// Use customField if specified and the field exists in the map
+			if customField != nil {
+				if customFieldName, ok := customField[field]; ok {
+					field = customFieldName
+				}
 			}
 			out[i] = ApiError{field, msgForTag(fe, &customField)}
 		}
 		return out
 	}
 
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	switch {
+	case errors.Is(err, gorm.ErrRecordNotFound):
 		return []ApiError{
 			{
 				Field:   "Unknown",
 				Message: "Record not found",
 			},
 		}
-	}
-
-	return []ApiError{
-		{
-			Field: func() string {
-				if len(fieldName) > 0 {
-					return fieldName[0]
-				} else {
-					return "Unknown"
-				}
-			}(),
-			Message: err.Error(),
-		},
+	default:
+		return []ApiError{
+			{
+				Field: func() string {
+					if fieldName != "" {
+						return fieldName
+					} else {
+						return "Unknown"
+					}
+				}(),
+				Message: err.Error(),
+			},
+		}
 	}
 }
 

@@ -102,7 +102,7 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 		tx.Rollback()
 		oc.app.Logger.Debugf("OAuth: Google callback, Failed to create or update user. Error: %v", err)
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 		tx.Rollback()
 		oc.app.Logger.Debug("OAuth: Google callback, Failed to create or update oauth provider. Error: %v", err)
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 		tx.Rollback()
 		oc.app.Logger.Debug("OAuth: Google callback, Failed to generate refresh and access token. Error: %v", err)
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
@@ -134,7 +134,7 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 		tx.Rollback()
 		oc.app.Logger.Debug("OAuth: Google callback, Failed to generate refresh and access token")
 
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(errors.New("failed to generate refresh and access token"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(errors.New("failed to generate refresh and access token")), nil)
 		return
 	}
 

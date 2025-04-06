@@ -21,7 +21,7 @@ func (ac AuthController) VerifyJwtAccessToken(ctx *gin.Context) {
 
 	err := ctx.ShouldBind(&form)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), gin.H{
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err), gin.H{
 			"tokenValid": false,
 		})
 		return
@@ -32,21 +32,21 @@ func (ac AuthController) VerifyJwtAccessToken(ctx *gin.Context) {
 	// Keep in mind that verify jwt token does not check database.
 	jwtClaims, err := ac.app.JWTService.VerifyJwtToken(token)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), gin.H{
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err), gin.H{
 			"tokenValid": false,
 		})
 		return
 	}
 
 	if jwtClaims == nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("jwt claim empty"), nil), gin.H{
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("jwt claim empty")), gin.H{
 			"tokenValid": false,
 		})
 		return
 	}
 
 	if jwtClaims.Type != constant.JWT_TYPE_ACCESS {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("invalid jwt token type"), nil), gin.H{
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("invalid jwt token type")), gin.H{
 			"tokenValid": false,
 		})
 		return
@@ -61,23 +61,23 @@ func (ac AuthController) VerifyJwtAccessToken(ctx *gin.Context) {
 func (ac AuthController) RefreshAccessToken(ctx *gin.Context) {
 	refreshToken, err := util.ReadRefreshToken(ctx)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	jwtClaims, err := ac.app.JWTService.VerifyJwtToken(refreshToken)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	if jwtClaims == nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("jwt claim empty"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("jwt claim empty")), nil)
 		return
 	}
 
 	if jwtClaims.Type != constant.JWT_TYPE_REFRESH {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("invalid jwt token type"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("invalid jwt token type")), nil)
 		return
 	}
 
@@ -88,13 +88,13 @@ func (ac AuthController) RefreshAccessToken(ctx *gin.Context) {
 	newRefreshToken, newAccessToken, err := ac.app.Repository.JWT.RefreshToken(ctx, tx, refreshToken)
 	if err != nil {
 		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err, nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	if newRefreshToken == nil || newAccessToken == nil {
 		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("failed to refresh token"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "", util.GenerateErrorMessages(errors.New("failed to refresh token")), nil)
 		return
 	}
 
