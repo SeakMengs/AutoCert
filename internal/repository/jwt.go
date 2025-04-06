@@ -86,12 +86,6 @@ func (jr JWTRepository) RefreshToken(ctx context.Context, tx *gorm.DB, refreshTo
 			return errors.New("token is valid but cannot be refreshed")
 		}
 
-		if err := tx2.WithContext(ctx).Model(&model.Token{}).Where(model.Token{
-			RefreshToken: refreshToken,
-		}).Delete(&model.Token{}).Error; err != nil {
-			return err
-		}
-
 		var user model.User
 		if err := tx2.WithContext(ctx).Model(&model.User{}).Where(model.User{
 			BaseModel: model.BaseModel{
@@ -101,13 +95,32 @@ func (jr JWTRepository) RefreshToken(ctx context.Context, tx *gorm.DB, refreshTo
 			return err
 		}
 
-		newRefreshToken, newAccessToken, err = jr.GenRefreshAndAccessToken(ctx, tx2, user)
+		newRefreshToken, newAccessToken, err = jr.jwtService.GenerateRefreshAndAccessToken(auth.JWTPayload{
+			ID:         user.ID,
+			Email:      user.Email,
+			FirstName:  user.FirstName,
+			LastName:   user.LastName,
+			ProfileURL: user.ProfileURL,
+		})
 		if err != nil {
 			return err
 		}
 
 		if newRefreshToken == nil || newAccessToken == nil {
 			return errors.New("failed to generate refresh and access token")
+		}
+
+		// Update the new token to the database
+		if err := tx2.WithContext(ctx).Model(&model.Token{}).Where(model.Token{
+			RefreshToken: refreshToken,
+		}).Updates(model.Token{
+			RefreshToken: *newRefreshToken,
+			AccessToken:  *newAccessToken,
+			CanAccess:    true,
+			CanRefresh:   true,
+			UserID:       user.ID,
+		}).Error; err != nil {
+			return err
 		}
 
 		return nil

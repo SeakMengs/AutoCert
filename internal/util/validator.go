@@ -79,12 +79,16 @@ Example output:
 	  }
 	]
 */
-func GenerateErrorMessages(err error, customField map[string]string) []ApiError {
+func GenerateErrorMessages(err error, customField map[string]string, fieldName ...string) []ApiError {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		out := make([]ApiError, len(ve))
 		for i, fe := range ve {
-			out[i] = ApiError{fe.Field(), msgForTag(fe, &customField)}
+			field := fe.Field()
+			if len(fieldName) > 0 {
+				field = fieldName[0] // Override field name if specified
+			}
+			out[i] = ApiError{field, msgForTag(fe, &customField)}
 		}
 		return out
 	}
@@ -100,7 +104,13 @@ func GenerateErrorMessages(err error, customField map[string]string) []ApiError 
 
 	return []ApiError{
 		{
-			Field:   "Unknown",
+			Field: func() string {
+				if len(fieldName) > 0 {
+					return fieldName[0]
+				} else {
+					return "Unknown"
+				}
+			}(),
 			Message: err.Error(),
 		},
 	}

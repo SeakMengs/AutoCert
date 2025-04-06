@@ -76,7 +76,7 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 	}
 
 	fileName := util.AddUniquePrefixToFileName(file.Filename)
-	_, err = fc.app.S3.PutObject(context.Background(), fc.app.Config.Minio.BUCKET, fileName, src, file.Size, minio.PutObjectOptions{
+	_, err = fc.app.S3.PutObject(ctx, fc.app.Config.Minio.BUCKET, fileName, src, file.Size, minio.PutObjectOptions{
 		ContentType: file.Header.Get("Content-Type"),
 	})
 	if err != nil {

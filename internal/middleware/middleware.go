@@ -1,17 +1,17 @@
 package middleware
 
 import (
+	appcontext "github.com/SeakMengs/AutoCert/internal/app_context"
 	ratelimiter "github.com/SeakMengs/AutoCert/internal/rate_limiter"
-	"go.uber.org/zap"
 )
 
 type Middleware struct {
-	logger      *zap.SugaredLogger
 	rateLimiter *ratelimiter.FixedWindowRateLimiter
+	app         *appcontext.Application
 }
 
-func NewMiddleware(logger *zap.SugaredLogger,
+func NewMiddleware(app *appcontext.Application,
 	rateLimiter *ratelimiter.FixedWindowRateLimiter,
 ) *Middleware {
-	return &Middleware{logger: logger, rateLimiter: rateLimiter}
+	return &Middleware{app: app, rateLimiter: rateLimiter}
 }

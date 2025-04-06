@@ -15,7 +15,7 @@ type File struct {
 }
 
 func (f File) TableName() string {
-	return "column_annotates"
+	return "files"
 }
 
 func (f File) ToPresignedUrl(s3 *minio.Client) (string, error) {

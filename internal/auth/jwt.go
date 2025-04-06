@@ -33,7 +33,7 @@ type JWTPayload struct {
 	Email      string `json:"email"`
 	FirstName  string `json:"firstName"`
 	LastName   string `json:"lastName"`
-	ProfileURL string `json:"profileURL"`
+	ProfileURL string `json:"profileUrl"`
 }
 
 type JWTClaims struct {

@@ -1,0 +1,17 @@
+meta {
+  name: Get project by id
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{url}}/api/v1/projects/12412412312
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  title: Student certificate
+  templateFile: @file(/home/yato/Downloads/certificate_merged.pdf)
+  page: 2
+}

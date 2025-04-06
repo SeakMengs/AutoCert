@@ -1,7 +1,18 @@
 package controller
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+
 	appcontext "github.com/SeakMengs/AutoCert/internal/app_context"
+	"github.com/SeakMengs/AutoCert/internal/auth"
+	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -11,11 +22,12 @@ type baseController struct {
 }
 
 type Controller struct {
-	User  *UserController
-	Index *IndexController
-	Auth  *AuthController
-	OAuth *OAuthController
-	File  *FileController
+	User    *UserController
+	Index   *IndexController
+	Auth    *AuthController
+	OAuth   *OAuthController
+	File    *FileController
+	Project *ProjectController
 }
 
 func newBaseController(app *appcontext.Application) *baseController {
@@ -34,10 +46,67 @@ func NewController(app *appcontext.Application) *Controller {
 	}
 
 	return &Controller{
-		User:  &UserController{baseController: bc},
-		Index: &IndexController{baseController: bc},
-		Auth:  &AuthController{baseController: bc},
-		OAuth: &OAuthController{baseController: bc, googleOAuthConfig: googleOAuthConfig},
-		File:  &FileController{baseController: bc},
+		User:    &UserController{baseController: bc},
+		Index:   &IndexController{baseController: bc},
+		Auth:    &AuthController{baseController: bc},
+		OAuth:   &OAuthController{baseController: bc, googleOAuthConfig: googleOAuthConfig},
+		File:    &FileController{baseController: bc},
+		Project: &ProjectController{baseController: bc},
 	}
+}
+
+func (b *baseController) getAuthUser(ctx *gin.Context) (*auth.JWTPayload, error) {
+	user, exists := ctx.Get("user")
+	if !exists {
+		return nil, errors.New("user not found in context")
+	}
+
+	jsonUser, err := json.Marshal(user)
+	if err != nil {
+		return nil, err
+	}
+
+	var authUser *auth.JWTPayload
+	err = json.Unmarshal(jsonUser, &authUser)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal user: %w", err)
+	}
+
+	return authUser, nil
+}
+
+func (b *baseController) uploadFileToS3ByPath(path string) (minio.UploadInfo, error) {
+	err := createBucketIfNotExists(b.app.S3, b.app.Config.Minio.BUCKET)
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to create bucket: %w", err)
+	}
+
+	// get file name
+	fileName := filepath.Base(path)
+
+	// Determine the content type of the file
+	contentType := "application/octet-stream" // Default content type
+	file, err := os.Open(path)
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	buffer := make([]byte, 512)
+	_, err = file.Read(buffer)
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	contentType = http.DetectContentType(buffer)
+
+	// Upload the file to S3
+	info, err := b.app.S3.FPutObject(context.Background(), b.app.Config.Minio.BUCKET, fileName, path, minio.PutObjectOptions{
+		ContentType: contentType,
+	})
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to upload file to S3: %w", err)
+	}
+
+	return info, nil
 }

@@ -80,7 +80,7 @@ func main() {
 		S3:         s3,
 	}
 
-	_middleware := middleware.NewMiddleware(app.Logger, rateLimiter)
+	_middleware := middleware.NewMiddleware(&app, rateLimiter)
 
 	if cfg.ENV == "production" {
 		logger.Info("Running in production mode")
@@ -102,6 +102,7 @@ func main() {
 
 	rApi := r.Group("/api")
 
+	route.V1_Projects(rApi, _controller.Project, _middleware)
 	route.V1_Auth(rApi, _controller.Auth)
 	route.V1_OAuth(rApi, _controller.OAuth)
 	route.V1_Users(rApi, _controller.User)

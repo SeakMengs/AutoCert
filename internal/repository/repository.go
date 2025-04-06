@@ -21,6 +21,8 @@ type Repository struct {
 	User          *UserRepository
 	JWT           *JWTRepository
 	OAuthProvider *OAuthProviderRepository
+	Project       *ProjectRepository
+	File          *FileRepository
 }
 
 func newBaseRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface) *baseRepository {
@@ -36,6 +38,8 @@ func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTIn
 		User:          _userRepo,
 		JWT:           &JWTRepository{baseRepository: br, user: _userRepo},
 		OAuthProvider: &OAuthProviderRepository{baseRepository: br},
+		Project:       &ProjectRepository{baseRepository: br},
+		File:          &FileRepository{baseRepository: br},
 	}
 }
 

@@ -2,6 +2,8 @@ package autocert
 
 import (
 	"fmt"
+	"io"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,8 +135,82 @@ func PdfToPngByPage(inFile, outDir string, selectedPages string) (*string, error
 
 // Merge inFiles by concatenation in the order specified and write the result to outfile.
 // outfile will be overwritten if it exists.
+// Perfectly match for this project, if don't want overwrite, use MergeAppendFile instead.
 func MergePdf(inFiles []string, outFile string) error {
 	// If divider page is true, a blank page will be inserted between each input file.
 	dividerPage := false
 	return api.MergeCreateFile(inFiles, outFile, dividerPage, nil)
+}
+
+// Optimize pdf will also validate the pdf itself
+func OptimizePdfFile(inFile, outFile string) error {
+	// Optimize the PDF context
+	if err := api.OptimizeFile(inFile, outFile, nil); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// OptimizePdf that accept multipart header and return path to the optimized file
+func OptimizePdf(srcFile multipart.FileHeader, outfile string) error {
+	// Open the uploaded file
+	src, err := srcFile.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	tmpFile, err := os.CreateTemp("", "optimized_*.pdf")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := io.Copy(tmpFile, src); err != nil {
+		return err
+	}
+	tmpFile.Close()
+
+	if err := OptimizePdfFile(tmpFile.Name(), tmpFile.Name()); err != nil {
+		return err
+	}
+
+	// Move the optimized file to the specified output path
+	if err := os.Rename(tmpFile.Name(), outfile); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func GetPageCount(rs io.ReadSeeker) (int, error) {
+	ctx, err := api.ReadAndValidate(rs, model.NewDefaultConfiguration())
+	if err != nil {
+		return 0, err
+	}
+
+	return ctx.PageCount, nil
+}
+
+func ExtractPdfByPage(inFile string, outDir string, selectedPages string) (string, error) {
+	// Create output directory if it doesn't exist
+	if _, err := os.Stat(outDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			return "", err
+		}
+	}
+
+	// Extract the selected page from the PDF
+	if err := api.ExtractPagesFile(inFile, outDir, []string{selectedPages}, nil); err != nil {
+		return "", err
+	}
+
+	// Build the path to the extracted PDF page
+	base := filepath.Base(inFile)
+	ext := filepath.Ext(inFile)
+	fileName := strings.TrimSuffix(base, ext)
+	srcPdf := filepath.Join(outDir, fmt.Sprintf("%s_page_%s%s", fileName, selectedPages, ext))
+
+	return srcPdf, nil
 }
