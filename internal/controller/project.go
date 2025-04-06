@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
@@ -79,7 +81,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		return
 	}
 
-	// extract the pdf file with selected page
+	// extract the pdf file with selected page, will be removed after function end
 	finalPdf, err := autocert.ExtractPdfByPage(src.Name(), outDir, fmt.Sprintf("%d", body.Page))
 	if err != nil || finalPdf == "" {
 		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(err, nil), nil)
@@ -112,4 +114,133 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	}
 
 	util.ResponseSuccess(ctx, nil)
+}
+
+func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(fmt.Errorf("project ID is required"), nil, "projectId"), nil)
+		return
+	}
+
+	user, err := pc.getAuthUser(ctx)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	role, _, err := pc.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	util.ResponseSuccess(ctx, gin.H{
+		"role": role,
+	})
+}
+
+func (pc ProjectController) GetProjectById(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(fmt.Errorf("project ID is required"), nil, "projectId"), nil)
+		return
+	}
+
+	user, err := pc.getAuthUser(ctx)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	role, project, err := pc.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	if project == nil {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(fmt.Errorf("project not found"), nil), nil)
+		return
+	}
+
+	signatories, err := pc.app.Repository.Project.GetProjectSignatories(ctx, nil, project.ID)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project signatories", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	templateUrl, err := project.TemplateFile.ToPresignedUrl(ctx, pc.app.S3)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get template file URL", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	util.ResponseSuccess(ctx, gin.H{
+		"role": role,
+		"project": repository.ProjectResponse{
+			ID:          project.ID,
+			Title:       project.Title,
+			TemplateUrl: templateUrl,
+			IsPublic:    project.IsPublic,
+			Signatories: signatories,
+			Status:      project.Status,
+			CreatedAt:   project.CreatedAt,
+		},
+	})
+}
+
+func (pc ProjectController) GetProjectList(ctx *gin.Context) {
+	type Request struct {
+		Page     uint                     `json:"page" form:"page" binding:"omitempty"`
+		PageSize uint                     `json:"pageSize" form:"pageSize" binding:"omitempty"`
+		Status   []constant.ProjectStatus `json:"status" form:"status" binding:"omitempty"`
+		Search   string                   `json:"search" form:"search" binding:"omitempty"`
+	}
+	var params Request
+
+	user, err := pc.getAuthUser(ctx)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	err = ctx.ShouldBindQuery(&params)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	if params.Page == 0 {
+		params.Page = 1
+	}
+	if params.PageSize == 0 {
+		params.PageSize = constant.DefaultPageSize
+	}
+	if params.PageSize > constant.MaxPageSize {
+		params.PageSize = constant.MaxPageSize
+	}
+	if params.Status == nil {
+		params.Status = []constant.ProjectStatus{constant.ProjectStatusCompleted, constant.ProjectStatusPreparing, constant.ProjectStatusCompleted}
+	}
+
+	projectList, totalCount, err := pc.app.Repository.Project.GetProjectsForOwner(ctx, nil, user, params.Search, params.Status, params.Page, params.PageSize)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project list", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+
+	if len(projectList) == 0 {
+		projectList = []repository.ProjectResponse{}
+	}
+
+	util.ResponseSuccess(ctx, gin.H{
+		"total":     totalCount,
+		"projects":  projectList,
+		"page":      params.Page,
+		"pageSize":  params.PageSize,
+		"totalPage": util.CalculateTotalPage(totalCount, params.PageSize),
+		"search":    params.Search,
+		"status":    params.Status,
+	})
 }

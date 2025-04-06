@@ -70,7 +70,7 @@ func main() {
 	mail := mailer.NewSendgrid(cfg.Mail.SEND_GRID.API_KEY, cfg.Mail.FROM_EMAIL, cfg.IsProduction(), logger)
 	jwtService := auth.NewJwt(cfg.Auth,
 		logger)
-	repo := repository.NewRepository(db, logger, jwtService)
+	repo := repository.NewRepository(db, logger, jwtService, s3)
 	app := appcontext.Application{
 		Config:     &cfg,
 		Repository: repo,

@@ -1,53 +1,53 @@
 services:
-  autocert-api:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    volumes:
-      # Important to bind/mount your codebase dir to /app dir for live reload
-      - ./:/app
-    ports:
-      - 8080:8080
-    environment:
-      DB_HOST: psql-db
-    depends_on:
-      - psql-db
-    # Check if the database is ready before starting the service because the service depends on the database
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "root", "-h", "psql_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  psql-db:
-    image: postgres
-    environment:
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      # host port: postgres tcp port
-      - "5432:5432"
-    volumes:
-      # Mount database data so that even if the container got deleted, the volume would still be there unless deleted by us
-      - psql_db_data:/var/lib/postgresql/data
-      # Uncomment below if you want to use an initialization script
-      # - "./<your_sql_file_name_here>.sql:/docker-entrypoint-initdb.d/1.sql"
-  # Service name should be use '-' instead of '_'
-  # See: https://github.com/minio/minio/issues/15006#issuecomment-1141639468
-  s3-minio:
-    image: minio/minio:latest
-    ports:
-      # MinIO API endpoint
-      - "9000:9000"
-      # MinIO Console (optional)
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      # The command starts MinIO in server mode, and the console is available on port 9001.
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      # Can remove if prod
-    command: "server /data --console-address :9001"
+    autocert-api:
+        build:
+            context: .
+            dockerfile: ./Dockerfile
+        volumes:
+            # Important to bind/mount your codebase dir to /app dir for live reload
+            - ./:/app
+        ports:
+            - 8080:8080
+        environment:
+            DB_HOST: psql-db
+        depends_on:
+            - psql-db
+        # Check if the database is ready before starting the service because the service depends on the database
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "root", "-h", "psql_db"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+    psql-db:
+        image: postgres
+        environment:
+            POSTGRES_USER: ${DB_USERNAME}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+        ports:
+            # host port: postgres tcp port
+            - "5432:5432"
+        volumes:
+            # Mount database data so that even if the container got deleted, the volume would still be there unless deleted by us
+            - psql_db_data:/var/lib/postgresql/data
+            # Uncomment below if you want to use an initialization script
+            # - "./<your_sql_file_name_here>.sql:/docker-entrypoint-initdb.d/1.sql"
+    # Service name should be use '-' instead of '_'
+    # See: https://github.com/minio/minio/issues/15006#issuecomment-1141639468
+    s3-minio:
+        image: minio/minio:latest
+        ports:
+            # MinIO API endpoint
+            - "9000:9000"
+            # MinIO Console (optional)
+            - "9001:9001"
+        volumes:
+            - minio_data:/data
+        environment:
+            MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+            # The command starts MinIO in server mode, and the console is available on port 9001.
+            MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+            # Can remove if prod
+        command: "server /data --console-address :9001"
 volumes:
-  psql_db_data:
-  minio_data:
+    psql_db_data:
+    minio_data:

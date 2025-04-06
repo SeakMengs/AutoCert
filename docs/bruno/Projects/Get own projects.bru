@@ -1,19 +1,39 @@
 meta {
-  name: Get project by id
+  name: Get own projects
   type: http
-  seq: 3
+  seq: 4
 }
 
 get {
-  url: {{url}}/api/v1/projects/306696da-9f29-409b-b8bf-a494f3238e44
+  url: {{url}}/api/v1/projects/me?status=0&page=1&pageSize=20&status=0&search
   body: multipartForm
   auth: none
+}
+
+params:query {
+  status: 0
+  page: 1
+  pageSize: 20
+  status: 0
+  search: 
 }
 
 docs {
   Type information
   
   type ProjectRole int
+  
+  ----------Accepting query--------------
+  type Request struct {
+  		Page     uint                   `json:"page" form:"page" binding:"omitempty"`
+  		PageSize uint                   `json:"pageSize" form:"pageSize" binding:"omitempty"`
+  		Status   constant.ProjectStatus `json:"status" form:"status" binding:"omitempty"`
+  		Search   string                 `json:"search" form:"search" binding:"omitempty"`
+  	}
+  
+  Example query string: ?status=0&page=1&pageSize=20&status=1&search
+  
+  ---------Info---------------
   
   const (
   	ProjectRoleOwner ProjectRole = iota
@@ -45,15 +65,12 @@ docs {
   	}
   
   util.ResponseSuccess(ctx, gin.H{
-  		"role": role,
-  		"project": ProjectResponse{
-  			ID:          project.ID,
-  			Title:       project.Title,
-  			TemplateUrl: templateUrl,
-  			IsPublic:    project.IsPublic,
-  			Signatories: signatories,
-  			Status:      project.Status,
-  			CreatedAt:   project.CreatedAt,
-  		},
+  		"total":     totalCount,
+  		"projects":  projectList,
+  		"page":      params.Page,
+  		"pageSize":  params.PageSize,
+  		"totalPage": util.CalculateTotalPage(totalCount, params.PageSize),
+  		"search":    params.Search,
+  		"status":    params.Status,
   	})
 }

@@ -1,9 +1,10 @@
 package model
 
 import (
+	"context"
 	"time"
 
-	"github.com/minio/minio-go"
+	"github.com/minio/minio-go/v7"
 )
 
 type File struct {
@@ -18,9 +19,10 @@ func (f File) TableName() string {
 	return "files"
 }
 
-func (f File) ToPresignedUrl(s3 *minio.Client) (string, error) {
+func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, error) {
 	// Generate a presigned URL for the file
 	presignedURL, err := s3.PresignedGetObject(
+		ctx,
 		f.BucketName,
 		f.UniqueFileName,
 		// 30min expiration time

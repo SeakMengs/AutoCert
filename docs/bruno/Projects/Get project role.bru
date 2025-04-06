@@ -1,0 +1,27 @@
+meta {
+  name: Get project role
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{url}}/api/v1/projects/306696da-9f29-409b-b8bf-a494f3238e44/role
+  body: multipartForm
+  auth: none
+}
+
+docs {
+  Role information
+  
+  type ProjectRole int
+  
+  const (
+  	ProjectRoleOwner ProjectRole = iota
+  	ProjectRoleSignatory
+  	ProjectRoleNone
+  )
+  
+  return base return with data = {
+    role: ProjectRole
+  }
+}

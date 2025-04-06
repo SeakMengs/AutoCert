@@ -1,0 +1,30 @@
+meta {
+  name: Create project
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{url}}/api/v1/projects
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  title: Student certificate
+  templateFile: @file(/home/yato/Downloads/certificate_merged.pdf)
+  page: 2
+}
+
+docs {
+  Accept form
+  
+  type Request struct {
+  		Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`
+  		Page  uint   `json:"page" form:"page" binding:"required"`
+  }
+  
+  And "templateFile" as pdf. 
+  
+  return base success return with data = {}
+}
