@@ -1,24 +1,26 @@
 meta {
-  name: Get own projects
+  name: Get signatory projects
   type: http
-  seq: 4
+  seq: 5
 }
 
 get {
-  url: {{url}}/api/v1/projects/me?page=1&pageSize=20&search
+  url: {{url}}/api/v1/projects/me/signatory?status=1&page=1&pageSize=20&status=0&search
   body: multipartForm
   auth: none
 }
 
 params:query {
+  status: 1
   page: 1
   pageSize: 20
+  status: 0
   search: 
-  ~status: 0
-  ~status: 1
 }
 
 docs {
+  Pretty much similar to get own projects
+  
   Type information
   
   type ProjectRole int

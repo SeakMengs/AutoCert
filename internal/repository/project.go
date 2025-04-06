@@ -108,7 +108,7 @@ type ProjectResponse struct {
 }
 
 func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB, authUser *auth.JWTPayload, search string, status []constant.ProjectStatus, page, pageSize uint) ([]ProjectResponse, int64, error) {
-	pr.logger.Debugf("Get projects with userID: %s \n", authUser.ID)
+	pr.logger.Debugf("Get projects for owner with userID: %s \n", authUser.ID)
 
 	db := pr.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
@@ -117,13 +117,6 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 	var projects []model.Project
 	query := db.WithContext(ctx).Model(&model.Project{}).Preload("TemplateFile").
 		Where("user_id = ?", authUser.ID)
-
-	// Include projects where the user is a signatory
-	// signatorySubQuery := db.WithContext(ctx).Model(&model.SignatureAnnotate{}).
-	// 	Select("project_id").
-	// 	Where("email = ?", authUser.Email)
-
-	// query = query.Or("id IN (?)", signatorySubQuery)
 
 	if len(status) > 0 {
 		query = query.Where("status IN (?)", status)
@@ -140,7 +133,6 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 	var totalProjects int64
 	if err := db.WithContext(ctx).Model(&model.Project{}).
 		Where("user_id = ?", authUser.ID).
-		// Or("id IN (?)", signatorySubQuery).
 		Count(&totalProjects).Error; err != nil {
 		return nil, 0, err
 	}
@@ -167,6 +159,67 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 			IsPublic:    project.IsPublic,
 			Signatories: signatories,
 			Status:      project.Status,
+			CreatedAt:   project.CreatedAt,
+		})
+	}
+
+	return projectRes, totalProjects, nil
+}
+
+func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gorm.DB, authUser *auth.JWTPayload, search string, status []constant.ProjectStatus, page, pageSize uint) ([]ProjectResponse, int64, error) {
+	pr.logger.Debugf("Get projects for signatory with userID: %s \n", authUser.ID)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var projects []model.Project
+	query := db.WithContext(ctx).Model(&model.Project{}).Preload("TemplateFile").
+		Joins("JOIN signature_annotates ON projects.id = signature_annotates.project_id").
+		Where("signature_annotates.email = ?", authUser.Email)
+
+	if len(status) > 0 {
+		query = query.Where("status IN (?)", status)
+	}
+
+	if search != "" {
+		query = query.Where("title ILIKE ?", "%"+search+"%")
+	}
+
+	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&projects).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var totalProjects int64
+	if err := db.WithContext(ctx).Model(&model.Project{}).
+		Joins("JOIN signature_annotates ON projects.id = signature_annotates.project_id").
+		Where("signature_annotates.email = ?", authUser.Email).
+		Count(&totalProjects).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var projectRes []ProjectResponse
+
+	for _, project := range projects {
+		signatories, err := pr.GetProjectSignatories(ctx, nil, project.ID)
+		if err != nil {
+			return nil, 0, err
+		}
+		if len(signatories) == 0 {
+			signatories = []ProjectSignatory{}
+		}
+
+		templateUrl, err := project.TemplateFile.ToPresignedUrl(ctx, pr.s3)
+		if err != nil {
+			return nil, 0, err
+		}
+		projectRes = append(projectRes, ProjectResponse{
+			ID:          project.ID,
+			Title:       project.Title,
+			TemplateUrl: templateUrl,
+			IsPublic:    project.IsPublic,
+			Status:      project.Status,
+			Signatories: signatories,
 			CreatedAt:   project.CreatedAt,
 		})
 	}

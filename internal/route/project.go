@@ -11,7 +11,8 @@ func V1_Projects(r *gin.RouterGroup, projectController *controller.ProjectContro
 	v1.Use(middleware.AuthMiddleware)
 	{
 		v1.POST("", projectController.CreateProject)
-		v1.GET("/me", projectController.GetProjectList)
+		v1.GET("/me", projectController.GetOwnProjectList)
+		v1.GET("/me/signatory", projectController.GetSignatoryProjectList)
 		v1.GET("/:projectId", projectController.GetProjectById)
 		v1.GET("/:projectId/role", projectController.GetProjectRole)
 	}

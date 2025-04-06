@@ -216,14 +216,15 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 	})
 }
 
-func (pc ProjectController) GetProjectList(ctx *gin.Context) {
-	type Request struct {
-		Page     uint                     `json:"page" form:"page" binding:"omitempty"`
-		PageSize uint                     `json:"pageSize" form:"pageSize" binding:"omitempty"`
-		Status   []constant.ProjectStatus `json:"status" form:"status" binding:"omitempty"`
-		Search   string                   `json:"search" form:"search" binding:"omitempty"`
-	}
-	var params Request
+type GetProjectsRequest struct {
+	Page     uint                     `json:"page" form:"page" binding:"omitempty"`
+	PageSize uint                     `json:"pageSize" form:"pageSize" binding:"omitempty"`
+	Status   []constant.ProjectStatus `json:"status" form:"status" binding:"omitempty"`
+	Search   string                   `json:"search" form:"search" binding:"omitempty"`
+}
+
+func (pc ProjectController) GetOwnProjectList(ctx *gin.Context) {
+	var params GetProjectsRequest
 
 	user, err := pc.getAuthUser(ctx)
 	if err != nil {
@@ -247,10 +248,59 @@ func (pc ProjectController) GetProjectList(ctx *gin.Context) {
 		params.PageSize = constant.MaxPageSize
 	}
 	if params.Status == nil {
-		params.Status = []constant.ProjectStatus{constant.ProjectStatusCompleted, constant.ProjectStatusPreparing, constant.ProjectStatusCompleted}
+		params.Status = []constant.ProjectStatus{constant.ProjectStatusPreparing, constant.ProjectStatusProcessing, constant.ProjectStatusCompleted}
 	}
 
 	projectList, totalCount, err := pc.app.Repository.Project.GetProjectsForOwner(ctx, nil, user, params.Search, params.Status, params.Page, params.PageSize)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project list", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if len(projectList) == 0 {
+		projectList = []repository.ProjectResponse{}
+	}
+
+	util.ResponseSuccess(ctx, gin.H{
+		"total":     totalCount,
+		"projects":  projectList,
+		"page":      params.Page,
+		"pageSize":  params.PageSize,
+		"totalPage": util.CalculateTotalPage(totalCount, params.PageSize),
+		"search":    params.Search,
+		"status":    params.Status,
+	})
+}
+
+func (pc ProjectController) GetSignatoryProjectList(ctx *gin.Context) {
+	var params GetProjectsRequest
+
+	user, err := pc.getAuthUser(ctx)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	err = ctx.ShouldBindQuery(&params)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if params.Page == 0 {
+		params.Page = 1
+	}
+	if params.PageSize == 0 {
+		params.PageSize = constant.DefaultPageSize
+	}
+	if params.PageSize > constant.MaxPageSize {
+		params.PageSize = constant.MaxPageSize
+	}
+	if params.Status == nil {
+		params.Status = []constant.ProjectStatus{constant.ProjectStatusPreparing, constant.ProjectStatusProcessing, constant.ProjectStatusCompleted}
+	}
+
+	projectList, totalCount, err := pc.app.Repository.Project.GetProjectsForSignatory(ctx, nil, user, params.Search, params.Status, params.Page, params.PageSize)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project list", util.GenerateErrorMessages(err), nil)
 		return
