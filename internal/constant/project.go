@@ -7,3 +7,11 @@ const (
 	ProjectStatusProcessing
 	ProjectStatusCompleted
 )
+
+type SignatoryStatus int
+
+const (
+	SignatoryStatusNotInvited SignatoryStatus = iota
+	SignatoryStatusInvited
+	SignatoryStatusSigned
+)

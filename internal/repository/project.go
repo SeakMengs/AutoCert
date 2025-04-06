@@ -74,8 +74,9 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 }
 
 type ProjectSignatory struct {
-	Email      string `json:"email"`
-	ProfileUrl string `json:"profileUrl"`
+	Email      string                   `json:"email"`
+	ProfileUrl string                   `json:"profileUrl"`
+	Status     constant.SignatoryStatus `json:"status"`
 }
 
 func (pr ProjectRepository) GetProjectSignatories(ctx context.Context, tx *gorm.DB, projectID string) ([]ProjectSignatory, error) {
@@ -87,7 +88,7 @@ func (pr ProjectRepository) GetProjectSignatories(ctx context.Context, tx *gorm.
 
 	var signatories []ProjectSignatory
 	if err := db.WithContext(ctx).Model(&model.SignatureAnnotate{}).
-		Select("users.email, users.profile_url").
+		Select("users.email, users.profile_url, signature_annotates.status").
 		Joins("JOIN users ON signature_annotates.email = users.email").
 		Where("signature_annotates.project_id = ?", projectID).
 		Scan(&signatories).Error; err != nil {
@@ -119,11 +120,11 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 		Where("user_id = ?", authUser.ID)
 
 	if len(status) > 0 {
-		query = query.Where("status IN (?)", status)
+		query = query.Where("projects.status IN (?)", status)
 	}
 
 	if search != "" {
-		query = query.Where("title ILIKE ?", "%"+search+"%")
+		query = query.Where("projects.title ILIKE ?", "%"+search+"%")
 	}
 
 	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&projects).Error; err != nil {
@@ -179,11 +180,11 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 		Where("signature_annotates.email = ?", authUser.Email)
 
 	if len(status) > 0 {
-		query = query.Where("status IN (?)", status)
+		query = query.Where("projects.status IN (?)", status)
 	}
 
 	if search != "" {
-		query = query.Where("title ILIKE ?", "%"+search+"%")
+		query = query.Where("projects.title ILIKE ?", "%"+search+"%")
 	}
 
 	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&projects).Error; err != nil {

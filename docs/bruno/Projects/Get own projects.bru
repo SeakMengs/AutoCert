@@ -41,9 +41,18 @@ docs {
   	ProjectRoleNone
   )
   
+  type SignatoryStatus int
+  
+  const (
+  	SignatoryStatusNotInvited SignatoryStatus = iota
+  	SignatoryStatusInvited
+  	SignatoryStatusSigned
+  )
+  
   type ProjectSignatory struct {
-  	Email      string `json:"email"`
-  	ProfileUrl string `json:"profileUrl"`
+  	Email      string                   `json:"email"`
+  	ProfileUrl string                   `json:"profileUrl"`
+  	Status     constant.SignatoryStatus `json:"status"`
   }
   
   type ProjectStatus int
