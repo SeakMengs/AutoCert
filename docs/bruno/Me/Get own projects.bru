@@ -1,11 +1,11 @@
 meta {
   name: Get own projects
   type: http
-  seq: 4
+  seq: 1
 }
 
 get {
-  url: {{url}}/api/v1/projects/me?page=1&pageSize=20&search
+  url: {{url}}/api/v1/me/projects?page=1&pageSize=20&search
   body: multipartForm
   auth: none
 }

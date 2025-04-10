@@ -1,11 +1,11 @@
 meta {
-  name: Get signatory projects
+  name: Get projects as a signatory
   type: http
-  seq: 5
+  seq: 2
 }
 
 get {
-  url: {{url}}/api/v1/projects/me/signatory?status=1&page=1&pageSize=20&status=0&search
+  url: {{url}}/api/v1/me/projects/signatory?status=1&page=1&pageSize=20&status=0&search
   body: multipartForm
   auth: none
 }

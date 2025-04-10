@@ -34,7 +34,7 @@ func BuildResponseFailed(message string, err any, data any) Response {
 	// TODO: improve this with error check
 	// Sometimes we define err type any but err type is error
 	if _, ok := err.(error); ok {
-		err = err.(error).Error()
+		err = GenerateErrorMessages(err.(error))
 	}
 
 	return Response{

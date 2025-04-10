@@ -1,4 +1,4 @@
-ARG GO_VERSION=latest
+ARG GO_VERSION=1.24.2
 FROM golang:${GO_VERSION} 
 WORKDIR /app
 

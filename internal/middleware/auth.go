@@ -10,7 +10,7 @@ func (m Middleware) AuthMiddleware(ctx *gin.Context) {
 	token, err := util.ReadBearerToken(ctx)
 	if err != nil {
 		m.app.Logger.Debugf("Failed to read token: %v", err)
-		util.ResponseFailed(ctx, 401, "", err, nil)
+		util.ResponseFailed(ctx, 401, "", util.GenerateErrorMessages(err), nil)
 		ctx.Abort()
 		return
 	}
@@ -18,14 +18,14 @@ func (m Middleware) AuthMiddleware(ctx *gin.Context) {
 	claim, err := m.app.JWTService.VerifyJwtToken(token)
 	if err != nil {
 		m.app.Logger.Debugf("Failed to verify token: %v", err)
-		util.ResponseFailed(ctx, 401, "Invalid token", err, nil)
+		util.ResponseFailed(ctx, 401, "Invalid token", util.GenerateErrorMessages(err), nil)
 		ctx.Abort()
 		return
 	}
 
 	if claim.Type != constant.JWT_TYPE_ACCESS {
 		m.app.Logger.Debugf("Invalid token type: %s", claim.Type)
-		util.ResponseFailed(ctx, 401, "Invalid access token type", nil, nil)
+		util.ResponseFailed(ctx, 401, "Invalid access token type", util.GenerateErrorMessages(err), nil)
 		ctx.Abort()
 		return
 	}
