@@ -19,12 +19,13 @@ type Repository struct {
 	// tx := r.DB.Begin()
 	// defer tx.Commit()
 	// Then pass tx to the repository function. and use tx.Rollback() if error occurred
-	DB            *gorm.DB
-	User          *UserRepository
-	JWT           *JWTRepository
-	OAuthProvider *OAuthProviderRepository
-	Project       *ProjectRepository
-	File          *FileRepository
+	DB             *gorm.DB
+	User           *UserRepository
+	JWT            *JWTRepository
+	OAuthProvider  *OAuthProviderRepository
+	Project        *ProjectRepository
+	File           *FileRepository
+	ColumnAnnotate *ColumnAnnotateRepository
 }
 
 func newBaseRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface, s3 *minio.Client) *baseRepository {
@@ -36,12 +37,13 @@ func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTIn
 	_userRepo := &UserRepository{baseRepository: br}
 
 	return &Repository{
-		DB:            db,
-		User:          _userRepo,
-		JWT:           &JWTRepository{baseRepository: br, user: _userRepo},
-		OAuthProvider: &OAuthProviderRepository{baseRepository: br},
-		Project:       &ProjectRepository{baseRepository: br},
-		File:          &FileRepository{baseRepository: br},
+		DB:             db,
+		User:           _userRepo,
+		JWT:            &JWTRepository{baseRepository: br, user: _userRepo},
+		OAuthProvider:  &OAuthProviderRepository{baseRepository: br},
+		Project:        &ProjectRepository{baseRepository: br},
+		File:           &FileRepository{baseRepository: br},
+		ColumnAnnotate: &ColumnAnnotateRepository{baseRepository: br},
 	}
 }
 

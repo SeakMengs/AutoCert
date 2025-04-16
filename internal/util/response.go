@@ -23,6 +23,10 @@ func BuildResponseSuccess(data any) Response {
 }
 
 func ResponseSuccess(ctx *gin.Context, data any) {
+	if data == nil {
+		data = gin.H{}
+	}
+
 	ctx.JSON(http.StatusOK, BuildResponseSuccess(data))
 }
 

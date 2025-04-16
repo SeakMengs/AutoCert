@@ -5,10 +5,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func V1_Users(r *gin.RouterGroup, userController *controller.UserController) {
+func V1_Users(r *gin.RouterGroup, uc *controller.UserController) {
 	v1 := r.Group("/v1/users")
 	{
 		// Test endpoint with curl: curl http://localhost:8080/api/v1/users/1
-		v1.GET("/:user_id", userController.GetUserById)
+		v1.GET("/:user_id", uc.GetUserById)
 	}
 }

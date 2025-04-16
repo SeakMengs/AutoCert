@@ -28,7 +28,7 @@ func (pr ProjectRepository) Create(ctx context.Context, tx *gorm.DB, project *mo
 	return project, nil
 }
 
-func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, projectID string, authUser *auth.JWTPayload) (constant.ProjectRole, *model.Project, error) {
+func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, projectID string, authUser *auth.JWTPayload) ([]constant.ProjectRole, *model.Project, error) {
 	pr.logger.Debugf("Get role of project with projectID: %s and userID: %s \n", projectID, authUser.ID)
 
 	db := pr.getDB(tx)
@@ -36,7 +36,7 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 	defer cancel()
 
 	var project model.Project
-	var role constant.ProjectRole
+	var role []constant.ProjectRole
 	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
 		BaseModel: model.BaseModel{
 			ID: projectID,
@@ -44,12 +44,11 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		UserID: authUser.ID,
 	}).Preload("TemplateFile").First(&project).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
-			return constant.ProjectRoleNone, nil, err
+			return nil, nil, err
 		}
 	}
 	if project.ID != "" {
-		role = constant.ProjectRoleOwner
-		return role, &project, nil
+		role = append(role, constant.ProjectRoleOwner)
 	}
 
 	var signature model.SignatureAnnotate
@@ -60,14 +59,12 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		},
 	}).First(&signature).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
-			return constant.ProjectRoleNone, nil, err
+			return nil, nil, err
 		}
 	}
 
 	if signature.ID != "" {
-		role = constant.ProjectRoleSignatory
-	} else {
-		role = constant.ProjectRoleNone
+		role = append(role, constant.ProjectRoleSignatory)
 	}
 
 	return role, &project, nil

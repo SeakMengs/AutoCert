@@ -28,7 +28,7 @@ const (
 func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	type Request struct {
 		Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`
-		Page  uint   `json:"page" form:"page" binding:"required"`
+		Page  int    `json:"page" form:"page" binding:"required,number,gte=1"`
 	}
 	var body Request
 
@@ -92,7 +92,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid template file", util.GenerateErrorMessages(errors.New(ErrFailedToGetPageCountFromTemplateFile), "templateFile"), nil)
 		return
 	}
-	if body.Page > 0 && body.Page > uint(pageCount) {
+	if body.Page > 0 && body.Page > int(pageCount) {
 		pc.app.Logger.Error(err)
 		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid page number", util.GenerateErrorMessages(fmt.Errorf(ErrInvalidPageNumber, pageCount, body.Page), "templateFile"), nil)
 		return
@@ -146,13 +146,7 @@ func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
 		return
 	}
 
-	user, err := pc.getAuthUser(ctx)
-	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	role, _, err := pc.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
+	role, _, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
 		return

@@ -15,6 +15,9 @@ type BaseModel struct {
 
 func (bm *BaseModel) BeforeCreate(tx *gorm.DB) (err error) {
 	// UUID version 4
-	bm.ID = uuid.NewString()
+	if bm.ID == "" {
+		bm.ID = uuid.NewString()
+	}
+
 	return
 }

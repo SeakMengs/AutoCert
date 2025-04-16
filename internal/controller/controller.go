@@ -11,6 +11,8 @@ import (
 
 	appcontext "github.com/SeakMengs/AutoCert/internal/app_context"
 	"github.com/SeakMengs/AutoCert/internal/auth"
+	"github.com/SeakMengs/AutoCert/internal/constant"
+	"github.com/SeakMengs/AutoCert/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 	"golang.org/x/oauth2"
@@ -22,12 +24,13 @@ type baseController struct {
 }
 
 type Controller struct {
-	User    *UserController
-	Index   *IndexController
-	Auth    *AuthController
-	OAuth   *OAuthController
-	File    *FileController
-	Project *ProjectController
+	User           *UserController
+	Index          *IndexController
+	Auth           *AuthController
+	OAuth          *OAuthController
+	File           *FileController
+	Project        *ProjectController
+	ProjectBuilder *ProjectBuilderController
 }
 
 func newBaseController(app *appcontext.Application) *baseController {
@@ -46,12 +49,13 @@ func NewController(app *appcontext.Application) *Controller {
 	}
 
 	return &Controller{
-		User:    &UserController{baseController: bc},
-		Index:   &IndexController{baseController: bc},
-		Auth:    &AuthController{baseController: bc},
-		OAuth:   &OAuthController{baseController: bc, googleOAuthConfig: googleOAuthConfig},
-		File:    &FileController{baseController: bc},
-		Project: &ProjectController{baseController: bc},
+		User:           &UserController{baseController: bc},
+		Index:          &IndexController{baseController: bc},
+		Auth:           &AuthController{baseController: bc},
+		OAuth:          &OAuthController{baseController: bc, googleOAuthConfig: googleOAuthConfig},
+		File:           &FileController{baseController: bc},
+		Project:        &ProjectController{baseController: bc},
+		ProjectBuilder: &ProjectBuilderController{baseController: bc},
 	}
 }
 
@@ -73,6 +77,24 @@ func (b *baseController) getAuthUser(ctx *gin.Context) (*auth.JWTPayload, error)
 	}
 
 	return authUser, nil
+}
+
+func (b *baseController) getProjectRole(ctx *gin.Context, projectId string) ([]constant.ProjectRole, *model.Project, error) {
+	user, err := b.getAuthUser(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get auth user: %w", err)
+	}
+
+	role, project, err := b.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get project role: %w", err)
+	}
+
+	if len(role) == 0 {
+		role = []constant.ProjectRole{}
+	}
+
+	return role, project, nil
 }
 
 func (b *baseController) uploadFileToS3ByPath(path string) (minio.UploadInfo, error) {
