@@ -13,6 +13,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/auth"
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 	"golang.org/x/oauth2"
@@ -123,7 +124,7 @@ func (b *baseController) uploadFileToS3ByPath(path string) (minio.UploadInfo, er
 	contentType = http.DetectContentType(buffer)
 
 	// Upload the file to S3
-	info, err := b.app.S3.FPutObject(context.Background(), b.app.Config.Minio.BUCKET, fileName, path, minio.PutObjectOptions{
+	info, err := b.app.S3.FPutObject(context.Background(), b.app.Config.Minio.BUCKET, util.AddUniquePrefixToFileName(fileName), path, minio.PutObjectOptions{
 		ContentType: contentType,
 	})
 	if err != nil {

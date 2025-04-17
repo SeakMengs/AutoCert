@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -12,6 +13,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 )
 
 type ProjectController struct {
@@ -113,19 +115,37 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	}
 
 	tx := pc.app.Repository.DB.Begin()
-	defer tx.Commit()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(errors.New("failed to create project")), nil)
+		}
+	}()
 
 	_, err = pc.app.Repository.Project.Create(ctx, nil, &model.Project{
 		Title:  body.Title,
 		UserID: user.ID,
 		TemplateFile: model.File{
-			FileName:       info.Key,
-			UniqueFileName: util.AddUniquePrefixToFileName(info.Key),
+			FileName:       filepath.Base(finalPdf),
+			UniqueFileName: info.Key,
 			BucketName:     info.Bucket,
 			Size:           info.Size,
 		},
 	})
 	if err != nil {
+		// delete the file from s3 if project creation failed
+		if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
+			pc.app.Logger.Error(err)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete file", util.GenerateErrorMessages(err), nil)
+			return
+		}
+
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(err), nil)
 		return

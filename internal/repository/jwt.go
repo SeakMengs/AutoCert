@@ -111,7 +111,7 @@ func (jr JWTRepository) RefreshToken(ctx context.Context, tx *gorm.DB, refreshTo
 		}
 
 		// Update the new token to the database
-		if err := tx2.WithContext(ctx).Model(&model.Token{}).Where(model.Token{
+		if err := tx2.WithContext(ctx).Model(&model.Token{}).Select("refresh_token", "access_token", "can_acess", "can_refresh", "user_id").Where(model.Token{
 			RefreshToken: refreshToken,
 		}).Updates(model.Token{
 			RefreshToken: *newRefreshToken,

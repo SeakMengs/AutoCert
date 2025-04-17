@@ -9,7 +9,7 @@ type Project struct {
 	EmbedQr        bool                   `gorm:"type:boolean;default:false" json:"embedQr" form:"embedQr"`
 	Status         constant.ProjectStatus `gorm:"type:integer;default:0" json:"status" form:"status"`
 	TemplateFileID string                 `gorm:"type:text;not null" json:"templateFileId" form:"templateFileId" binding:"required"`
-	CSVFileID      string                 `gorm:"type:text" json:"csvFileId" form:"csvFileId"`
+	CSVFileID      string                 `gorm:"type:text;default:null" json:"csvFileId" form:"csvFileId"`
 	UserID         string                 `gorm:"type:text;not null" json:"userId" form:"userId"`
 
 	TemplateFile       File                `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;" json:"templateFile,omitempty" form:"templateFile"`

@@ -41,6 +41,14 @@ func BuildResponseFailed(message string, err any, data any) Response {
 		err = GenerateErrorMessages(err.(error))
 	}
 
+	if err == nil {
+		err = gin.H{}
+	}
+
+	if data == nil {
+		data = gin.H{}
+	}
+
 	return Response{
 		Success: false,
 		Message: message,

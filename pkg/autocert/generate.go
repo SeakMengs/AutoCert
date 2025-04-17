@@ -306,7 +306,7 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern stri
 
 // readCSVData reads and parses the CSV file.
 func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
-	records, err := ReadCSV(cg.CSVPath)
+	records, err := ReadCSVFromFile(cg.CSVPath)
 	if err != nil {
 		return nil, err
 	}

@@ -3,13 +3,20 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
 	"github.com/SeakMengs/AutoCert/internal/util"
+	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
 
@@ -26,89 +33,60 @@ const (
 
 type ColumnAnnotateState struct {
 	model.ColumnAnnotate
-	Type AnnotateType `json:"type" binding:"required"`
+	Type AnnotateType `json:"type" binding:"required" form:"type"`
 }
 
 type SignatureAnnotateState struct {
 	model.SignatureAnnotate
-	Type AnnotateType `json:"type" binding:"required"`
+	Type AnnotateType `json:"type" binding:"required" form:"type"`
 }
 
 type AutoCertSettings struct {
-	QrCodeEnabled bool `json:"qrCodeEnabled" binding:"required"`
+	QrCodeEnabled bool `json:"qrCodeEnabled" binding:"required" form:"qrCodeEnabled"`
 }
 
 type AnnotateColumnAdd struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		ColumnAnnotateState
-		Page int `json:"page" binding:"required" form:"page"`
-	} `json:"data" binding:"required" form:"data"`
+	ColumnAnnotateState
+	Page int `json:"page" binding:"required" form:"page"`
 }
 
 type AnnotateColumnUpdate struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		ColumnAnnotateState
-		Page int `json:"page" binding:"required" form:"page"`
-	} `json:"data" binding:"required" form:"data"`
+	ColumnAnnotateState
+	Page int `json:"page" binding:"required" form:"page"`
 }
 
 type AnnotateColumnRemove struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		ID string `json:"id" binding:"required" form:"id"`
-	} `json:"data" binding:"required" form:"data"`
+	ID string `json:"id" binding:"required" form:"id"`
 }
 
 type AnnotateSignatureAdd struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		SignatureAnnotateState
-		Page int `json:"page" binding:"required" form:"page"`
-	} `json:"data" binding:"required" form:"data"`
+	SignatureAnnotateState
+	Page int `json:"page" binding:"required" form:"page"`
 }
 
 type AnnotateSignatureUpdate struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		SignatureAnnotateState
-		Page int `json:"page" binding:"required" form:"page"`
-	} `json:"data" binding:"required" form:"data"`
+	SignatureAnnotateState
+	Page int `json:"page" binding:"required" form:"page"`
 }
 
 type AnnotateSignatureRemove struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		ID string `json:"id" binding:"required" form:"id"`
-	} `json:"data" binding:"required" form:"data"`
+	ID string `json:"id" binding:"required" form:"id"`
 }
 
 type AnnotateSignatureInvite struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		ID    string `json:"id" binding:"required" form:"id"`
-		Email string `json:"email" binding:"required,email" form:"email"`
-	} `json:"data" binding:"required" form:"data"`
+	ID string `json:"id" binding:"required" form:"id"`
 }
 
 type AnnotateSignatureApprove struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		ID string `json:"id" binding:"required" form:"id"`
-	} `json:"data" binding:"required" form:"data"`
+	ID string `json:"id" binding:"required" form:"id"`
 }
 
 type SettingsUpdate struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data AutoCertSettings           `json:"data" binding:"required" form:"data"`
+	QrCodeEnabled bool `json:"qrCodeEnabled" binding:"required" form:"qrCodeEnabled"`
 }
 
 type TableUpdate struct {
-	Type constant.ProjectPermission `json:"type" binding:"required" form:"type"`
-	Data struct {
-		CSVFile *multipart.FileHeader `form:"csvFile" binding:"required"`
-	} `json:"data" binding:"required" form:"data"`
+	CSVFile *multipart.FileHeader `form:"csvFile" binding:"required"`
 }
 
 // AutoCertChangeEvent is a generic wrapper that holds the event type and raw payload.
@@ -122,6 +100,16 @@ const (
 )
 
 // Take list of event types and their corresponding payloads, if at least one of the patch fail, will revert all changes and respond with error
+// Accept format:
+//
+//	{
+//	  "events": [
+//	    {
+//	      "type": "annotateColumnAdd",
+//	      "data": {},
+//	    }],
+//	  "csvFile": "file.csv" // only if table update event is included in the event list
+//	}
 func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	projectId := ctx.Param("projectId")
 	if projectId == "" {
@@ -177,14 +165,14 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			util.ResponseFailed(ctx, http.StatusInternalServerError, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("panic occurred"), "events"), nil)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("failed to process events"), "events"), nil)
 		}
 	}()
 
 	handlers := pbc.getEventHandlers()
 
 	for idx, event := range events {
-		pbc.app.Logger.Debugf("Processing event #%d, type %s", idx, event.Type)
+		pbc.app.Logger.Debugf("Processing event #%d, type %s", idx+1, event.Type)
 		handler, ok := handlers[event.Type]
 
 		if !ok {
@@ -192,7 +180,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 			continue
 		}
 
-		if err := handler(ctx, tx, roles, projectId, event.Data); err != nil {
+		if err := handler(ctx, tx, roles, project, event.Data); err != nil {
 			tx.Rollback()
 			pbc.app.Logger.Errorf("Failed to handle event %s: %v", event.Type, err)
 			util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(err, nil, "events"), nil)
@@ -209,7 +197,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	util.ResponseSuccess(ctx, nil)
 }
 
-type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error
+type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error
 
 func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermission]EventHandlerType {
 	return map[constant.ProjectPermission]EventHandlerType{
@@ -226,7 +214,7 @@ func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermi
 	}
 }
 
-func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateColumnAdd
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateColumnAdd")
@@ -237,25 +225,25 @@ func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx
 		return errors.New("you do not have permission to add column annotate")
 	}
 
-	err := pbc.app.Repository.ColumnAnnotate.Create(ctx, tx, model.ColumnAnnotate{
+	err := pbc.app.Repository.ColumnAnnotate.Create(ctx, tx, &model.ColumnAnnotate{
 		BaseModel: model.BaseModel{
-			ID: payload.Data.ID,
+			ID: payload.ID,
 		},
 		BaseAnnotateModel: model.BaseAnnotateModel{
-			Page:      uint(payload.Data.Page),
-			X:         payload.Data.X,
-			Y:         payload.Data.Y,
-			Width:     payload.Data.Width,
-			Height:    payload.Data.Height,
-			Color:     payload.Data.Color,
-			ProjectID: projectId,
+			Page:      uint(payload.Page),
+			X:         payload.X,
+			Y:         payload.Y,
+			Width:     payload.Width,
+			Height:    payload.Height,
+			Color:     payload.Color,
+			ProjectID: project.ID,
 		},
-		Value:          payload.Data.Value,
-		FontName:       payload.Data.FontName,
-		FontSize:       payload.Data.FontSize,
-		FontColor:      payload.Data.FontColor,
-		FontWeight:     payload.Data.FontWeight,
-		TextFitRectBox: payload.Data.TextFitRectBox,
+		Value:          payload.Value,
+		FontName:       payload.FontName,
+		FontSize:       payload.FontSize,
+		FontColor:      payload.FontColor,
+		FontWeight:     payload.FontWeight,
+		TextFitRectBox: payload.TextFitRectBox,
 	})
 	if err != nil {
 		return errors.New("failed to add column annotate")
@@ -264,45 +252,52 @@ func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+
 	var payload AnnotateColumnUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateColumnUpdate")
 	}
-	pbc.app.Logger.Debugf("AnnotateColumnUpdate: %+v", payload)
+	pbc.app.Logger.Debugf("AnnotateColumnUpdate: %+v \n", payload)
 
 	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateColumnUpdate}) {
 		return errors.New("you do not have permission to update column annotate")
 	}
 
-	err := pbc.app.Repository.ColumnAnnotate.Update(ctx, tx, model.ColumnAnnotate{
+	err := pbc.app.Repository.ColumnAnnotate.Update(ctx, tx, &model.ColumnAnnotate{
 		BaseModel: model.BaseModel{
-			ID: payload.Data.ID,
+			ID: payload.ID,
 		},
 		BaseAnnotateModel: model.BaseAnnotateModel{
-			Page:      uint(payload.Data.Page),
-			X:         payload.Data.X,
-			Y:         payload.Data.Y,
-			Width:     payload.Data.Width,
-			Height:    payload.Data.Height,
-			Color:     payload.Data.Color,
-			ProjectID: projectId,
+			Page:      uint(payload.Page),
+			X:         payload.X,
+			Y:         payload.Y,
+			Width:     payload.Width,
+			Height:    payload.Height,
+			Color:     payload.Color,
+			ProjectID: project.ID,
 		},
-		Value:          payload.Data.Value,
-		FontName:       payload.Data.FontName,
-		FontSize:       payload.Data.FontSize,
-		FontColor:      payload.Data.FontColor,
-		FontWeight:     payload.Data.FontWeight,
-		TextFitRectBox: payload.Data.TextFitRectBox,
+		Value:      payload.Value,
+		FontName:   payload.FontName,
+		FontSize:   payload.FontSize,
+		FontColor:  payload.FontColor,
+		FontWeight: payload.FontWeight,
 	})
 	if err != nil {
+		return errors.New("failed to update column annotate")
+	}
+
+	// Update bool field separately
+	err = pbc.app.Repository.ColumnAnnotate.UpdateTextFitRectBox(ctx, tx, payload.ID, payload.TextFitRectBox)
+	if err != nil {
+		pbc.app.Logger.Debugf("Failed to update text fit rect box: %v", err)
 		return errors.New("failed to update column annotate")
 	}
 
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateColumnRemove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateColumnRemove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateColumnRemove
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateColumnRemove")
@@ -313,10 +308,15 @@ func (pbc ProjectBuilderController) handleAnnotateColumnRemove(ctx *gin.Context,
 		return errors.New("you do not have permission to remove column annotate")
 	}
 
+	err := pbc.app.Repository.ColumnAnnotate.Delete(ctx, tx, payload.ID)
+	if err != nil {
+		return errors.New("failed to remove column annotate")
+	}
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateSignatureAdd
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateSignatureAdd")
@@ -327,10 +327,30 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context,
 		return errors.New("you do not have permission to add signature annotate")
 	}
 
+	err := pbc.app.Repository.SignatureAnnotate.Create(ctx, tx, &model.SignatureAnnotate{
+		BaseModel: model.BaseModel{
+			ID: payload.ID,
+		},
+		BaseAnnotateModel: model.BaseAnnotateModel{
+			Page:      uint(payload.Page),
+			X:         payload.X,
+			Y:         payload.Y,
+			Width:     payload.Width,
+			Height:    payload.Height,
+			Color:     payload.Color,
+			ProjectID: project.ID,
+		},
+		Status: constant.SignatoryStatusNotInvited,
+		Email:  payload.Email,
+	})
+	if err != nil {
+		return errors.New("failed to add signature annotate")
+	}
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateSignatureUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateSignatureUpdate")
@@ -341,10 +361,31 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Conte
 		return errors.New("you do not have permission to update signature annotate")
 	}
 
+	err := pbc.app.Repository.SignatureAnnotate.Update(ctx, tx, &model.SignatureAnnotate{
+		BaseModel: model.BaseModel{
+			ID: payload.ID,
+		},
+		BaseAnnotateModel: model.BaseAnnotateModel{
+			Page:      uint(payload.Page),
+			X:         payload.X,
+			Y:         payload.Y,
+			Width:     payload.Width,
+			Height:    payload.Height,
+			Color:     payload.Color,
+			ProjectID: project.ID,
+		},
+		// Intentionally miss out status and email since it should be handle differently in case we want to send email in the future
+		// Status: constant.SignatoryStatusNotInvited,
+		// Email: payload.Email,
+	})
+	if err != nil {
+		return errors.New("failed to update signature annotate")
+	}
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateSignatureRemove
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateSignatureRemove")
@@ -355,10 +396,15 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Conte
 		return errors.New("you do not have permission to remove signature annotate")
 	}
 
+	err := pbc.app.Repository.SignatureAnnotate.Delete(ctx, tx, payload.ID)
+	if err != nil {
+		return errors.New("failed to remove signature annotate")
+	}
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateSignatureInvite
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateSignatureInvite")
@@ -369,10 +415,15 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 		return errors.New("you do not have permission to invite signature annotate")
 	}
 
+	err := pbc.app.Repository.SignatureAnnotate.InviteSignatory(ctx, tx, payload.ID)
+	if err != nil {
+		return errors.New("failed to invite signatory")
+	}
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload AnnotateSignatureApprove
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateSignatureApprove")
@@ -383,10 +434,15 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Cont
 		return errors.New("you do not have permission to approve signature")
 	}
 
+	// TODO: implement approve signature by accept file
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+	// print json of data
+	pbc.app.Logger.Debugf("SettingsUpdate: %s", string(data))
+
 	var payload SettingsUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for SettingsUpdate")
@@ -397,18 +453,98 @@ func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *g
 		return errors.New("you do not have permission to update settings")
 	}
 
+	log.Printf("QrCodeEnabled: %t", payload.QrCodeEnabled)
+
+	err := pbc.app.Repository.Project.UpdateSetting(ctx, tx, project.ID, payload.QrCodeEnabled)
+	if err != nil {
+		return errors.New("failed to update project settings")
+	}
+
 	return nil
 }
 
-func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, projectId string, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
 	var payload TableUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for TableUpdate")
 	}
-	pbc.app.Logger.Debugf("TableUpdate: %+v", payload)
+
+	file, err := ctx.FormFile("csvFile")
+	if err != nil {
+		return errors.New("failed to get csv file")
+	}
+	if file == nil {
+		return errors.New("csv file is required")
+	}
+	payload.CSVFile = file
+
+	pbc.app.Logger.Debugf("TableUpdate: %+v", payload.CSVFile.Filename)
 
 	if !util.HasPermission(roles, []constant.ProjectPermission{constant.TableUpdate}) {
 		return errors.New("you do not have permission to update table")
+	}
+
+	f, err := payload.CSVFile.Open()
+	if err != nil {
+		return errors.New("failed to open csv file")
+	}
+	defer f.Close()
+
+	// Create a temp file
+	tmp, err := os.CreateTemp("", "autocert-*.csv")
+	if err != nil {
+		pbc.app.Logger.Errorf("Failed to create temp file: %v", err)
+		return fmt.Errorf("failed to save table data")
+	}
+	defer func() {
+		tmp.Close()
+		os.Remove(tmp.Name())
+	}()
+
+	if _, err := io.Copy(tmp, f); err != nil {
+		pbc.app.Logger.Errorf("Failed to copy file: %v", err)
+		return fmt.Errorf("failed to save table data")
+	}
+	if err := tmp.Close(); err != nil {
+		pbc.app.Logger.Errorf("Failed to close temp file: %v", err)
+		return fmt.Errorf("failed to save table data")
+	}
+
+	_, err = autocert.ReadCSVFromFile(tmp.Name())
+	if err != nil {
+		return errors.New("invalid csv file")
+	}
+
+	info, err := pbc.uploadFileToS3ByPath(tmp.Name())
+	if err != nil {
+		pbc.app.Logger.Warnf("Failed to upload csv file: %v", err)
+		return errors.New("failed to upload csv file")
+	}
+
+	err = pbc.app.Repository.Project.UpdateCSVFile(ctx, tx, &model.Project{
+		BaseModel: model.BaseModel{
+			ID: project.ID,
+		},
+		CSVFile: model.File{
+			FileName:       filepath.Base(tmp.Name()),
+			UniqueFileName: info.Key,
+			BucketName:     info.Bucket,
+			Size:           info.Size,
+		},
+	})
+	if err != nil {
+		pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{})
+
+		pbc.app.Logger.Warnf("Failed to update project table: %v", err)
+		return errors.New("failed to update project table")
+	}
+
+	// delete the existing file in s3 if exists
+	if project.CSVFile.UniqueFileName != "" {
+		err := pbc.app.S3.RemoveObject(ctx, project.CSVFile.BucketName, project.CSVFile.UniqueFileName, minio.RemoveObjectOptions{})
+		if err != nil {
+			return errors.New("failed to delete existing csv file")
+		}
 	}
 
 	return nil

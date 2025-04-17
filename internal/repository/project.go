@@ -21,7 +21,7 @@ func (pr ProjectRepository) Create(ctx context.Context, tx *gorm.DB, project *mo
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	if err := db.WithContext(ctx).Model(&model.Project{}).Create(project).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&model.Project{}).Create(&project).Error; err != nil {
 		return project, err
 	}
 
@@ -42,7 +42,7 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 			ID: projectID,
 		},
 		UserID: authUser.ID,
-	}).Preload("TemplateFile").First(&project).Error; err != nil {
+	}).Preload("TemplateFile").Preload("CSVFile").First(&project).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, nil, err
 		}
@@ -223,4 +223,55 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 	}
 
 	return projectRes, totalProjects, nil
+}
+
+func (pr ProjectRepository) UpdateSetting(ctx context.Context, tx *gorm.DB, projectId string, embedQr bool) error {
+	pr.logger.Debugf("Update project setting with projectId: %s and embedQr: %v \n", projectId, embedQr)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	// Need to select because gorm does not allow none-zero value to be updated unless selected
+	if err := db.WithContext(ctx).Model(&model.Project{}).Select("embed_qr").Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: projectId,
+		},
+	}).Updates(&model.Project{
+		EmbedQr: embedQr,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (pr ProjectRepository) UpdateCSVFile(ctx context.Context, tx *gorm.DB, project *model.Project) error {
+	pr.logger.Debugf("Update project csv file with data: %v \n", project)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var csvfile *model.File
+
+	if err := db.WithContext(ctx).Model(&model.File{}).Where(&model.File{
+		BaseModel: model.BaseModel{
+			ID: project.CSVFile.ID,
+		},
+	}).Assign(project.CSVFile).FirstOrCreate(&csvfile).Error; err != nil {
+		return err
+	}
+
+	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: project.ID,
+		},
+	}).Updates(&model.Project{
+		CSVFileID: csvfile.ID,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

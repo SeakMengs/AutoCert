@@ -3,26 +3,29 @@ package autocert
 import (
 	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 )
 
 // ReadCSV reads and parses a CSV file, returning the data as a slice of string slices.
 // Each inner slice represents a row of the CSV.
-func ReadCSV(filename string) ([][]string, error) {
-	// Open the file
+func ReadCSVFromFile(filename string) ([][]string, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("error opening file %s: %w", filename, err)
 	}
 	defer file.Close()
 
-	// Create a new CSV reader
-	reader := csv.NewReader(file)
+	return ReadCSVFromReader(file)
+}
+
+func ReadCSVFromReader(reader io.Reader) ([][]string, error) {
+	csvReader := csv.NewReader(reader)
 
 	// Read all records
-	records, err := reader.ReadAll()
+	records, err := csvReader.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("error reading CSV %s: %w", filename, err)
+		return nil, fmt.Errorf("error reading CSV: %w", err)
 	}
 
 	return records, nil
