@@ -48,6 +48,8 @@ services:
             MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
             # Can remove if prod
         command: "server /data --console-address :9001"
+        # extra_hosts:
+            # - "host.docker.internal:host-gateway"
 volumes:
     psql_db_data:
     minio_data:

@@ -100,16 +100,7 @@ const (
 )
 
 // Take list of event types and their corresponding payloads, if at least one of the patch fail, will revert all changes and respond with error
-// Accept format:
-//
-//	{
-//	  "events": [
-//	    {
-//	      "type": "annotateColumnAdd",
-//	      "data": {},
-//	    }],
-//	  "csvFile": "file.csv" // only if table update event is included in the event list
-//	}
+// For detail document of this API, check docs/bruno
 func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	projectId := ctx.Param("projectId")
 	if projectId == "" {
@@ -194,6 +185,11 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		return
 	}
 
+	// delete the existing csv file after transaction is committed
+	if len(tableUpdateEvents) > 0 && project.CSVFile.UniqueFileName != "" {
+		pbc.app.S3.RemoveObject(ctx, project.CSVFile.BucketName, project.CSVFile.UniqueFileName, minio.RemoveObjectOptions{})
+	}
+
 	util.ResponseSuccess(ctx, nil)
 }
 
@@ -264,33 +260,23 @@ func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context,
 		return errors.New("you do not have permission to update column annotate")
 	}
 
-	err := pbc.app.Repository.ColumnAnnotate.Update(ctx, tx, &model.ColumnAnnotate{
-		BaseModel: model.BaseModel{
-			ID: payload.ID,
-		},
-		BaseAnnotateModel: model.BaseAnnotateModel{
-			Page:      uint(payload.Page),
-			X:         payload.X,
-			Y:         payload.Y,
-			Width:     payload.Width,
-			Height:    payload.Height,
-			Color:     payload.Color,
-			ProjectID: project.ID,
-		},
-		Value:      payload.Value,
-		FontName:   payload.FontName,
-		FontSize:   payload.FontSize,
-		FontColor:  payload.FontColor,
-		FontWeight: payload.FontWeight,
+	err := pbc.app.Repository.ColumnAnnotate.Update(ctx, tx, map[string]any{
+		"id":                payload.ID,
+		"page":              uint(payload.Page),
+		"x":                 payload.X,
+		"y":                 payload.Y,
+		"width":             payload.Width,
+		"height":            payload.Height,
+		"color":             payload.Color,
+		"project_id":        project.ID,
+		"value":             payload.Value,
+		"font_name":         payload.FontName,
+		"font_size":         payload.FontSize,
+		"font_color":        payload.FontColor,
+		"font_weight":       payload.FontWeight,
+		"text_fit_rect_box": payload.TextFitRectBox,
 	})
 	if err != nil {
-		return errors.New("failed to update column annotate")
-	}
-
-	// Update bool field separately
-	err = pbc.app.Repository.ColumnAnnotate.UpdateTextFitRectBox(ctx, tx, payload.ID, payload.TextFitRectBox)
-	if err != nil {
-		pbc.app.Logger.Debugf("Failed to update text fit rect box: %v", err)
 		return errors.New("failed to update column annotate")
 	}
 
@@ -351,6 +337,7 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context,
 }
 
 func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+	pbc.app.Logger.Infof("Paylod json : %s", string(data))
 	var payload AnnotateSignatureUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateSignatureUpdate")
@@ -361,22 +348,15 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Conte
 		return errors.New("you do not have permission to update signature annotate")
 	}
 
-	err := pbc.app.Repository.SignatureAnnotate.Update(ctx, tx, &model.SignatureAnnotate{
-		BaseModel: model.BaseModel{
-			ID: payload.ID,
-		},
-		BaseAnnotateModel: model.BaseAnnotateModel{
-			Page:      uint(payload.Page),
-			X:         payload.X,
-			Y:         payload.Y,
-			Width:     payload.Width,
-			Height:    payload.Height,
-			Color:     payload.Color,
-			ProjectID: project.ID,
-		},
-		// Intentionally miss out status and email since it should be handle differently in case we want to send email in the future
-		// Status: constant.SignatoryStatusNotInvited,
-		// Email: payload.Email,
+	err := pbc.app.Repository.SignatureAnnotate.Update(ctx, tx, map[string]any{
+		"id":         payload.ID,
+		"page":       uint(payload.Page),
+		"x":          payload.X,
+		"y":          payload.Y,
+		"width":      payload.Width,
+		"height":     payload.Height,
+		"color":      payload.Color,
+		"project_id": project.ID,
 	})
 	if err != nil {
 		return errors.New("failed to update signature annotate")
@@ -537,14 +517,6 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 
 		pbc.app.Logger.Warnf("Failed to update project table: %v", err)
 		return errors.New("failed to update project table")
-	}
-
-	// delete the existing file in s3 if exists
-	if project.CSVFile.UniqueFileName != "" {
-		err := pbc.app.S3.RemoveObject(ctx, project.CSVFile.BucketName, project.CSVFile.UniqueFileName, minio.RemoveObjectOptions{})
-		if err != nil {
-			return errors.New("failed to delete existing csv file")
-		}
 	}
 
 	return nil

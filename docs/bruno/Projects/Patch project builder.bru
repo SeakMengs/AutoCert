@@ -1,0 +1,314 @@
+meta {
+  name: Patch project builder
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{url}}/api/v1/projects/{{projectId}}/builder
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  events: []
+}
+
+vars:pre-request {
+  projectId: 2fa1bd68-065e-4eba-9d6e-4f08e42ab65b
+}
+
+docs {
+  # Project Builder API Documentation
+  
+  ## Endpoint: Project Builder
+  
+  ```
+  PATCH /api/projects/{projectId}/builder
+  ```
+  
+  This endpoint allows for updating and configuring various aspects of a project during its preparation stage.
+  
+  ### Path Parameters
+  
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | projectId | string | Required. The unique identifier of the project to update. |
+  
+  ### Request Format
+  
+  The request should be a multipart form containing:
+  
+  - `events`: A JSON array of change events to apply to the project
+  - `csvFile`: (Optional) A CSV file, required only if the events list includes a `table:update` event
+  
+  ### Events Structure
+  
+  Each event in the `events` array must include:
+  
+  ```json
+  {
+    "type": "eventType",
+    "data": { ... }
+  }
+  ```
+  
+  The `type` field specifies the action to perform, and the `data` field contains the payload for that action.
+  
+  ### Event Types and Payloads
+  
+  #### 1. annotate:column:add
+  
+  Adds a new column annotation to the project.
+  
+  ```json
+  {
+    "type": "annotate:column:add",
+    "data": {
+      "id": "column-123",
+      "type": "column",
+      "page": 1,
+      "x": 100,
+      "y": 200,
+      "width": 150,
+      "height": 30,
+      "color": "#0000FF",
+      "value": "Name",
+      "fontName": "Arial",
+      "fontSize": 12,
+      "fontColor": "#000000",
+      "fontWeight": "normal",
+      "textFitRectBox": true
+    }
+  }
+  ```
+  
+  #### 2. annotate:column:update
+  
+  Updates an existing column annotation.
+  
+  ```json
+  {
+    "type": "annotate:column:update",
+    "data": {
+      "id": "column-123",
+      "type": "column",
+      "page": 1,
+      "x": 120,
+      "y": 220,
+      "width": 160,
+      "height": 35,
+      "color": "#0000FF",
+      "value": "Full Name",
+      "fontName": "Arial",
+      "fontSize": 14,
+      "fontColor": "#000000",
+      "fontWeight": "bold",
+      "textFitRectBox": true
+    }
+  }
+  ```
+  
+  #### 3. annotate:column:remove
+  
+  Removes a column annotation.
+  
+  ```json
+  {
+    "type": "annotate:column:remove",
+    "data": {
+      "id": "column-123"
+    }
+  }
+  ```
+  
+  #### 4. annotate:signature:add
+  
+  Adds a new signature annotation to the project.
+  
+  ```json
+  {
+    "type": "annotate:signature:add",
+    "data": {
+      "id": "signature-123",
+      "type": "signature",
+      "page": 2,
+      "x": 300,
+      "y": 400,
+      "width": 200,
+      "height": 50,
+      "color": "#FF0000",
+      "email": "signer@example.com"
+    }
+  }
+  ```
+  
+  #### 5. annotate:signature:update
+  
+  Updates an existing signature annotation.
+  
+  ```json
+  {
+    "type": "annotate:signature:update",
+    "data": {
+      "id": "signature-123",
+      "type": "signature",
+      "page": 2,
+      "x": 320,
+      "y": 420,
+      "width": 220,
+      "height": 60,
+      "color": "#FF0000"
+    }
+  }
+  ```
+  
+  #### 6. annotate:signature:remove
+  
+  Removes a signature annotation.
+  
+  ```json
+  {
+    "type": "annotate:signature:remove",
+    "data": {
+      "id": "signature-123"
+    }
+  }
+  ```
+  
+  #### 7. annotate:signature:invite
+  
+  Invites a signatory for a signature annotation.
+  
+  ```json
+  {
+    "type": "annotate:signature:invite",
+    "data": {
+      "id": "signature-123"
+    }
+  }
+  ```
+  
+  #### 8. annotate:signature:approve
+  
+  Approves a signature annotation.
+  
+  ```json
+  {
+    "type": "annotate:signature:approve",
+    "data": {
+      "id": "signature-123"
+    }
+  }
+  ```
+  
+  #### 9. settings:update
+  
+  Updates project settings.
+  
+  ```json
+  {
+    "type": "settings:update",
+    "data": {
+      "qrCodeEnabled": true
+    }
+  }
+  ```
+  
+  #### 10. table:update
+  
+  Updates the CSV data table for the project. Requires a CSV file to be included in the request.
+  
+  ```json
+  {
+    "type": "table:update",
+    "data": {}
+  }
+  ```
+  
+  ### Example Request
+  
+  ```
+  PATCH /api/projects/proj-123/builder
+  Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+  
+  ------WebKitFormBoundary7MA4YWxkTrZu0gW
+  Content-Disposition: form-data; name="events"
+  
+  [
+    {
+      "type": "annotate:column:add",
+      "data": {
+        "id": "column-123",
+        "type": "column",
+        "page": 1,
+        "x": 100,
+        "y": 200,
+        "width": 150,
+        "height": 30,
+        "color": "#0000FF",
+        "value": "Name",
+        "fontName": "Arial",
+        "fontSize": 12,
+        "fontColor": "#000000",
+        "fontWeight": "normal",
+        "textFitRectBox": true
+      }
+    },
+    {
+      "type": "settings:update",
+      "data": {
+        "qrCodeEnabled": true
+      }
+    },
+    {
+      "type": "table:update",
+      "data": {}
+    }
+  ]
+  ------WebKitFormBoundary7MA4YWxkTrZu0gW
+  Content-Disposition: form-data; name="csvFile"; filename="data.csv"
+  Content-Type: text/csv
+  
+  id,name,email
+  1,John Doe,john@example.com
+  2,Jane Smith,jane@example.com
+  ------WebKitFormBoundary7MA4YWxkTrZu0gW--
+  ```
+  
+  ### Responses
+  
+  #### Success Response
+  
+  ```json
+  {
+    "data": null,
+    "status": "success"
+  }
+  ```
+  
+  #### Error Response
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Failed to patch project builder",
+      "errors": [
+        {
+          "field": "events",
+          "message": "failed to update column annotate"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  ### Notes
+  
+  1. All events in the request are processed in a transaction. If any event fails, all changes will be rolled back.
+  2. The project must be in the "preparing" status for updates to be allowed.
+  3. The user must have the appropriate permissions for each event type they try to execute.
+  4. Table update events are always processed last since they involve file operations which are not transactional.
+}

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/auth"
@@ -42,11 +43,12 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 			ID: projectID,
 		},
 		UserID: authUser.ID,
-	}).Preload("TemplateFile").Preload("CSVFile").First(&project).Error; err != nil {
+	}).Preload("TemplateFile").Preload("CSVFile").Preload("SignatureAnnotates").Preload("ColumnAnnotates").First(&project).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, nil, err
 		}
 	}
+
 	if project.ID != "" {
 		role = append(role, constant.ProjectRoleOwner)
 	}
@@ -262,6 +264,8 @@ func (pr ProjectRepository) UpdateCSVFile(ctx context.Context, tx *gorm.DB, proj
 	}).Assign(project.CSVFile).FirstOrCreate(&csvfile).Error; err != nil {
 		return err
 	}
+
+	log.Printf("csvfile: %v \n", csvfile)
 
 	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
 		BaseModel: model.BaseModel{

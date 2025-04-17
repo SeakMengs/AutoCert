@@ -8,6 +8,6 @@ type BaseAnnotateModel struct {
 	Height float64 `gorm:"type:double precision;not null" json:"height" form:"height" binding:"required"`
 	Color  string  `gorm:"type:varchar(20)" json:"color" form:"color" binding:"required"`
 
-	ProjectID string  `gorm:"type:text;not null" json:"projectId" form:"projectId"`
-	Project   Project `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"project" form:"project"`
+	ProjectID string  `gorm:"type:text;not null" json:"-" form:"projectId"`
+	Project   Project `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-" form:"-"`
 }

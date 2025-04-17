@@ -28,21 +28,21 @@ func (sar SignatureAnnotateRepository) Create(ctx context.Context, tx *gorm.DB, 
 	return nil
 }
 
-func (sar SignatureAnnotateRepository) Update(ctx context.Context, tx *gorm.DB, sa *model.SignatureAnnotate) error {
+func (sar SignatureAnnotateRepository) Update(ctx context.Context, tx *gorm.DB, sa map[string]any) error {
 	sar.logger.Debugf("Update signature annotate with data: %v \n", sa)
 
 	db := sar.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	if sa.ID == "" {
+	if sa["id"] == "" {
 		sar.logger.Errorf("Failed to update signature annotate: ID is empty")
 		return errors.New("ID cannot be empty for update operation")
 	}
 
 	if err := db.WithContext(ctx).Model(&model.SignatureAnnotate{}).Where(model.SignatureAnnotate{
 		BaseModel: model.BaseModel{
-			ID: sa.ID,
+			ID: sa["id"].(string),
 		},
 	}).Updates(&sa).Error; err != nil {
 		sar.logger.Errorf("Failed to update signature annotate: %v", err)
@@ -63,9 +63,14 @@ func (sar SignatureAnnotateRepository) InviteSignatory(ctx context.Context, tx *
 		BaseModel: model.BaseModel{
 			ID: caId,
 		},
+		Status: constant.SignatoryStatusNotInvited,
 	}).Updates(&model.SignatureAnnotate{
 		Status: constant.SignatoryStatusInvited,
 	}).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("signatory not found or already invited")
+		}
+
 		sar.logger.Errorf("Failed to invite signatory: %v", err)
 		return err
 	}

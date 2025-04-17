@@ -28,45 +28,24 @@ func (car ColumnAnnotateRepository) Create(ctx context.Context, tx *gorm.DB, ca 
 	return nil
 }
 
-func (car ColumnAnnotateRepository) Update(ctx context.Context, tx *gorm.DB, ca *model.ColumnAnnotate) error {
+func (car ColumnAnnotateRepository) Update(ctx context.Context, tx *gorm.DB, ca map[string]any) error {
 	car.logger.Debugf("Update column annotate with data: %v \n", ca)
 
 	db := car.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	if ca.ID == "" {
+	if ca["id"] == "" {
 		car.logger.Errorf("Failed to update column annotate: ID is empty")
 		return errors.New("ID cannot be empty for update operation")
 	}
 
 	if err := db.WithContext(ctx).Model(&model.ColumnAnnotate{}).Where(model.ColumnAnnotate{
 		BaseModel: model.BaseModel{
-			ID: ca.ID,
+			ID: ca["id"].(string),
 		},
 	}).Updates(&ca).Error; err != nil {
 		car.logger.Errorf("Failed to update column annotate: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-func (car ColumnAnnotateRepository) UpdateTextFitRectBox(ctx context.Context, tx *gorm.DB, caId string, TextFitRectBox bool) error {
-	car.logger.Debugf("Update text fit rect box of column annotate with id: %s \n", caId)
-
-	db := car.getDB(tx)
-	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
-	defer cancel()
-
-	if err := db.WithContext(ctx).Model(&model.ColumnAnnotate{}).Select("text_fit_rect_box").Where(model.ColumnAnnotate{
-		BaseModel: model.BaseModel{
-			ID: caId,
-		},
-	}).Updates(model.ColumnAnnotate{
-		TextFitRectBox: TextFitRectBox,
-	}).Error; err != nil {
-		car.logger.Errorf("Failed to update text fit rect box of column annotate: %v", err)
 		return err
 	}
 

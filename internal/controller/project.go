@@ -166,48 +166,55 @@ func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
 		return
 	}
 
-	role, _, err := pc.getProjectRole(ctx, projectId)
+	roles, _, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	util.ResponseSuccess(ctx, gin.H{
-		"role": role,
+		"roles": roles,
 	})
 }
 
 func (pc ProjectController) GetProjectById(ctx *gin.Context) {
+	type ProjectById struct {
+		ID                 string                    `json:"id"`
+		Title              string                    `json:"title"`
+		TemplateUrl        string                    `json:"templateUrl"`
+		IsPublic           bool                      `json:"isPublic"`
+		Status             constant.ProjectStatus    `json:"status"`
+		EmbedQr            bool                      `json:"embedQr"`
+		CSVFileUrl         string                    `json:"csvFileUrl"`
+		ColumnAnnotates    []model.ColumnAnnotate    `json:"columnAnnotates"`
+		SignatureAnnotates []model.SignatureAnnotate `json:"signatureAnnotates"`
+	}
+
+	type GetProjectByIdResponse struct {
+		Roles   []constant.ProjectRole `json:"roles"`
+		Project ProjectById            `json:"project"`
+	}
+
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
 		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
 		return
 	}
 
-	user, err := pc.getAuthUser(ctx)
+	roles, project, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
-	role, project, err := pc.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
-	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "project"), nil)
 		return
 	}
 
-	if project == nil {
-		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound)), nil)
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), nil), nil)
 		return
-	}
-
-	signatories, err := pc.app.Repository.Project.GetProjectSignatories(ctx, nil, project.ID)
-	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project signatories", util.GenerateErrorMessages(err), nil)
-		return
-	}
-	if len(signatories) == 0 {
-		signatories = []repository.ProjectSignatory{}
 	}
 
 	templateUrl, err := project.TemplateFile.ToPresignedUrl(ctx, pc.app.S3)
@@ -216,16 +223,39 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 		return
 	}
 
-	util.ResponseSuccess(ctx, gin.H{
-		"role": role,
-		"project": repository.ProjectResponse{
-			ID:          project.ID,
-			Title:       project.Title,
-			TemplateUrl: templateUrl,
-			IsPublic:    project.IsPublic,
-			Signatories: signatories,
-			Status:      project.Status,
-			CreatedAt:   project.CreatedAt,
+	var csvFileUrl string
+	if project.CSVFileID != "" {
+		csvFileUrl, err = project.CSVFile.ToPresignedUrl(ctx, pc.app.S3)
+		if err != nil {
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get CSV file URL", util.GenerateErrorMessages(err), nil)
+			return
+		}
+	}
+
+	if len(project.SignatureAnnotates) == 0 {
+		project.SignatureAnnotates = []model.SignatureAnnotate{}
+	}
+
+	if len(project.ColumnAnnotates) == 0 {
+		project.ColumnAnnotates = []model.ColumnAnnotate{}
+	}
+
+	if len(csvFileUrl) == 0 {
+		csvFileUrl = ""
+	}
+
+	util.ResponseSuccess(ctx, GetProjectByIdResponse{
+		Roles: roles,
+		Project: ProjectById{
+			ID:                 project.ID,
+			Title:              project.Title,
+			TemplateUrl:        templateUrl,
+			IsPublic:           project.IsPublic,
+			Status:             project.Status,
+			EmbedQr:            project.EmbedQr,
+			CSVFileUrl:         csvFileUrl,
+			ColumnAnnotates:    project.ColumnAnnotates,
+			SignatureAnnotates: project.SignatureAnnotates,
 		},
 	})
 }

@@ -11,58 +11,220 @@ get {
 }
 
 docs {
-  Type information
+  # Get Project By ID API Documentation (Summarized by ai)
   
-  type ProjectRole int
+  ## Endpoint: Get Project By ID
   
-  const (
-  	ProjectRoleOwner ProjectRole = iota
-  	ProjectRoleSignatory
-  	ProjectRoleNone
-  )
+  ```
+  GET /api/projects/{projectId}
+  ```
   
-  type SignatoryStatus int
+  This endpoint retrieves detailed information about a specific project, including its properties, annotations, and associated file URLs.
   
-  const (
-  	SignatoryStatusNotInvited SignatoryStatus = iota
-  	SignatoryStatusInvited
-  	SignatoryStatusSigned
-  )
+  ### Path Parameters
   
-  type ProjectSignatory struct {
-  	Email      string                   `json:"email"`
-  	ProfileUrl string                   `json:"profileUrl"`
-  	Status     constant.SignatoryStatus `json:"status"`
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | projectId | string | Required. The unique identifier of the project to retrieve. |
+  
+  ### Authorization
+  
+  This endpoint requires the user to have one of the following roles:
+  - Project Owner (`owner`)
+  - Signatory (`signatory`)
+  
+  ### Response Format
+  
+  #### Success Response (200 OK)
+  
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "roles": ["owner"],
+      "project": {
+        "id": "proj-123",
+        "title": "Certificate Template",
+        "templateUrl": "https://storage.example.com/templates/template-123.pdf?token=abc",
+        "isPublic": false,
+        "status": "preparing",
+        "embedQr": true,
+        "csvFileUrl": "https://storage.example.com/tables/data-123.csv?token=xyz",
+        "columnAnnotates": [
+          {
+            "id": "col-123",
+            "page": 1,
+            "x": 100,
+            "y": 200,
+            "width": 150,
+            "height": 30,
+            "color": "#0000FF",
+            "value": "Name",
+            "fontName": "Arial",
+            "fontSize": 12,
+            "fontColor": "#000000",
+            "fontWeight": "normal",
+            "textFitRectBox": true,
+            "projectId": "proj-123",
+            "createdAt": "2025-04-15T10:30:00Z",
+            "updatedAt": "2025-04-15T10:30:00Z"
+          }
+        ],
+        "signatureAnnotates": [
+          {
+            "id": "sig-123",
+            "page": 2,
+            "x": 300,
+            "y": 400,
+            "width": 200,
+            "height": 50,
+            "color": "#FF0000",
+            "status": "invited",
+            "email": "signer@example.com",
+            "projectId": "proj-123",
+            "createdAt": "2025-04-15T10:30:00Z",
+            "updatedAt": "2025-04-15T10:30:00Z"
+          }
+        ]
+      }
+    }
   }
+  ```
   
-  type ProjectStatus int
+  #### Error Responses
   
-  const (
-  	ProjectStatusPreparing ProjectStatus = iota
-  	ProjectStatusProcessing
-  	ProjectStatusCompleted
-  )
+  1. **Bad Request (400)**
+  ```json
+  {
+    "status": "failed",
+    "error": {
+      "detail": "Project ID is required",
+      "errors": [
+        {
+          "field": "projectId",
+          "message": "Project ID is required"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
   
-  type ProjectResponse struct {
-  		ID          string                        `json:"id"`
-  		Title       string                        `json:"title"`
-  		TemplateUrl string                        `json:"templateUrl"`
-  		IsPublic    bool                          `json:"isPublic"`
-  		Signatories []repository.ProjectSignatory `json:"signatories"`
-  		Status      constant.ProjectStatus        `json:"status"`
-  		CreatedAt   *time.Time                    `json:"createdAt"`
-  	}
+  2. **Not Found (404)**
+  ```json
+  {
+    "status": "failed",
+    "error": {
+      "detail": "Project not found",
+      "errors": [
+        {
+          "field": "project",
+          "message": "Project not found"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
   
-  util.ResponseSuccess(ctx, gin.H{
-  		"role": role,
-  		"project": ProjectResponse{
-  			ID:          project.ID,
-  			Title:       project.Title,
-  			TemplateUrl: templateUrl,
-  			IsPublic:    project.IsPublic,
-  			Signatories: signatories,
-  			Status:      project.Status,
-  			CreatedAt:   project.CreatedAt,
-  		},
-  	})
+  3. **Forbidden (403)**
+  ```json
+  {
+    "status": "failed",
+    "error": {
+      "detail": "You do not have permission to access this project",
+      "errors": [
+        {
+          "message": "you do not have permission to access this project"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
+  
+  4. **Internal Server Error (500)**
+  ```json
+  {
+    "status": "failed",
+    "error": {
+      "detail": "Failed to get template file URL",
+      "errors": [
+        {
+          "message": "error details"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
+  
+  ### Response Fields
+  
+  #### `roles` array
+  
+  List of roles the requesting user has for this project.
+  
+  | Value | Description |
+  |-------|-------------|
+  | owner | The user owns this project |
+  | signatory | The user is a signatory for this project |
+  
+  #### `project` object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the project |
+  | title | string | Project title |
+  | templateUrl | string | Pre-signed URL to access the template file |
+  | isPublic | boolean | Whether the project is publicly accessible |
+  | status | string | Current status of the project (e.g., "preparing", "completed") |
+  | embedQr | boolean | Whether QR code embedding is enabled for the project |
+  | csvFileUrl | string | Pre-signed URL to access the CSV data file (if available) |
+  | columnAnnotates | array | List of column annotations configured for the project |
+  | signatureAnnotates | array | List of signature annotations configured for the project |
+  
+  #### Column Annotate Object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the annotation |
+  | page | number | Page number where the annotation appears |
+  | x | number | X-coordinate of the annotation |
+  | y | number | Y-coordinate of the annotation |
+  | width | number | Width of the annotation |
+  | height | number | Height of the annotation |
+  | color | string | Color of the annotation box (hex format) |
+  | value | string | Text value of the column annotation |
+  | fontName | string | Font used for the text |
+  | fontSize | number | Font size for the text |
+  | fontColor | string | Color of the text (hex format) |
+  | fontWeight | string | Weight of the font (e.g., "normal", "bold") |
+  | textFitRectBox | boolean | Whether the text should fit within the annotation box |
+  | projectId | string | ID of the project this annotation belongs to |
+  | createdAt | string | ISO timestamp of creation time |
+  | updatedAt | string | ISO timestamp of last update time |
+  
+  #### Signature Annotate Object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the annotation |
+  | page | number | Page number where the annotation appears |
+  | x | number | X-coordinate of the annotation |
+  | y | number | Y-coordinate of the annotation |
+  | width | number | Width of the annotation |
+  | height | number | Height of the annotation |
+  | color | string | Color of the annotation box (hex format) |
+  | status | string | Current status of the signature (e.g., "notInvited", "invited", "approved") |
+  | email | string | Email address of the signatory |
+  | projectId | string | ID of the project this annotation belongs to |
+  | createdAt | string | ISO timestamp of creation time |
+  | updatedAt | string | ISO timestamp of last update time |
+  
+  ### Notes
+  
+  1. The `templateUrl` and `csvFileUrl` are pre-signed URLs with limited validity.
+  2. Empty arrays for `columnAnnotates` and `signatureAnnotates` will be returned as empty arrays rather than null.
+  3. If no CSV file is associated with the project, `csvFileUrl` will be an empty string.
 }

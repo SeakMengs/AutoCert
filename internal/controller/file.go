@@ -122,6 +122,7 @@ func (fc FileController) ServePdfContentThumbnail(ctx *gin.Context) {
 		})
 		return
 	}
+	defer os.Remove(*pngFile)
 
 	ctx.File(*pngFile)
 }

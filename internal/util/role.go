@@ -27,16 +27,25 @@ var rolePermissions = map[constant.ProjectRole][]constant.ProjectPermission{
 // checks if all permissions are granted by at least one of the roles.
 func HasPermission(roles []constant.ProjectRole, permissions []constant.ProjectPermission) bool {
 	for _, permission := range permissions {
-		allowed := false
+		hasPermission := false
 		for _, role := range roles {
 			if slices.Contains(rolePermissions[role], permission) {
-				allowed = true
+				hasPermission = true
 				break
 			}
 		}
-		if !allowed {
+		if !hasPermission {
 			return false
 		}
 	}
 	return true
+}
+
+func HasRole(roles []constant.ProjectRole, requiredRoles []constant.ProjectRole) bool {
+	for _, role := range requiredRoles {
+		if slices.Contains(roles, role) {
+			return true
+		}
+	}
+	return false
 }
