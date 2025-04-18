@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -20,6 +21,10 @@ func (f File) TableName() string {
 }
 
 func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, error) {
+	if f.BucketName == "" || f.UniqueFileName == "" {
+		return "", errors.New("bucket name and unique file name cannot be empty")
+	}
+
 	// Generate a presigned URL for the file
 	presignedURL, err := s3.PresignedGetObject(
 		ctx,
@@ -33,4 +38,16 @@ func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, err
 		return "", err
 	}
 	return presignedURL.String(), nil
+}
+
+func (f File) DownloadToLocal(ctx context.Context, s3 *minio.Client, localPath string) error {
+	if f.BucketName == "" || f.UniqueFileName == "" || localPath == "" {
+		return errors.New("bucket name, unique file name and local path cannot be empty")
+	}
+
+	err := s3.FGetObject(ctx, f.BucketName, f.UniqueFileName, localPath, minio.GetObjectOptions{})
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -59,7 +59,7 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		BaseAnnotateModel: model.BaseAnnotateModel{
 			ProjectID: project.ID,
 		},
-	}).First(&signature).Error; err != nil {
+	}).Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned}).First(&signature).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, nil, err
 		}
@@ -78,6 +78,7 @@ type ProjectSignatory struct {
 	Status     constant.SignatoryStatus `json:"status"`
 }
 
+// Doesn't care about the status of the signatory
 func (pr ProjectRepository) GetProjectSignatories(ctx context.Context, tx *gorm.DB, projectID string) ([]ProjectSignatory, error) {
 	pr.logger.Debugf("Get project signatories information with projectID: %s \n", projectID)
 
@@ -89,7 +90,11 @@ func (pr ProjectRepository) GetProjectSignatories(ctx context.Context, tx *gorm.
 	if err := db.WithContext(ctx).Model(&model.SignatureAnnotate{}).
 		Select("users.email, users.profile_url, signature_annotates.status").
 		Joins("JOIN users ON signature_annotates.email = users.email").
-		Where("signature_annotates.project_id = ?", projectID).
+		Where(model.SignatureAnnotate{
+			BaseAnnotateModel: model.BaseAnnotateModel{
+				ProjectID: projectID,
+			},
+		}).
 		Scan(&signatories).Error; err != nil {
 		return nil, err
 	}
@@ -176,7 +181,7 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 	var projects []model.Project
 	query := db.WithContext(ctx).Model(&model.Project{}).Preload("TemplateFile").
 		Joins("JOIN signature_annotates ON projects.id = signature_annotates.project_id").
-		Where("signature_annotates.email = ?", authUser.Email)
+		Where("signature_annotates.email = ?", authUser.Email).Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned})
 
 	if len(status) > 0 {
 		query = query.Where("projects.status IN (?)", status)

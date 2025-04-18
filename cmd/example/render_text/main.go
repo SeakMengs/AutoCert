@@ -7,7 +7,7 @@ import (
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 )
 
-func text() {
+func main() {
 	cfg := autocert.NewDefaultConfig()
 	tr, err := autocert.NewTextRenderer(cfg, autocert.Rect{Width: 200, Height: 50}, autocert.Font{
 		Name:   "Microsoft YaHei",

@@ -1,0 +1,11 @@
+meta {
+  name: Get project thumbnail by id
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{url}}/api/v1/projects/33268d7c-5124-4dcc-bba8-6321ad3a3f3a/thumbnail
+  body: multipartForm
+  auth: none
+}

@@ -103,7 +103,7 @@ func main() {
 	rApi := r.Group("/api")
 
 	route.V1_Me(rApi, _controller.Project, _middleware)
-	route.V1_Projects(rApi, _controller.Project, _controller.ProjectBuilder, _middleware)
+	route.V1_Projects(rApi, _controller.Project, _controller.ProjectBuilder, _controller.File, _middleware)
 	route.V1_Auth(rApi, _controller.Auth)
 	route.V1_OAuth(rApi, _controller.OAuth)
 	route.V1_Users(rApi, _controller.User)

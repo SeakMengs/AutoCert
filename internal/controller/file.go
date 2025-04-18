@@ -2,11 +2,13 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 
+	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
@@ -90,36 +92,59 @@ func (fc FileController) UploadFilePublic(ctx *gin.Context) {
 	})
 }
 
-// TODO: update this temp
 func (fc FileController) ServePdfContentThumbnail(ctx *gin.Context) {
-	pdfPath := "autocert_tmp/certificate_merged.pdf"
-	outDir := "autocert_tmp/tmp"
-	selectedPages := ctx.Params.ByName("page")
-	if selectedPages == "" {
-		selectedPages = "1"
+	selectedPages := "1"
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
 	}
 
-	tempOutDir, err := os.MkdirTemp(outDir, "autocert_pdf_thumbnail_*")
+	roles, project, err := fc.getProjectRole(ctx, projectId)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create temporary directory",
-		})
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "project"), nil)
+		return
+	}
+
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), nil), nil)
+		return
+	}
+
+	tempOutDir, err := os.MkdirTemp("", "autocert_pdf_thumbnail_*")
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating temporary directory", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer os.RemoveAll(tempOutDir)
 
+	pdfPath := fmt.Sprintf("%s/%s.pdf", tempOutDir, projectId)
+
+	err = project.TemplateFile.DownloadToLocal(ctx, fc.app.S3, pdfPath)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error downloading PDF file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.Remove(pdfPath)
+
+	if _, err := os.Stat(pdfPath); errors.Is(err, os.ErrNotExist) {
+		util.ResponseFailed(ctx, http.StatusNotFound, "PDF file not found", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
 	pngFile, err := autocert.PdfToPngByPage(pdfPath, tempOutDir, selectedPages)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to convert PDF to PNG",
-		})
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error converting PDF to PNG", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	if pngFile == nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create PNG file",
-		})
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating PNG file", util.GenerateErrorMessages(err), nil)
 		return
 	}
 	defer os.Remove(*pngFile)

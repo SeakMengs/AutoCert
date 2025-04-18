@@ -5,6 +5,7 @@ go 1.24
 toolchain go1.24.1
 
 require (
+	github.com/gen2brain/go-fitz v1.24.14
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator/v10 v10.22.1
@@ -12,14 +13,12 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/matoous/go-nanoid/v2 v2.1.0
-	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/minio/minio-go/v7 v7.0.84
 	github.com/noelyahan/impexp v0.0.0-20201209034304-ee159d84b42f
 	github.com/noelyahan/mergi v0.0.0-20241105055807-221cd737ac6b
 	github.com/pdfcpu/pdfcpu v0.9.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/sunshineplan/imgconv v1.1.14
 	github.com/tdewolff/canvas v0.0.0-20250209140343-015076d8ff76
 	github.com/wamuir/svg-qr-code v0.0.0-20210725140500-9525ec975db7
 	go.uber.org/zap v1.27.0
@@ -37,7 +36,6 @@ require (
 	github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802 // indirect
 	github.com/BurntSushi/xgbutil v0.0.0-20190907113008-ad855c713046 // indirect
 	github.com/ByteArena/poly2tri-go v0.0.0-20170716161910-d102ad91854f // indirect
-	github.com/HugoSmits86/nativewebp v1.1.0 // indirect
 	github.com/Kagami/go-avif v0.1.0 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/benoitkugler/textlayout v0.3.0 // indirect
@@ -47,6 +45,7 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/ebitengine/purego v0.8.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.5 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-fonts/latin-modern v0.3.3 // indirect
@@ -66,6 +65,7 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/jupiterrider/ffi v0.2.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/kolesa-team/go-webp v1.0.4 // indirect
@@ -73,7 +73,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
@@ -85,7 +84,6 @@ require (
 	github.com/sendgrid/rest v2.6.9+incompatible // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388 // indirect
-	github.com/sunshineplan/pdf v1.0.7 // indirect
 	github.com/tdewolff/font v0.0.0-20250206205927-2dd4de7757d6 // indirect
 	github.com/tdewolff/minify/v2 v2.21.1 // indirect
 	github.com/tdewolff/parse/v2 v2.7.21-0.20250206205826-9029f397cf8a // indirect
