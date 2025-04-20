@@ -14,6 +14,6 @@ func V1_Projects(r *gin.RouterGroup, pc *controller.ProjectController, pbc *cont
 		v1.GET("/:projectId", pc.GetProjectById)
 		v1.GET("/:projectId/thumbnail", fc.ServePdfContentThumbnail)
 		v1.GET("/:projectId/role", pc.GetProjectRole)
-		v1.PATCH("/:projectId/builder", pbc.ProjectBuilder)
+		v1.PUT("/:projectId/builder", pbc.ProjectBuilder)
 	}
 }

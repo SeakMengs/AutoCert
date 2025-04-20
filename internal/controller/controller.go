@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ type Controller struct {
 	File           *FileController
 	Project        *ProjectController
 	ProjectBuilder *ProjectBuilderController
+	Signature      *SignatureController
 }
 
 func newBaseController(app *appcontext.Application) *baseController {
@@ -57,6 +59,7 @@ func NewController(app *appcontext.Application) *Controller {
 		File:           &FileController{baseController: bc},
 		Project:        &ProjectController{baseController: bc},
 		ProjectBuilder: &ProjectBuilderController{baseController: bc},
+		Signature:      &SignatureController{baseController: bc},
 	}
 }
 
@@ -98,17 +101,41 @@ func (b *baseController) getProjectRole(ctx *gin.Context, projectId string) ([]c
 	return role, project, nil
 }
 
+func (b *baseController) uploadFileToS3ByFileHeader(fileHeader *multipart.FileHeader) (minio.UploadInfo, error) {
+	err := createBucketIfNotExists(b.app.S3, b.app.Config.Minio.BUCKET)
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to create bucket: %w", err)
+	}
+
+	fileName := fileHeader.Filename
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	info, err := b.app.S3.PutObject(context.Background(), b.app.Config.Minio.BUCKET, util.AddUniquePrefixToFileName(fileName), file, fileHeader.Size, minio.PutObjectOptions{
+		ContentType: fileHeader.Header.Get("Content-Type"),
+	})
+	if err != nil {
+		return minio.UploadInfo{}, fmt.Errorf("failed to upload file to S3: %w", err)
+	}
+
+	return info, nil
+}
+
 func (b *baseController) uploadFileToS3ByPath(path string) (minio.UploadInfo, error) {
 	err := createBucketIfNotExists(b.app.S3, b.app.Config.Minio.BUCKET)
 	if err != nil {
 		return minio.UploadInfo{}, fmt.Errorf("failed to create bucket: %w", err)
 	}
 
-	// get file name
 	fileName := filepath.Base(path)
 
 	// Determine the content type of the file
-	contentType := "application/octet-stream" // Default content type
+	// Default content type
+	contentType := "application/octet-stream"
 	file, err := os.Open(path)
 	if err != nil {
 		return minio.UploadInfo{}, fmt.Errorf("failed to open file: %w", err)

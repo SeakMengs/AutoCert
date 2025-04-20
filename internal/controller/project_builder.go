@@ -24,6 +24,8 @@ type ProjectBuilderController struct {
 	*baseController
 }
 
+// TODO: add validation for each field
+// TODO: correct data type, for now we accept everything from the model.{x}Annotate
 type AnnotateType string
 
 const (

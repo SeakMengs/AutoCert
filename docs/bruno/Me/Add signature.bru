@@ -1,0 +1,164 @@
+meta {
+  name: Add signature
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{url}}/api/v1/signatures
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  signatureFile: @file(/home/yato/Downloads/logo.svg)
+}
+
+docs {
+  # Add Signature API Documentation
+  
+  ## Endpoint: Add Signature
+  
+  ```
+  POST /api/v1/signatures
+  ```
+  
+  This endpoint allows authenticated users to upload and associate a signature file with their account.
+  
+  ### Authentication
+  
+  This endpoint requires user authentication. An authorization token must be included in the request.
+  
+  ### Request Format
+  
+  The request should be a multipart form containing:
+  
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | signatureFile | File | Yes | The signature image file to upload |
+  
+  ### Supported File Types
+  
+  The signature file must be of one of the allowed file types, which typically include:
+  - `.png`
+  - `.svg`
+  
+  ### Example Request
+  
+  ```
+  POST /api/signatures
+  Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+  Authorization: Bearer {token}
+  
+  ------WebKitFormBoundary7MA4YWxkTrZu0gW
+  Content-Disposition: form-data; name="signatureFile"; filename="my_signature.png"
+  Content-Type: image/png
+  
+  [Binary file data]
+  ------WebKitFormBoundary7MA4YWxkTrZu0gW--
+  ```
+  
+  ### Responses
+  
+  #### Success Response (200 OK)
+  
+  ```json
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {
+      "signature": {
+        "id": "e478617a-29c0-41e1-bb4e-f7a4f191c810",
+        "url": "13131"
+      }
+    }
+  }
+  ```
+  
+  #### Error Responses
+  
+  1. **Unauthorized (401)**
+  ```json
+  {
+    "status": "failed",
+    "message": "...",
+    "error": {
+      "detail": "Unauthorized",
+      "errors": [
+        {
+          "message": "authentication token is invalid"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
+  
+  2. **Bad Request (400) - Missing File**
+  ```json
+  {
+    "status": "failed",
+    "message": "...",
+    "error": {
+      "detail": "No template file uploaded",
+      "errors": [
+        {
+          "field": "signatureFile",
+          "message": "signature file is required"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
+  
+  3. **Bad Request (400) - Invalid File Type**
+  ```json
+  {
+    "status": "failed",
+    "message": "...",
+    "error": {
+      "detail": "Invalid file type",
+      "errors": [
+        {
+          "field": "signatureFile",
+          "message": "invalid file type"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
+  
+  4. **Internal Server Error (500)**
+  ```json
+  {
+    "status": "failed",
+    "message": "...",
+    "error": {
+      "detail": "Failed to create signature",
+      "errors": [
+        {
+          "message": "error details"
+        }
+      ]
+    },
+    "data": null
+  }
+  ```
+  
+  ### Response Fields
+  
+  #### `signature` object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the signature (UUID format) |
+  | url | string | Url of uploaded signature |
+  
+  ### Notes
+  
+  1. The signature file is stored in a secure storage system and linked to the user's account.
+  2. The endpoint uses a transaction to ensure data consistency. If any part of the process fails, the entire operation is rolled back.
+  3. If the database operation fails, the system will attempt to clean up by removing the uploaded file from storage.
+}

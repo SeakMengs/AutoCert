@@ -30,8 +30,8 @@ func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, err
 		ctx,
 		f.BucketName,
 		f.UniqueFileName,
-		// 30min expiration time
-		time.Minute*30,
+		// 60min expiration time
+		time.Minute*60,
 		nil,
 	)
 	if err != nil {
