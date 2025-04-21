@@ -51,3 +51,15 @@ func (f File) DownloadToLocal(ctx context.Context, s3 *minio.Client, localPath s
 	}
 	return nil
 }
+
+func (f File) Delete(ctx context.Context, s3 *minio.Client) error {
+	if f.BucketName == "" || f.UniqueFileName == "" {
+		return errors.New("bucket name and unique file name cannot be empty")
+	}
+
+	if err := s3.RemoveObject(ctx, f.BucketName, f.UniqueFileName, minio.RemoveObjectOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+}

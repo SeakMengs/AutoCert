@@ -11,5 +11,6 @@ func V1_Signatures(r *gin.RouterGroup, sc *controller.SignatureController, middl
 	v1.Use(middleware.AuthMiddleware)
 	{
 		v1.POST("", sc.AddSignature)
+		v1.DELETE("/:signatureId", sc.RemoveSignature)
 	}
 }

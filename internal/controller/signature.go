@@ -10,6 +10,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
+	"gorm.io/gorm"
 )
 
 type SignatureController struct {
@@ -65,6 +66,7 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to add signature", util.GenerateErrorMessages(errors.New("failed to add signature")), nil)
+			return
 		}
 	}()
 
@@ -113,4 +115,61 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 			"url": sigUrl,
 		},
 	})
+}
+
+func (sc SignatureController) RemoveSignature(ctx *gin.Context) {
+	signatureId := ctx.Params.ByName("signatureId")
+	if signatureId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "signatureId"), nil)
+		return
+	}
+
+	user, err := sc.getAuthUser(ctx)
+	if err != nil {
+		sc.app.Logger.Errorf("Failed to get auth user: %v", err)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	tx := sc.app.Repository.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(errors.New("failed to remove signature")), nil)
+			return
+		}
+	}()
+
+	sig, err := sc.app.Repository.Signature.GetById(ctx, tx, signatureId, *user)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			util.ResponseFailed(ctx, http.StatusBadRequest, "Failed to remove signature", util.GenerateErrorMessages(errors.New("Signature not found"), "signatureId"), nil)
+			return
+		}
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	err = sc.app.Repository.Signature.Delete(ctx, tx, signatureId, *user)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if sig.SignatureFileID != "" {
+		err := sig.SignatureFile.Delete(ctx, sc.app.S3)
+		if err != nil {
+			// Intentionally not return failed because even if delete file fail, it doesn't affect the system.
+			sc.app.Logger.Errorf("failed to delete signature file from storage with err: %v", err)
+		}
+	}
+
+	util.ResponseSuccess(ctx, nil)
 }

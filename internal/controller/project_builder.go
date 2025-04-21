@@ -159,6 +159,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("failed to process events"), "events"), nil)
+			return
 		}
 	}()
 
@@ -251,7 +252,6 @@ func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx
 }
 
 func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
-
 	var payload AnnotateColumnUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for AnnotateColumnUpdate")

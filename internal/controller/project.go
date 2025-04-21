@@ -119,6 +119,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		if r := recover(); r != nil {
 			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(errors.New("failed to create project")), nil)
+			return
 		}
 	}()
 
@@ -162,7 +163,7 @@ const (
 func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
 		return
 	}
 
@@ -197,7 +198,7 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Project ID is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
 		return
 	}
 

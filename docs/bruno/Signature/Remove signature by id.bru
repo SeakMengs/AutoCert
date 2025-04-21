@@ -1,0 +1,115 @@
+meta {
+  name: Remove signature by id
+  type: http
+  seq: 2
+}
+
+delete {
+  url: {{url}}/api/v1/signatures/7ca35022-802a-45f1-bcd2-443185c20c3b
+  body: none
+  auth: inherit
+}
+
+docs {
+  # Remove Signature API Documentation
+  ## Endpoint: Remove Signature
+  ```
+  DELETE /api/v1/signatures/{signatureId}
+  ```
+  This endpoint allows authenticated users to remove a signature associated with their account. Users can only remove signatures that belong to them.
+  
+  ### Authentication
+  This endpoint requires user authentication. An authorization token must be included in the request.
+  
+  ### Path Parameters
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | signatureId | string | Yes | The unique identifier of the signature to remove |
+  
+  ### Request Format
+  No request body is required for this operation.
+  
+  ### Example Request
+  ```
+  DELETE /api/v1/signatures/e478617a-29c0-41e1-bb4e-f7a4f191c810
+  Authorization: Bearer {token}
+  ```
+  
+  ### Responses
+  #### Success Response (200 OK)
+  ```json
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {}
+  }
+  ```
+  
+  #### Error Responses
+  1. **Unauthorized (401)**
+  ```json
+  {
+    "success": false,
+    "message": "Unauthorized",
+    "errors": [
+      {
+        "field": "Unknown",
+        "message": "authentication token is invalid"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  2. **Bad Request (400) - Missing Signature ID**
+  ```json
+  {
+    "success": false,
+    "message": "Signature Id is required",
+    "errors": [
+      {
+        "field": "signatureId",
+        "message": "Signature Id is required"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  3. **Bad Request (400) - Signature Not Found or Not Owned by User**
+  ```json
+  {
+    "success": false,
+    "message": "Failed to remove signature",
+    "errors": [
+      {
+        "field": "signatureId",
+        "message": "Signature not found"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  4. **Internal Server Error (500)**
+  ```json
+  {
+    "success": false,
+    "message": "Failed to remove signature",
+    "errors": [
+      {
+        "field": "Unknown",
+        "message": "error details"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  ### Notes
+  1. The endpoint uses a transaction to ensure data consistency. If any part of the process fails, the entire operation is rolled back.
+  2. The system validates that the requesting user owns the signature before allowing deletion.
+  3. After successfully removing the signature record from the database, the associated file is also deleted from storage.
+  4. If the file deletion fails, the API operation will still be considered successful since the database record has been removed.
+  5. The system logs an error message if the file deletion fails but does not return an error response to the client.
+}
