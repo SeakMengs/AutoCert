@@ -85,6 +85,7 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 		// delete the file from s3 if signature creation failed
 		if err := sc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
 			sc.app.Logger.Error(err)
+			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete signature file", util.GenerateErrorMessages(err), nil)
 			return
 		}
@@ -132,6 +133,7 @@ func (sc SignatureController) RemoveSignature(ctx *gin.Context) {
 	}
 
 	tx := sc.app.Repository.DB.Begin()
+	defer tx.Commit()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -143,21 +145,18 @@ func (sc SignatureController) RemoveSignature(ctx *gin.Context) {
 	sig, err := sc.app.Repository.Signature.GetById(ctx, tx, signatureId, *user)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusBadRequest, "Failed to remove signature", util.GenerateErrorMessages(errors.New("Signature not found"), "signatureId"), nil)
 			return
 		}
 
+		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	err = sc.app.Repository.Signature.Delete(ctx, tx, signatureId, *user)
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to remove signature", util.GenerateErrorMessages(err), nil)
 		return

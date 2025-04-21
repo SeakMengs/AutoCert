@@ -115,6 +115,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	}
 
 	tx := pc.app.Repository.DB.Begin()
+	defer tx.Commit()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -137,16 +138,11 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		// delete the file from s3 if project creation failed
 		if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
 			pc.app.Logger.Error(err)
+			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete file", util.GenerateErrorMessages(err), nil)
 			return
 		}
 
-		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create project", util.GenerateErrorMessages(err), nil)
 		return
@@ -218,10 +214,13 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 		return
 	}
 
-	templateUrl, err := project.TemplateFile.ToPresignedUrl(ctx, pc.app.S3)
-	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get template file URL", util.GenerateErrorMessages(err), nil)
-		return
+	var templateUrl string
+	if project.TemplateFileID != "" {
+		templateUrl, err = project.TemplateFile.ToPresignedUrl(ctx, pc.app.S3)
+		if err != nil {
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get template file URL", util.GenerateErrorMessages(err), nil)
+			return
+		}
 	}
 
 	var csvFileUrl string
@@ -243,6 +242,10 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 
 	if len(csvFileUrl) == 0 {
 		csvFileUrl = ""
+	}
+
+	if len(templateUrl) == 0 {
+		templateUrl = ""
 	}
 
 	util.ResponseSuccess(ctx, GetProjectByIdResponse{

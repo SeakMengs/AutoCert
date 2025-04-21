@@ -89,6 +89,14 @@ func (oc OAuthController) ContinueWithGoogleCallback(ctx *gin.Context) {
 
 	tx := oc.app.Repository.DB.Begin()
 	defer tx.Commit()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to continue with Google", util.GenerateErrorMessages(errors.New("failed to continue with Google")), nil)
+			return
+		}
+	}()
+
 	oc.app.Logger.Debugf("OAuth: Google callback, Transaction begin")
 
 	// If new user, create account, else do nothing

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/auth"
@@ -253,31 +252,33 @@ func (pr ProjectRepository) UpdateSetting(ctx context.Context, tx *gorm.DB, proj
 	return nil
 }
 
-func (pr ProjectRepository) UpdateCSVFile(ctx context.Context, tx *gorm.DB, project *model.Project) error {
+func (pr ProjectRepository) UpdateCSVFile(ctx context.Context, tx *gorm.DB, project model.Project, csvFile *model.File) error {
 	pr.logger.Debugf("Update project csv file with data: %v \n", project)
 
 	db := pr.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	var csvfile *model.File
-
-	if err := db.WithContext(ctx).Model(&model.File{}).Where(&model.File{
-		BaseModel: model.BaseModel{
-			ID: project.CSVFile.ID,
-		},
-	}).Assign(project.CSVFile).FirstOrCreate(&csvfile).Error; err != nil {
-		return err
+	if project.CSVFileID == "" {
+		if err := db.WithContext(ctx).Model(&model.File{}).Create(csvFile).Error; err != nil {
+			return err
+		}
+	} else {
+		if err := db.WithContext(ctx).Model(&model.File{}).Where(&model.File{
+			BaseModel: model.BaseModel{
+				ID: project.CSVFileID,
+			},
+		}).Updates(csvFile).Error; err != nil {
+			return err
+		}
 	}
-
-	log.Printf("csvfile: %v \n", csvfile)
 
 	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
 		BaseModel: model.BaseModel{
 			ID: project.ID,
 		},
 	}).Updates(&model.Project{
-		CSVFileID: csvfile.ID,
+		CSVFileID: csvFile.ID,
 	}).Error; err != nil {
 		return err
 	}

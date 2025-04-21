@@ -155,6 +155,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	events = append(otherEvents, tableUpdateEvents...)
 
 	tx := pbc.app.Repository.DB.Begin()
+	defer tx.Commit()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -180,12 +181,6 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 			util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(err, nil, "events"), nil)
 			return
 		}
-	}
-
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(err), nil)
-		return
 	}
 
 	// delete the existing csv file after transaction is committed
@@ -503,16 +498,11 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 		return errors.New("failed to upload csv file")
 	}
 
-	err = pbc.app.Repository.Project.UpdateCSVFile(ctx, tx, &model.Project{
-		BaseModel: model.BaseModel{
-			ID: project.ID,
-		},
-		CSVFile: model.File{
-			FileName:       filepath.Base(tmp.Name()),
-			UniqueFileName: info.Key,
-			BucketName:     info.Bucket,
-			Size:           info.Size,
-		},
+	err = pbc.app.Repository.Project.UpdateCSVFile(ctx, tx, *project, &model.File{
+		FileName:       filepath.Base(tmp.Name()),
+		UniqueFileName: info.Key,
+		BucketName:     info.Bucket,
+		Size:           info.Size,
 	})
 	if err != nil {
 		pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{})

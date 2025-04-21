@@ -83,6 +83,14 @@ func (ac AuthController) RefreshAccessToken(ctx *gin.Context) {
 
 	tx := ac.app.Repository.DB.Begin()
 	defer tx.Commit()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to refresh access token", util.GenerateErrorMessages(errors.New("failed to refresh access token")), nil)
+			return
+		}
+	}()
+
 	ac.app.Logger.Debugf("Refresh access token, Transaction begin")
 
 	newRefreshToken, newAccessToken, err := ac.app.Repository.JWT.RefreshToken(ctx, tx, refreshToken)
