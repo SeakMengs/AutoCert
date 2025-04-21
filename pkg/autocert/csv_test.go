@@ -64,6 +64,13 @@ func TestParseCSVToMap(t *testing.T) {
 				{"header1": "value4", "header2": "value5", "header1_1": "value6"},
 			},
 		},
+		{
+			name: "Only one column header with no rows",
+			records: [][]string{
+				{"header1"},
+			},
+			expected: []map[string]string{},
+		},
 	}
 
 	for _, tt := range tests {

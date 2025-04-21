@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -132,23 +134,24 @@ func (b *baseController) uploadFileToS3ByPath(path string) (minio.UploadInfo, er
 	}
 
 	fileName := filepath.Base(path)
-
-	// Determine the content type of the file
-	// Default content type
-	contentType := "application/octet-stream"
 	file, err := os.Open(path)
 	if err != nil {
 		return minio.UploadInfo{}, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
-	buffer := make([]byte, 512)
-	_, err = file.Read(buffer)
-	if err != nil {
-		return minio.UploadInfo{}, fmt.Errorf("failed to read file: %w", err)
+	// 1) Try extension-based lookup
+	ext := filepath.Ext(fileName)
+	contentType := mime.TypeByExtension(ext)
+	if contentType == "" {
+		// 2) Fall back to sniffing the first up to 512 bytes
+		buf := make([]byte, 512)
+		n, err := file.Read(buf)
+		if err != nil && err != io.EOF {
+			return minio.UploadInfo{}, fmt.Errorf("failed to read file for content type detection: %w", err)
+		}
+		contentType = http.DetectContentType(buf[:n])
 	}
-
-	contentType = http.DetectContentType(buffer)
 
 	// Upload the file to S3
 	info, err := b.app.S3.FPutObject(context.Background(), b.app.Config.Minio.BUCKET, util.AddUniquePrefixToFileName(fileName), path, minio.PutObjectOptions{

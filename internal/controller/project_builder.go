@@ -98,15 +98,15 @@ type AutoCertChangeEvent struct {
 }
 
 const (
-	ErrFailedToPatchProjectBuilder = "Failed to patch project builder"
+	ErrFailedToUpdateProjectBuilder = "Failed to update project builder"
 )
 
-// Take list of event types and their corresponding payloads, if at least one of the patch fail, will revert all changes and respond with error
+// Take list of event types and their corresponding payloads, if at least one of the update fail, will revert all changes and respond with error
 // For detail document of this API, check docs/bruno
 func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	projectId := ctx.Param("projectId")
 	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("projectId is required"), "projectId"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("projectId is required"), "projectId"), nil)
 		return
 	}
 
@@ -117,26 +117,26 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	}
 
 	if project == nil {
-		util.ResponseFailed(ctx, http.StatusNotFound, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("project not found"), "project"), nil)
+		util.ResponseFailed(ctx, http.StatusNotFound, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project not found"), "project"), nil)
 		return
 	}
 
 	if project.Status != constant.ProjectStatusPreparing {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("project is not in preparing status"), "project"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project is not in preparing status"), "project"), nil)
 		return
 	}
 
 	// Get the events JSON from the form.
 	eventsJSON := ctx.PostForm("events")
 	if eventsJSON == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("events is required"), "events"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("events is required"), "events"), nil)
 		return
 	}
 
 	// Unmarshal the events JSON into an array.
 	var events []AutoCertChangeEvent
 	if err := json.Unmarshal([]byte(eventsJSON), &events); err != nil {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("failed to parse events"), "events"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("failed to parse events"), "events"), nil)
 		return
 	}
 
@@ -159,7 +159,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			util.ResponseFailed(ctx, http.StatusInternalServerError, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(errors.New("failed to process events"), "events"), nil)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("failed to process events"), "events"), nil)
 			return
 		}
 	}()
@@ -178,7 +178,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		if err := handler(ctx, tx, roles, project, event.Data); err != nil {
 			tx.Rollback()
 			pbc.app.Logger.Errorf("Failed to handle event %s: %v", event.Type, err)
-			util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToPatchProjectBuilder, util.GenerateErrorMessages(err, nil, "events"), nil)
+			util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(err, nil, "events"), nil)
 			return
 		}
 	}
@@ -448,6 +448,7 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 
 	file, err := ctx.FormFile("csvFile")
 	if err != nil {
+		pbc.app.Logger.Errorf("Failed to get csv file: %v", err)
 		return errors.New("failed to get csv file")
 	}
 	if file == nil {
