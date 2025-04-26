@@ -308,7 +308,7 @@ docs {
   ### Notes
   
   1. All events in the request are processed in a transaction. If any event fails, all changes will be rolled back.
-  2. The project must be in the "preparing" status for updates to be allowed.
+  2. The project must be in the "draft" status for updates to be allowed.
   3. The user must have the appropriate permissions for each event type they try to execute.
   4. Table update events are always processed last since they involve file operations which are not transactional.
 }

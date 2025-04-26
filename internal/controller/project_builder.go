@@ -121,8 +121,8 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		return
 	}
 
-	if project.Status != constant.ProjectStatusPreparing {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project is not in preparing status"), "project"), nil)
+	if project.Status != constant.ProjectStatusDraft {
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project is not in draft status"), "project"), nil)
 		return
 	}
 

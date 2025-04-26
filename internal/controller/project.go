@@ -205,12 +205,12 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 	}
 
 	if project == nil || project.ID == "" {
-		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "project"), nil)
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
 		return
 	}
 
 	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), nil), nil)
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
 		return
 	}
 
@@ -296,7 +296,7 @@ func (pc ProjectController) GetOwnProjectList(ctx *gin.Context) {
 		params.PageSize = constant.MaxPageSize
 	}
 	if params.Status == nil {
-		params.Status = []constant.ProjectStatus{constant.ProjectStatusPreparing, constant.ProjectStatusProcessing, constant.ProjectStatusCompleted}
+		params.Status = []constant.ProjectStatus{constant.ProjectStatusDraft, constant.ProjectStatusProcessing, constant.ProjectStatusCompleted}
 	}
 
 	projectList, totalCount, err := pc.app.Repository.Project.GetProjectsForOwner(ctx, nil, user, params.Search, params.Status, params.Page, params.PageSize)
@@ -345,7 +345,7 @@ func (pc ProjectController) GetSignatoryProjectList(ctx *gin.Context) {
 		params.PageSize = constant.MaxPageSize
 	}
 	if params.Status == nil {
-		params.Status = []constant.ProjectStatus{constant.ProjectStatusPreparing, constant.ProjectStatusProcessing, constant.ProjectStatusCompleted}
+		params.Status = []constant.ProjectStatus{constant.ProjectStatusDraft, constant.ProjectStatusProcessing, constant.ProjectStatusCompleted}
 	}
 
 	projectList, totalCount, err := pc.app.Repository.Project.GetProjectsForSignatory(ctx, nil, user, params.Search, params.Status, params.Page, params.PageSize)

@@ -5,13 +5,13 @@ meta {
 }
 
 get {
-  url: {{url}}/api/v1/projects/239850f2-b4ab-435d-84ec-8ec879960f20
-  body: multipartForm
+  url: {{url}}/api/v1/projects/66670bf2-ee75-495b-8c91-864b1fbc4e07
+  body: none
   auth: none
 }
 
 docs {
-  # Get Project By ID API Documentation (Summarized by ai)
+  # Get Project By ID API Documentation
   
   ## Endpoint: Get Project By ID
   
@@ -39,51 +39,48 @@ docs {
   
   ```json
   {
-    "status": "success",
+    "success": true,
+    "message": "Request successful.",
     "data": {
-      "roles": ["owner"],
+      "roles": [
+        0
+      ],
       "project": {
-        "id": "proj-123",
-        "title": "Certificate Template",
-        "templateUrl": "https://storage.example.com/templates/template-123.pdf?token=abc",
+        "id": "66670bf2-ee75-495b-8c91-864b1fbc4e07",
+        "title": "2",
+        "templateUrl": "http://172.17.0.1:9000/autocert/1745254103174384500_template-3257995318_page_1.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=CBaYCubcIsrSvccedTW0%2F20250426%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250426T192816Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=95f502dfcd16a6fd6711bab836c43db0202dcdee8ea8d278c927f106096f9dae",
         "isPublic": false,
-        "status": "preparing",
-        "embedQr": true,
-        "csvFileUrl": "https://storage.example.com/tables/data-123.csv?token=xyz",
+        "status": 0,
+        "embedQr": false,
+        "csvFileUrl": "http://172.17.0.1:9000/autocert/1745254111153364918_autocert-4041503758.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=CBaYCubcIsrSvccedTW0%2F20250426%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250426T192816Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=87788b2cd42b50b6a7d066f2723c64948a29a0d7f13ece032551d28f5d122ac0",
         "columnAnnotates": [
           {
-            "id": "col-123",
             "page": 1,
-            "x": 100,
-            "y": 200,
+            "x": 214,
+            "y": 442,
             "width": 150,
-            "height": 30,
-            "color": "#0000FF",
-            "value": "Name",
+            "height": 40,
+            "color": "#FFC4C4",
+            "id": "VJHTTYH3XiCHkBYOXpOx5",
+            "value": "555",
             "fontName": "Arial",
-            "fontSize": 12,
+            "fontSize": 24,
+            "fontWeight": "regular",
             "fontColor": "#000000",
-            "fontWeight": "normal",
-            "textFitRectBox": true,
-            "projectId": "proj-123",
-            "createdAt": "2025-04-15T10:30:00Z",
-            "updatedAt": "2025-04-15T10:30:00Z"
+            "textFitRectBox": true
           }
         ],
         "signatureAnnotates": [
           {
-            "id": "sig-123",
-            "page": 2,
-            "x": 300,
-            "y": 400,
-            "width": 200,
-            "height": 50,
-            "color": "#FF0000",
-            "status": "invited",
-            "email": "signer@example.com",
-            "projectId": "proj-123",
-            "createdAt": "2025-04-15T10:30:00Z",
-            "updatedAt": "2025-04-15T10:30:00Z"
+            "page": 1,
+            "x": 221.99999999999997,
+            "y": 591,
+            "width": 140,
+            "height": 90,
+            "color": "#FFC4C4",
+            "id": "7odHOWEx1zJh1dfIZoWga",
+            "status": 0,
+            "email": "lifegoalcs2@gmail.com"
           }
         ]
       }
@@ -96,16 +93,14 @@ docs {
   1. **Bad Request (400)**
   ```json
   {
-    "status": "failed",
-    "error": {
-      "detail": "Project ID is required",
-      "errors": [
-        {
-          "field": "projectId",
-          "message": "Project ID is required"
-        }
-      ]
-    },
+    "success": false,
+    "message": "Project ID is required",
+    "errors": [
+      {
+        "field": "projectId",
+        "message": "Project ID is required"
+      }
+    ],
     "data": null
   }
   ```
@@ -113,16 +108,14 @@ docs {
   2. **Not Found (404)**
   ```json
   {
-    "status": "failed",
-    "error": {
-      "detail": "Project not found",
-      "errors": [
-        {
-          "field": "project",
-          "message": "Project not found"
-        }
-      ]
-    },
+    "success": false,
+    "message": "Project not found",
+    "errors": [
+      {
+        "field": "notFound",
+        "message": "Project not found"
+      }
+    ],
     "data": null
   }
   ```
@@ -130,15 +123,14 @@ docs {
   3. **Forbidden (403)**
   ```json
   {
-    "status": "failed",
-    "error": {
-      "detail": "You do not have permission to access this project",
-      "errors": [
-        {
-          "message": "you do not have permission to access this project"
-        }
-      ]
-    },
+    "success": false,
+    "message": "You do not have permission to access this project",
+    "errors": [
+      {
+        "field": "forbidden",
+        "message": "you do not have permission to access this project"
+      }
+    ],
     "data": null
   }
   ```
@@ -146,15 +138,13 @@ docs {
   4. **Internal Server Error (500)**
   ```json
   {
-    "status": "failed",
-    "error": {
-      "detail": "Failed to get template file URL",
-      "errors": [
-        {
-          "message": "error details"
-        }
-      ]
-    },
+    "success": false,
+    "message": "Failed to get template file URL",
+    "errors": [
+      {
+        "message": "error details"
+      }
+    ],
     "data": null
   }
   ```
@@ -167,8 +157,8 @@ docs {
   
   | Value | Description |
   |-------|-------------|
-  | owner | The user owns this project |
-  | signatory | The user is a signatory for this project |
+  | 0 | The user owns this project (owner) |
+  | 1 | The user is a signatory for this project (signatory) |
   
   #### `project` object
   
@@ -178,7 +168,7 @@ docs {
   | title | string | Project title |
   | templateUrl | string | Pre-signed URL to access the template file |
   | isPublic | boolean | Whether the project is publicly accessible |
-  | status | string | Current status of the project (e.g., "preparing", "completed") |
+  | status | number | Current status of the project (0 = draft, 1 = completed) |
   | embedQr | boolean | Whether QR code embedding is enabled for the project |
   | csvFileUrl | string | Pre-signed URL to access the CSV data file (if available) |
   | columnAnnotates | array | List of column annotations configured for the project |
@@ -201,9 +191,9 @@ docs {
   | fontColor | string | Color of the text (hex format) |
   | fontWeight | string | Weight of the font (e.g., "normal", "bold") |
   | textFitRectBox | boolean | Whether the text should fit within the annotation box |
-  | projectId | string | ID of the project this annotation belongs to |
-  | createdAt | string | ISO timestamp of creation time |
-  | updatedAt | string | ISO timestamp of last update time |
+  | projectId | string | ID of the project this annotation belongs to (not shown in response) |
+  | createdAt | string | ISO timestamp of creation time (not shown in response) |
+  | updatedAt | string | ISO timestamp of last update time (not shown in response) |
   
   #### Signature Annotate Object
   
@@ -216,7 +206,7 @@ docs {
   | width | number | Width of the annotation |
   | height | number | Height of the annotation |
   | color | string | Color of the annotation box (hex format) |
-  | status | string | Current status of the signature (e.g., "notInvited", "invited", "approved") |
+  | status | number | Current status of the signature (0 = notInvited, 1 = invited, 2 = approved) |
   | email | string | Email address of the signatory |
   | projectId | string | ID of the project this annotation belongs to |
   | createdAt | string | ISO timestamp of creation time |
@@ -227,4 +217,5 @@ docs {
   1. The `templateUrl` and `csvFileUrl` are pre-signed URLs with limited validity.
   2. Empty arrays for `columnAnnotates` and `signatureAnnotates` will be returned as empty arrays rather than null.
   3. If no CSV file is associated with the project, `csvFileUrl` will be an empty string.
+  4. If no template file is associated with the project, `templateUrl` will be an empty string.
 }

@@ -3,7 +3,7 @@ package constant
 type ProjectStatus int
 
 const (
-	ProjectStatusPreparing ProjectStatus = iota
+	ProjectStatusDraft ProjectStatus = iota
 	ProjectStatusProcessing
 	ProjectStatusCompleted
 )
