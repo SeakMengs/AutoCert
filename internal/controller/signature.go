@@ -19,6 +19,10 @@ type SignatureController struct {
 
 var ALLOWED_SIGNATURE_FILE_TYPE = []string{".png", ".svg"}
 
+const (
+	ErrSignatureIdRequired = "signature id is required"
+)
+
 // TODO: store pub key
 func (sc SignatureController) AddSignature(ctx *gin.Context) {
 	type Request struct {
@@ -121,7 +125,7 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 func (sc SignatureController) RemoveSignature(ctx *gin.Context) {
 	signatureId := ctx.Params.ByName("signatureId")
 	if signatureId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "signatureId"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature id is required", util.GenerateErrorMessages(errors.New(ErrSignatureIdRequired), "signatureId"), nil)
 		return
 	}
 
@@ -146,7 +150,7 @@ func (sc SignatureController) RemoveSignature(ctx *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			tx.Rollback()
-			util.ResponseFailed(ctx, http.StatusBadRequest, "Failed to remove signature", util.GenerateErrorMessages(errors.New("Signature not found"), "signatureId"), nil)
+			util.ResponseFailed(ctx, http.StatusBadRequest, "Failed to remove signature", util.GenerateErrorMessages(errors.New("signature not found"), "signatureId"), nil)
 			return
 		}
 
@@ -171,4 +175,45 @@ func (sc SignatureController) RemoveSignature(ctx *gin.Context) {
 	}
 
 	util.ResponseSuccess(ctx, nil)
+}
+
+func (sc SignatureController) GetSignatureById(ctx *gin.Context) {
+	signatureId := ctx.Params.ByName("signatureId")
+	if signatureId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature id is required", util.GenerateErrorMessages(errors.New(ErrSignatureIdRequired), "signatureId"), nil)
+		return
+	}
+
+	user, err := sc.getAuthUser(ctx)
+	if err != nil {
+		sc.app.Logger.Errorf("Failed to get auth user: %v", err)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	sig, err := sc.app.Repository.Signature.GetById(ctx, nil, signatureId, *user)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			util.ResponseFailed(ctx, http.StatusBadRequest, "Failed to get signature", util.GenerateErrorMessages(errors.New("signature not found"), "signatureId"), nil)
+			return
+		}
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get signature", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	var sigUrl string
+	if sig.SignatureFileID != "" {
+		sigUrl, err = sig.SignatureFile.ToPresignedUrl(ctx, sc.app.S3)
+		if err != nil {
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get signature file URL", util.GenerateErrorMessages(err), nil)
+			return
+		}
+	}
+
+	util.ResponseSuccess(ctx, gin.H{
+		"signature": gin.H{
+			"url": sigUrl,
+		},
+	})
 }

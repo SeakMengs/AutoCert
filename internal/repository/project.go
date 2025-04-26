@@ -120,7 +120,9 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 
 	var projects []model.Project
 	query := db.WithContext(ctx).Model(&model.Project{}).Preload("TemplateFile").
-		Where("user_id = ?", authUser.ID)
+		Where(model.Project{
+			UserID: authUser.ID,
+		})
 
 	if len(status) > 0 {
 		query = query.Where("projects.status IN (?)", status)
@@ -136,7 +138,9 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 
 	var totalProjects int64
 	if err := db.WithContext(ctx).Model(&model.Project{}).
-		Where("user_id = ?", authUser.ID).
+		Where(model.Project{
+			UserID: authUser.ID,
+		}).
 		Count(&totalProjects).Error; err != nil {
 		return nil, 0, err
 	}
@@ -197,8 +201,7 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 	var totalProjects int64
 	if err := db.WithContext(ctx).Model(&model.Project{}).
 		Joins("JOIN signature_annotates ON projects.id = signature_annotates.project_id").
-		Where("signature_annotates.email = ?", authUser.Email).
-		Count(&totalProjects).Error; err != nil {
+		Where("signature_annotates.email = ?", authUser.Email).Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned}).Count(&totalProjects).Error; err != nil {
 		return nil, 0, err
 	}
 

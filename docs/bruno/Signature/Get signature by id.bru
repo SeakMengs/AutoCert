@@ -1,0 +1,143 @@
+meta {
+  name: Get signature by id
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{url}}/api/v1/signatures/24152a61-d9e4-4f2f-a628-36a0c1b52f48
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  signatureFile: @file(/home/yato/Downloads/logo.svg)
+}
+
+docs {
+  # Get Signature By ID API Documentation
+  ## Endpoint: Get Signature By ID
+  ```
+  GET /api/v1/signatures/{signatureId}
+  ```
+  This endpoint allows authenticated users to retrieve a signature by its ID. Users can only access signatures that belong to them.
+  
+  ### Authentication
+  This endpoint requires user authentication. An authorization token must be included in the request.
+  
+  ### Path Parameters
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | signatureId | string | Yes | The unique identifier of the signature to retrieve |
+  
+  ### Request Format
+  No request body is required for this operation.
+  
+  ### Example Request
+  ```
+  GET /api/v1/signatures/e478617a-29c0-41e1-bb4e-f7a4f191c810
+  Authorization: Bearer {token}
+  ```
+  
+  ### Responses
+  #### Success Response (200 OK)
+  ```json
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {
+      "signature": {
+        "url": "https://example.com/presigned-url-to-signature"
+      }
+    }
+  }
+  ```
+  
+  #### Error Responses
+  1. **Unauthorized (401)**
+  ```json
+  {
+    "success": false,
+    "message": "Unauthorized",
+    "errors": [
+      {
+        "field": "Unknown",
+        "message": "authentication token is invalid"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  2. **Bad Request (400) - Missing Signature ID**
+  ```json
+  {
+    "success": false,
+    "message": "Signature id is required",
+    "errors": [
+      {
+        "field": "signatureId",
+        "message": "Signature id is required"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  3. **Bad Request (400) - Signature Not Found or Not Owned by User**
+  ```json
+  {
+    "success": false,
+    "message": "Failed to get signature",
+    "errors": [
+      {
+        "field": "signatureId",
+        "message": "signature not found"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  4. **Internal Server Error (500) - Database Error**
+  ```json
+  {
+    "success": false,
+    "message": "Failed to get signature",
+    "errors": [
+      {
+        "field": "Unknown",
+        "message": "error details"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  5. **Internal Server Error (500) - Presigned URL Generation Error**
+  ```json
+  {
+    "success": false,
+    "message": "Failed to get signature file URL",
+    "errors": [
+      {
+        "field": "Unknown",
+        "message": "error details"
+      }
+    ],
+    "data": {}
+  }
+  ```
+  
+  ### Response Fields
+  #### `signature` object
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | url | string | Presigned URL to access the signature file |
+  
+  ### Notes
+  1. The endpoint checks that the requesting user owns the signature before returning it.
+  2. If the signature exists but belongs to another user, the API will return the same "signature not found" error as if it didn't exist at all.
+  3. The signature file URL is a pre-signed URL that provides temporary access to the file stored in the S3-compatible storage.
+  4. For error responses where no specific field is identified, "Unknown" is used as the field value.
+}
