@@ -24,6 +24,7 @@ const (
 )
 
 // TODO: store pub key
+// TODO: limit file size
 func (sc SignatureController) AddSignature(ctx *gin.Context) {
 	type Request struct {
 		// Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`

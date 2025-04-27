@@ -9,13 +9,12 @@ import (
 
 func main() {
 	cfg := autocert.NewDefaultConfig()
-	tr, err := autocert.NewTextRenderer(cfg, autocert.Rect{Width: 200, Height: 50}, autocert.Font{
+	tr, err := autocert.NewTextRenderer(*cfg, autocert.Rect{Width: 200, Height: 50}, autocert.Font{
 		Name:   "Microsoft YaHei",
 		Size:   12,
 		Color:  "#000000",
 		Weight: autocert.FontWeightRegular,
 	}, autocert.Settings{
-		TextFitRectBox:       true,
 		RemoveLineBreaksBool: false,
 	})
 	if err != nil {

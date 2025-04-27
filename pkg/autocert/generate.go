@@ -3,20 +3,25 @@ package autocert
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 )
 
-// Settings holds options for rendering text.
 type Settings struct {
-	TextFitRectBox       bool
 	RemoveLineBreaksBool bool
 	EmbedQRCode          bool
 }
 
-// CertificateGenerator holds the necessary state for certificate generation.
+func NewDefaultSettings() *Settings {
+	return &Settings{
+		RemoveLineBreaksBool: true,
+		EmbedQRCode:          true,
+	}
+}
+
 type CertificateGenerator struct {
 	// ID is a unique identifier which will be used to create folder and store the generated files.
 	ID           string
@@ -38,7 +43,7 @@ func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annot
 	}
 }
 
-// GetOutputDir returns the output directory path for this generator.
+// Returns the output directory path for this generator.
 func (cg *CertificateGenerator) GetOutputDir() string {
 	outputDir := filepath.Join(cg.Cfg.OutputDir, cg.ID)
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
@@ -49,7 +54,7 @@ func (cg *CertificateGenerator) GetOutputDir() string {
 	return outputDir
 }
 
-// GetTmpDir returns the temporary directory path for this generator.
+// Returns the temporary directory path for this generator.
 func (cg *CertificateGenerator) GetTmpDir() string {
 	tmpDir := filepath.Join(cg.Cfg.TmpDir, cg.ID)
 	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
@@ -58,17 +63,6 @@ func (cg *CertificateGenerator) GetTmpDir() string {
 		}
 	}
 	return tmpDir
-}
-
-// GetStateDir returns the state directory path for this generator.
-func (cg *CertificateGenerator) GetStateDir() string {
-	stateDir := filepath.Join(cg.Cfg.StateDir, cg.ID)
-	if _, err := os.Stat(stateDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(stateDir, 0755); err != nil {
-			panic(fmt.Sprintf("failed to create state directory: %s", err))
-		}
-	}
-	return stateDir
 }
 
 // Apply all signature annotations to the input PDF file.
@@ -87,6 +81,7 @@ func (cg *CertificateGenerator) applySignatures(inputFile string) (string, error
 
 			// Skip if the signature file does not exist
 			if _, err := os.Stat(signatureFile); os.IsNotExist(err) {
+				log.Printf("Signature file %s does not exist, skipping annotation %s\n", signatureFile, annot.ID)
 				continue
 			}
 
@@ -160,25 +155,12 @@ func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uin
 		return "", err
 	}
 
-	rect := Rect{
-		Width:  annot.Width,
-		Height: annot.Height,
-	}
-
-	font := Font{
-		Name:   annot.FontName,
-		Size:   annot.FontSize,
-		Color:  annot.FontColor,
-		Weight: annot.FontWeight,
-	}
-
-	// Render text and apply as watermark
-	textRenderer, err := NewTextRenderer(cg.Cfg, rect, font, cg.Settings)
+	textRenderer, err := NewTextRenderer(cg.Cfg, *annot.Rect(), *annot.Font(), cg.Settings)
 	if err != nil {
 		return "", err
 	}
 
-	if err := textRenderer.RenderSvgTextAsPdf(annot.Value, TextAlignCenter, txtFile.Name()); err != nil {
+	if err := textRenderer.RenderSvgTextAsPdf(annot.Value, annot.TextAlign, txtFile.Name()); err != nil {
 		return "", err
 	}
 
@@ -236,10 +218,8 @@ type Result struct {
 // If no CSV is provided, it will generate a single certificate and apply the annotations.
 // The output file names will be based on the provided pattern. Eg. "certificate_%d.pdf"
 func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, error) {
-	// Clean up temporary files when done
 	defer os.RemoveAll(cg.GetTmpDir())
 
-	// Apply signatures to the base template
 	baseFile, err := cg.applySignatures(cg.TemplatePath)
 	if err != nil {
 		return nil, err
@@ -254,13 +234,11 @@ func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, er
 		return []string{outputFile}, nil
 	}
 
-	// Process CSV data with concurrency
 	return cg.generateFromCSV(baseFile, outputFilePattern)
 }
 
 // Handles the parallel generation of certificates from CSV data.
 func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern string) ([]string, error) {
-	// Read and parse CSV data
 	dataMaps, err := cg.readCSVData()
 	if err != nil {
 		return nil, err
@@ -272,16 +250,13 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern stri
 	jobs := make(chan Job, len(dataMaps))
 	results := make(chan Result, len(dataMaps))
 
-	// Start worker pool
 	var wg sync.WaitGroup
 	for range maxWorkers {
 		wg.Add(1)
 		go cg.certificateWorker(jobs, results, baseFile, &wg)
 	}
 
-	// Send jobs to workers
 	for i, row := range dataMaps {
-
 		// Create temp worker-specific directory for each job
 		workerID := fmt.Sprintf("worker-%d", i)
 		workerTmpDir := filepath.Join(cg.GetTmpDir(), workerID)
@@ -294,17 +269,14 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern stri
 	}
 	close(jobs)
 
-	// Wait for all workers to finish and close the results channel
 	go func() {
 		wg.Wait()
 		close(results)
 	}()
 
-	// Collect and organize results
-	return cg.collectResults(results, len(dataMaps), outputFilePattern)
+	return cg.collectResults(results, len(dataMaps))
 }
 
-// readCSVData reads and parses the CSV file.
 func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
 	records, err := ReadCSVFromFile(cg.CSVPath)
 	if err != nil {
@@ -319,11 +291,10 @@ func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
 	return dataMaps, nil
 }
 
-// Find optimal number of worker goroutines.
+// It defaults to the value of runtime.NumCPU (core count)
+// Note: Can change to more than core count if needed
+// max worker should be at least 1 and should not exceed job count
 func determineWorkerCount(jobCount int) int {
-	// It defaults to the value of runtime.NumCPU (core count)
-	// Note: Can change to more than core count if needed
-	// max worker should be at least 1 and should not exceed job count
 	maxWorkers := min(max(runtime.GOMAXPROCS(0), 1), jobCount)
 
 	fmt.Printf("Using %d workers for processing\n", maxWorkers)
@@ -336,7 +307,6 @@ func (cg *CertificateGenerator) certificateWorker(jobs <-chan Job, results chan<
 	defer wg.Done()
 
 	for j := range jobs {
-		// Process the job and send result
 		outputFile, err := cg.processJob(j, baseFile)
 		results <- Result{j.index, outputFile, err}
 
@@ -353,7 +323,6 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 		return "", err
 	}
 
-	// Apply text annotations
 	currentFile := workerBaseFile
 
 	for page, colAnnots := range cg.Annotations.PageColumnAnnotations {
@@ -396,7 +365,7 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 }
 
 // Collect and organize the results from worker goroutines.
-func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount int, outputFilePattern string) ([]string, error) {
+func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount int) ([]string, error) {
 	// A map of generated files indexed by their original CSV row index
 	// This is used to ensure the output files are in the correct order
 	resultMap := make(map[int]string)

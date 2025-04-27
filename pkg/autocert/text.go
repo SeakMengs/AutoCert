@@ -50,7 +50,6 @@ func (r *Rect) toMM() Rect {
 type TextRenderer struct {
 	cfg  Config
 	rect Rect
-	// Font detail such as name, size, color, weight
 	font Font
 	// FontFamily is the struct that allow us to use font face function
 	fontFamily *canvas.FontFamily
@@ -81,12 +80,12 @@ func NewTextRenderer(cfg Config, rect Rect, font Font, setting Settings) (*TextR
 }
 
 func (tr *TextRenderer) drawText(ctx *canvas.Context, text string, alignment TextAlign) {
-	fontSize := tr.font.Size
-	if tr.setting.TextFitRectBox {
-		fontSize = tr.getFontSizeFitRectBox(text)
-	}
+	// TODO: update font auto
+	// fontSize := tr.font.Size
+	// if tr.setting.TextFitRectBox {
+	fontSize := tr.getFontSizeFitRectBox(text)
+	// }
 
-	// Create the font face
 	face := tr.fontFamily.Face(fontSize, canvas.Hex(tr.font.Color), tr.font.GetFontStyle(), canvas.FontNormal)
 
 	rt := canvas.NewRichText(face)
@@ -100,7 +99,6 @@ func (tr *TextRenderer) drawText(ctx *canvas.Context, text string, alignment Tex
 
 	centerYMM := (rectMM.Height - textHeightMM) / 2
 
-	// Set X position based on alignment
 	var xPosition float64
 	switch alignment {
 	case TextAlignLeft:
@@ -111,7 +109,6 @@ func (tr *TextRenderer) drawText(ctx *canvas.Context, text string, alignment Tex
 		xPosition = (rectMM.Width - textWidthMM) / 2
 	}
 
-	// Draw the text
 	ctx.DrawText(xPosition, centerYMM, textBox)
 }
 

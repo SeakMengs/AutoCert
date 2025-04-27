@@ -42,7 +42,7 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 			ID: projectID,
 		},
 		UserID: authUser.ID,
-	}).Preload("TemplateFile").Preload("CSVFile").Preload("SignatureAnnotates").Preload("ColumnAnnotates").First(&project).Error; err != nil {
+	}).Preload("TemplateFile").Preload("CSVFile").Preload("SignatureAnnotates.SignatureFile").Preload("ColumnAnnotates").First(&project).Error; err != nil {
 		if err != gorm.ErrRecordNotFound {
 			return nil, nil, err
 		}

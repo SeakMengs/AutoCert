@@ -1,11 +1,14 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -366,5 +369,162 @@ func (pc ProjectController) GetSignatoryProjectList(ctx *gin.Context) {
 		"totalPage": util.CalculateTotalPage(totalCount, params.PageSize),
 		"search":    params.Search,
 		"status":    params.Status,
+	})
+}
+
+// TODO: refactor and cleanup
+func (pc ProjectController) Generate(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
+	}
+
+	roles, project, err := pc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
+		return
+	}
+
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+		return
+	}
+
+	if project.Status != constant.ProjectStatusDraft {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project is not in draft status", util.GenerateErrorMessages(errors.New("project is not in draft status"), "status"), nil)
+		return
+	}
+
+	pageAnnotations := autocert.PageAnnotations{
+		PageSignatureAnnotations: make(map[uint][]autocert.SignatureAnnotate),
+		PageColumnAnnotations:    make(map[uint][]autocert.ColumnAnnotate),
+	}
+
+	for _, signature := range project.SignatureAnnotates {
+		if signature.Status != constant.SignatoryStatusSigned {
+			continue
+		}
+
+		annotate, err := signature.ToAutoCertSignatureAnnotate(ctx, pc.app.S3)
+		if err != nil {
+			pc.app.Logger.Error("failed to convert signature to autocert signature annotate", err)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to process signature annotation", util.GenerateErrorMessages(err), nil)
+			return
+		}
+		pageAnnotations.PageSignatureAnnotations[signature.Page] = append(pageAnnotations.PageSignatureAnnotations[signature.Page], *annotate)
+
+		defer os.Remove(annotate.SignatureFilePath)
+	}
+
+	for _, column := range project.ColumnAnnotates {
+		pageAnnotations.PageColumnAnnotations[column.Page] = append(pageAnnotations.PageColumnAnnotations[column.Page], *column.ToAutoCertColumnAnnotate())
+	}
+
+	ext := filepath.Ext(project.TemplateFile.FileName)
+
+	templatePath, err := os.CreateTemp("", "template-*"+ext)
+	if err != nil {
+		pc.app.Logger.Error("failed to create temp file", err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.Remove(templatePath.Name())
+
+	err = project.TemplateFile.DownloadToLocal(ctx, pc.app.S3, templatePath.Name())
+	if err != nil {
+		pc.app.Logger.Error("failed to download template file", err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download template file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	csvPath, err := os.CreateTemp("", "csv-*"+ext)
+	if err != nil {
+		pc.app.Logger.Error("failed to create temp file", err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.Remove(csvPath.Name())
+
+	if project.CSVFileID != "" {
+		err = project.CSVFile.DownloadToLocal(ctx, pc.app.S3, csvPath.Name())
+		if err != nil {
+			pc.app.Logger.Error("failed to download csv file", err)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download csv file", util.GenerateErrorMessages(err), nil)
+			return
+		}
+	} else {
+		// create empty csv file
+		_, err = csvPath.WriteString("")
+		if err != nil {
+			pc.app.Logger.Error("failed to create empty csv file", err)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create empty csv file", util.GenerateErrorMessages(err), nil)
+			return
+		}
+	}
+
+	cfg := autocert.NewDefaultConfig()
+
+	settings := autocert.NewDefaultSettings()
+
+	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings)
+
+	now := time.Now()
+
+	generatedFiles, err := cg.Generate("certificate_%d.pdf")
+	if err != nil {
+		pc.app.Logger.Error("failed to generate certificate", err)
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	// TIP: remove for testing
+	defer os.RemoveAll(cg.GetOutputDir())
+
+	then := time.Now()
+
+	nowUpload := time.Now()
+	for _, filePath := range generatedFiles {
+		pc.app.Logger.Info("Generated file:", filePath)
+
+		fileName := filepath.Base(filePath)
+		remotePath := fmt.Sprintf("projects/%s/generated/%s", project.ID, fileName)
+
+		if _, err := pc.app.S3.FPutObject(context.Background(), pc.app.Config.Minio.BUCKET, remotePath, filePath, minio.PutObjectOptions{
+			ContentType: "application/pdf",
+		}); err != nil {
+			pc.app.Logger.Error("Failed to upload file:", err)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
+			return
+		}
+
+	}
+	thenUpload := time.Now()
+	pc.app.Logger.Info("Upload time taken:", thenUpload.Sub(nowUpload))
+
+	// TODO: remove
+	mergeOutPut := filepath.Join(cg.GetOutputDir(), "final.pdf")
+	err = autocert.MergePdf(generatedFiles, mergeOutPut)
+	if err != nil {
+		log.Fatalf("Failed to merge PDFs: %v", err)
+	}
+
+	fmt.Printf("Time taken: %v for %d certificate \n", then.Sub(now), len(generatedFiles))
+	fmt.Println("All done!")
+
+	// TODO: upload file to s3
+	thenTotal := time.Now()
+
+	util.ResponseSuccess(ctx, gin.H{
+		"files":             generatedFiles,
+		"count":             len(generatedFiles),
+		"merge":             mergeOutPut,
+		"generateTimeTaken": fmt.Sprintf("Time taken to generate all certificates: %v", then.Sub(now)),
+		"uploadTimeTaken":   fmt.Sprintf("Time taken to upload all certificates: %v", thenUpload.Sub(nowUpload)),
+		"totalTimeTaken":    fmt.Sprintf("Total time taken: %v", thenTotal.Sub(now)),
 	})
 }

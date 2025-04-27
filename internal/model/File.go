@@ -8,6 +8,8 @@ import (
 	"github.com/minio/minio-go/v7"
 )
 
+// TODO: refactor, save file based on folder like "users/{userID}/signatures/{unique_filename}"
+
 type File struct {
 	BaseModel
 	FileName       string `gorm:"type:text;not null" json:"fileName" form:"fileName" binding:"required"`

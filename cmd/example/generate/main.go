@@ -164,13 +164,12 @@ func main() {
 
 	// Define rendering settings.
 	settings := autocert.Settings{
-		TextFitRectBox:       true,
 		RemoveLineBreaksBool: true,
 		EmbedQRCode:          true,
 	}
 
 	// Create a CertificateGenerator.
-	cg := autocert.NewCertificateGenerator("lol", templatePath, csvPath, cfg, pageAnnotations, settings)
+	cg := autocert.NewCertificateGenerator("lol", templatePath, csvPath, *cfg, pageAnnotations, settings)
 
 	// Generate certificates.
 	// The outputFilePattern is a format string; here, certificates will be named "certificate_0.pdf", "certificate_1.pdf", etc.

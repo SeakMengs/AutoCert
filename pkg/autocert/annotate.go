@@ -27,17 +27,42 @@ type BaseAnnotate struct {
 type ColumnAnnotate struct {
 	BaseAnnotate
 	// column name in the CSV file
-	Value      string     `json:"value" form:"value" binding:"required"`
-	FontName   string     `json:"fontName" form:"fontName"`
-	FontColor  string     `json:"fontColor" form:"fontColor"`
-	FontSize   float64    `json:"fontSize" form:"fontSize"`
-	FontWeight FontWeight `json:"fontWeight" form:"fontWeight"`
+	Value          string     `json:"value" form:"value" binding:"required"`
+	FontName       string     `json:"fontName" form:"fontName"`
+	FontColor      string     `json:"fontColor" form:"fontColor"`
+	FontSize       float64    `json:"fontSize" form:"fontSize"`
+	FontWeight     FontWeight `json:"fontWeight" form:"fontWeight"`
+	TextFitRectBox bool       `json:"textFitRectBox" form:"textFitRectBox"`
+	TextAlign      TextAlign  `json:"textAlign" form:"textAlign"`
+}
+
+func (ca ColumnAnnotate) Font() *Font {
+	return &Font{
+		Name:   ca.FontName,
+		Color:  ca.FontColor,
+		Size:   ca.FontSize,
+		Weight: ca.FontWeight,
+	}
+}
+
+func (ca ColumnAnnotate) Rect() *Rect {
+	return &Rect{
+		Width:  ca.Size.Width,
+		Height: ca.Size.Height,
+	}
 }
 
 type SignatureAnnotate struct {
 	BaseAnnotate
 	SignatureFilePath string `json:"signatureFilePath"`
 	Email             string `json:"email" form:"email" binding:"required"`
+}
+
+func (sa SignatureAnnotate) Rect() *Rect {
+	return &Rect{
+		Width:  sa.Size.Width,
+		Height: sa.Size.Height,
+	}
 }
 
 // Each page has a list of annotates
