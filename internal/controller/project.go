@@ -16,6 +16,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 )
 
@@ -29,6 +30,10 @@ const (
 	ErrFailedToGetPageCountFromTemplateFile = "failed to get page count from template file"
 	ErrInvalidPageNumber                    = "page number must be between 1 and %d for the provided template, but got %d"
 )
+
+func getProjectDirectoryPath(projectId string) string {
+	return fmt.Sprintf("projects/%s", projectId)
+}
 
 func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	type Request struct {
@@ -111,7 +116,11 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		return
 	}
 
-	info, err := pc.uploadFileToS3ByPath(finalPdf)
+	newProjectId := uuid.NewString()
+
+	info, err := pc.uploadFileToS3ByPath(finalPdf, &FileUploadOptions{
+		DirectoryPath: getProjectDirectoryPath(newProjectId),
+	})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
 		return
@@ -128,6 +137,9 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	}()
 
 	_, err = pc.app.Repository.Project.Create(ctx, nil, &model.Project{
+		BaseModel: model.BaseModel{
+			ID: newProjectId,
+		},
 		Title:  body.Title,
 		UserID: user.ID,
 		TemplateFile: model.File{
@@ -140,7 +152,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	if err != nil {
 		// delete the file from s3 if project creation failed
 		if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
-			pc.app.Logger.Error(err)
+			pc.app.Logger.Errorf("Failed to delete file: %v", err)
 			tx.Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete file", util.GenerateErrorMessages(err), nil)
 			return

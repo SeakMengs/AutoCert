@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -22,6 +23,10 @@ var ALLOWED_SIGNATURE_FILE_TYPE = []string{".png", ".svg"}
 const (
 	ErrSignatureIdRequired = "signature id is required"
 )
+
+func getSignatureDirectoryPath(userId string) string {
+	return fmt.Sprintf("users/%s/signatures", userId)
+}
 
 // TODO: store pub key
 // TODO: limit file size
@@ -60,7 +65,9 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 		return
 	}
 
-	info, err := sc.uploadFileToS3ByFileHeader(sigFile)
+	info, err := sc.uploadFileToS3ByFileHeader(sigFile, &FileUploadOptions{
+		DirectoryPath: getSignatureDirectoryPath(user.ID),
+	})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
 		return

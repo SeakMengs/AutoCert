@@ -28,6 +28,7 @@ func ResponseSuccess(ctx *gin.Context, data any) {
 	}
 
 	ctx.JSON(http.StatusOK, BuildResponseSuccess(data))
+	ctx.Abort()
 }
 
 func BuildResponseFailed(message string, err any, data any) Response {
@@ -59,4 +60,5 @@ func BuildResponseFailed(message string, err any, data any) Response {
 
 func ResponseFailed(ctx *gin.Context, code int, message string, err any, data any) {
 	ctx.JSON(code, BuildResponseFailed(message, err, data))
+	ctx.Abort()
 }

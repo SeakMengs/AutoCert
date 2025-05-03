@@ -143,13 +143,11 @@ func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uin
 		dir = cg.GetTmpDir()
 	}
 
-	// Create temporary output file
 	tmpOut, err := os.CreateTemp(dir, "autocert_*.pdf")
 	if err != nil {
 		return "", err
 	}
 
-	// Create temporary text file for rendering the text
 	txtFile, err := os.CreateTemp(dir, "autocert_svg_text_*.pdf")
 	if err != nil {
 		return "", err
