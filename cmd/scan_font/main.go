@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 )
@@ -30,5 +31,11 @@ func main() {
 		log.Fatalf("Failed to write JSON file: %v", err)
 	}
 
-	fmt.Printf("Saved metadata for %d fonts to %q\n", len(fonts), outputFile)
+	absPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		log.Fatalf("Failed to get absolute path: %v", err)
+		absPath = outputFile
+	}
+
+	fmt.Printf("Saved metadata for %d fonts to %q\n", len(fonts), absPath)
 }

@@ -495,6 +495,7 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 
 	info, err := pbc.uploadFileToS3ByPath(tmp.Name(), &FileUploadOptions{
 		DirectoryPath: getProjectDirectoryPath(project.ID),
+		UniquePrefix:  true,
 	})
 	if err != nil {
 		pbc.app.Logger.Warnf("Failed to upload csv file: %v", err)

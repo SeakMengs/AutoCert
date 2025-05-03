@@ -12,8 +12,6 @@ type Config struct {
 	OutputDir string
 	// Directory where the temporary files are stored during processing, the file will be deleted after processing
 	TmpDir string
-	// Directory where the state files are stored, which will be used to store the state of the project
-	FallbackFont string
 }
 
 func NewDefaultConfig() *Config {
@@ -21,7 +19,6 @@ func NewDefaultConfig() *Config {
 		FontMetadataPath: "font_metadata.json",
 		OutputDir:        "autocert_tmp/output",
 		TmpDir:           "autocert_tmp/tmp",
-		FallbackFont:     "Arial",
 	}
 
 	// Create the directories if they do not exist

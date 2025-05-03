@@ -67,6 +67,7 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 
 	info, err := sc.uploadFileToS3ByFileHeader(sigFile, &FileUploadOptions{
 		DirectoryPath: getSignatureDirectoryPath(user.ID),
+		UniquePrefix:  true,
 	})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)

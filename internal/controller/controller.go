@@ -108,6 +108,7 @@ type FileUploadOptions struct {
 	// For example, if the file name is "data.csv" and the prefix is "projects/123",
 	// the resulting name will be "projects/123/data.csv"
 	DirectoryPath string
+	UniquePrefix  bool
 }
 
 func (b *baseController) uploadFileToS3ByFileHeader(fileHeader *multipart.FileHeader, fuo *FileUploadOptions) (minio.UploadInfo, error) {
@@ -172,10 +173,16 @@ func (b *baseController) uploadFileToS3ByPath(path string, fuo *FileUploadOption
 
 // Generates the final file name with uniqueness and prefix
 func (b *baseController) prepareFileName(originalName string, fuo *FileUploadOptions) string {
-	fileName := util.AddUniquePrefixToFileName(originalName)
+	fileName := originalName
 
-	if fuo != nil && fuo.DirectoryPath != "" {
-		fileName = filepath.Join(fuo.DirectoryPath, fileName)
+	if fuo != nil {
+		if fuo.UniquePrefix {
+			fileName = util.AddUniquePrefixToFileName(originalName)
+		}
+
+		if fuo.DirectoryPath != "" {
+			fileName = filepath.Join(fuo.DirectoryPath, fileName)
+		}
 	}
 
 	return fileName

@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -33,6 +32,10 @@ const (
 
 func getProjectDirectoryPath(projectId string) string {
 	return fmt.Sprintf("projects/%s", projectId)
+}
+
+func getGeneratedCertificateDirectoryPath(projectId string) string {
+	return getProjectDirectoryPath(projectId) + "/generated"
 }
 
 func (pc ProjectController) CreateProject(ctx *gin.Context) {
@@ -120,6 +123,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 
 	info, err := pc.uploadFileToS3ByPath(finalPdf, &FileUploadOptions{
 		DirectoryPath: getProjectDirectoryPath(newProjectId),
+		UniquePrefix:  true,
 	})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
@@ -483,12 +487,12 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	cfg := autocert.NewDefaultConfig()
 
 	settings := autocert.NewDefaultSettings()
-
-	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings)
+	outFilePattern := "certificate_%d.pdf"
+	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings, outFilePattern)
 
 	now := time.Now()
 
-	generatedFiles, err := cg.Generate("certificate_%d.pdf")
+	generatedFiles, err := cg.Generate()
 	if err != nil {
 		pc.app.Logger.Error("failed to generate certificate", err)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(err), nil)
@@ -503,17 +507,14 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	for _, filePath := range generatedFiles {
 		pc.app.Logger.Info("Generated file:", filePath)
 
-		fileName := filepath.Base(filePath)
-		remotePath := fmt.Sprintf("projects/%s/generated/%s", project.ID, fileName)
-
-		if _, err := pc.app.S3.FPutObject(context.Background(), pc.app.Config.Minio.BUCKET, remotePath, filePath, minio.PutObjectOptions{
-			ContentType: "application/pdf",
+		if _, err := pc.uploadFileToS3ByPath(filePath, &FileUploadOptions{
+			DirectoryPath: getGeneratedCertificateDirectoryPath(project.ID),
+			UniquePrefix:  false,
 		}); err != nil {
-			pc.app.Logger.Error("Failed to upload file:", err)
+			pc.app.Logger.Error("failed to upload file to s3", err)
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
 			return
 		}
-
 	}
 	thenUpload := time.Now()
 	pc.app.Logger.Info("Upload time taken:", thenUpload.Sub(nowUpload))

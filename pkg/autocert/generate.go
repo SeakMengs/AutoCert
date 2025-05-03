@@ -24,22 +24,24 @@ func NewDefaultSettings() *Settings {
 
 type CertificateGenerator struct {
 	// ID is a unique identifier which will be used to create folder and store the generated files.
-	ID           string
-	TemplatePath string
-	CSVPath      string
-	Cfg          Config
-	Annotations  PageAnnotations
-	Settings     Settings
+	ID             string
+	TemplatePath   string
+	CSVPath        string
+	Cfg            Config
+	Annotations    PageAnnotations
+	Settings       Settings
+	OutFilePattern string
 }
 
-func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annotations PageAnnotations, settings Settings) *CertificateGenerator {
+func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annotations PageAnnotations, settings Settings, outFilePattern string) *CertificateGenerator {
 	return &CertificateGenerator{
-		ID:           id,
-		TemplatePath: templatePath,
-		CSVPath:      csvPath,
-		Cfg:          cfg,
-		Annotations:  annotations,
-		Settings:     settings,
+		ID:             id,
+		TemplatePath:   templatePath,
+		CSVPath:        csvPath,
+		Cfg:            cfg,
+		Annotations:    annotations,
+		Settings:       settings,
+		OutFilePattern: outFilePattern,
 	}
 }
 
@@ -215,7 +217,7 @@ type Result struct {
 // Returns a list of generated certificate file paths or each row in the CSV.
 // If no CSV is provided, it will generate a single certificate and apply the annotations.
 // The output file names will be based on the provided pattern. Eg. "certificate_%d.pdf"
-func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, error) {
+func (cg *CertificateGenerator) Generate() ([]string, error) {
 	defer os.RemoveAll(cg.GetTmpDir())
 
 	baseFile, err := cg.applySignatures(cg.TemplatePath)
@@ -225,18 +227,18 @@ func (cg *CertificateGenerator) Generate(outputFilePattern string) ([]string, er
 
 	// Handle case with no CSV file, just generate a single certificate
 	if cg.CSVPath == "" {
-		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(outputFilePattern, 1))
+		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, 1))
 		if err := os.Rename(baseFile, outputFile); err != nil {
 			return nil, err
 		}
 		return []string{outputFile}, nil
 	}
 
-	return cg.generateFromCSV(baseFile, outputFilePattern)
+	return cg.generateFromCSV(baseFile)
 }
 
 // Handles the parallel generation of certificates from CSV data.
-func (cg *CertificateGenerator) generateFromCSV(baseFile, outputFilePattern string) ([]string, error) {
+func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]string, error) {
 	dataMaps, err := cg.readCSVData()
 	if err != nil {
 		return nil, err
@@ -354,7 +356,7 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 	}
 
 	// Move the final output file to the output directory
-	outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf("certificate_%d.pdf", j.index+1))
+	outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, j.index+1))
 	if err := os.Rename(currentFile, outputFile); err != nil {
 		return "", fmt.Errorf("failed to finalize certificate for row %d: %w", j.index, err)
 	}

@@ -169,11 +169,11 @@ func main() {
 	}
 
 	// Create a CertificateGenerator.
-	cg := autocert.NewCertificateGenerator("lol", templatePath, csvPath, *cfg, pageAnnotations, settings)
+	cg := autocert.NewCertificateGenerator("lol", templatePath, csvPath, *cfg, pageAnnotations, settings, "certificate_%d.pdf")
 
 	// Generate certificates.
 	// The outputFilePattern is a format string; here, certificates will be named "certificate_0.pdf", "certificate_1.pdf", etc.
-	generatedFiles, err := cg.Generate("certificate_%d.pdf")
+	generatedFiles, err := cg.Generate()
 	if err != nil {
 		log.Fatalf("Certificate generation failed: %v", err)
 	}

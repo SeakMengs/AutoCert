@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,7 +151,13 @@ func (fl *FontLoader) GetAvailableFontMetadataByName(fontName string) (*FontMeta
 func (fl *FontLoader) LoadFont(fontName string, fontStyle canvas.FontStyle) (*canvas.FontFamily, error) {
 	fontMetadata, err := fl.GetAvailableFontMetadataByName(fontName)
 	if err != nil {
-		return nil, err
+		// Fallback to the first available font
+		if len(fl.AvailableFonts) > 0 {
+			fontMetadata = fl.AvailableFonts[0]
+			log.Printf("Fallback to font %s", fontMetadata.Name)
+		} else {
+			return nil, fmt.Errorf("no available fonts for fallback")
+		}
 	}
 
 	if fontMetadata == nil {
