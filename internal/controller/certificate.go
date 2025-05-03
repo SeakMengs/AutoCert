@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
+	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/gin-gonic/gin"
 )
@@ -30,12 +32,13 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 	}
 
 	type Project struct {
-		ID           string                 `json:"id"`
-		Title        string                 `json:"title"`
-		IsPublic     bool                   `json:"isPublic"`
-		Status       constant.ProjectStatus `json:"status"`
-		Certificates []Certificate          `json:"certificates"`
-		Logs         []ProjectLog           `json:"logs"`
+		ID           string                        `json:"id"`
+		Title        string                        `json:"title"`
+		IsPublic     bool                          `json:"isPublic"`
+		Status       constant.ProjectStatus        `json:"status"`
+		Certificates []Certificate                 `json:"certificates"`
+		Logs         []ProjectLog                  `json:"logs"`
+		Signatories  []repository.ProjectSignatory `json:"signatories"`
 	}
 
 	type GetCertificatesByProjectIdResponse struct {
@@ -75,6 +78,24 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project logs", util.GenerateErrorMessages(err), nil)
 		return
+	}
+
+	signatories, err := cc.app.Repository.Project.GetProjectSignatories(ctx, nil, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project signatories", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if len(certificates) == 0 {
+		certificates = []model.Certificate{}
+	}
+
+	if len(logs) == 0 {
+		logs = []*model.ProjectLog{}
+	}
+
+	if len(signatories) == 0 {
+		signatories = []repository.ProjectSignatory{}
 	}
 
 	certificateList := make([]Certificate, len(certificates))
@@ -117,6 +138,7 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 			IsPublic:     project.IsPublic,
 			Certificates: certificateList,
 			Logs:         logList,
+			Signatories:  signatories,
 		},
 	})
 }

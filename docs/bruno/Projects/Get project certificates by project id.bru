@@ -23,7 +23,7 @@ docs {
   GET /api/projects/{projectId}/certificates
   ```
   
-  This endpoint retrieves certificates associated with a specific project, along with project details and logs. Access is restricted to users with Owner or Signatory roles.
+  This endpoint retrieves certificates associated with a specific project, along with project details, logs, and signatories. Access is restricted to users with Owner or Signatory roles.
   
   ## Path Parameters
   
@@ -73,6 +73,13 @@ docs {
             "description": "Action description details",
             "timestamp": "2025-05-03T20:49:48.88Z"
           }
+        ],
+        "signatories": [
+          {
+            "email": "signer@example.com",
+            "profileUrl": "https://example.com/profile/image.jpg",
+            "status": "0",
+          }
         ]
       }
     }
@@ -107,8 +114,8 @@ docs {
     "error": {
       "errors": [
         {
-          "message": "Project not found",
-          "type": "notFound"
+          "field": "notFound",
+          "message": "Project not found"
         }
       ]
     }
@@ -124,8 +131,8 @@ docs {
     "error": {
       "errors": [
         {
-          "message": "You do not have permission to access this project",
-          "type": "forbidden"
+          "field": "forbidden",
+          "message": "You do not have permission to access this project"
         }
       ]
     }
@@ -141,6 +148,7 @@ docs {
     "error": {
       "errors": [
         {
+          "field": "",
           "message": "Error description"
         }
       ]
@@ -154,6 +162,8 @@ docs {
   Constants representing the possible roles a user can have within a project:
   - Owner (0)
   - Signatory (1)
+  
+  ### SignatoryStatus (Enum)
   
   ### Certificate
   | Field          | Type   | Description                                                     |
@@ -172,19 +182,28 @@ docs {
   | description | string | Detailed description of the action                |
   | timestamp   | string | Timestamp when the action was performed           |
   
+  ### ProjectSignatory
+  | Field      | Type   | Description                                           |
+  | ---------- | ------ | ----------------------------------------------------- |
+  | email      | string | Email address of the signatory                        |
+  | profileUrl | string | URL to the signatory's profile image                  |
+  | status     | string | Current status of the signatory (e.g., pending, signed)|
+  
   ### Project
-  | Field        | Type          | Description                              |
-  | ------------ | ------------- | ---------------------------------------- |
-  | id           | string        | Unique identifier for the project        |
-  | title        | string        | Project title                            |
-  | isPublic     | boolean       | Whether the project is publicly viewable |
-  | status       | string        | Current status of the project            |
-  | certificates | Certificate[] | Array of project certificates            |
-  | logs         | ProjectLog[]  | Array of project activity logs           |
+  | Field        | Type               | Description                              |
+  | ------------ | ------------------ | ---------------------------------------- |
+  | id           | string             | Unique identifier for the project        |
+  | title        | string             | Project title                            |
+  | isPublic     | boolean            | Whether the project is publicly viewable |
+  | status       | string             | Current status of the project            |
+  | certificates | Certificate[]      | Array of project certificates            |
+  | logs         | ProjectLog[]       | Array of project activity logs           |
+  | signatories  | ProjectSignatory[] | Array of project signatories             |
   
   ## Notes
   
   1. Certificate URLs are presigned S3 URLs that expire after a set period (typically 1 hour).
   2. Project logs include all activities performed on the project.
   3. The response includes the user's roles for the project, which can be used to determine available actions.
+  4. Empty arrays are returned as `[]` rather than `null` for certificates, logs, and signatories.
 }
