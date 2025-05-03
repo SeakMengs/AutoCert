@@ -1,6 +1,6 @@
 package model
 
-type ProjectLogs struct {
+type ProjectLog struct {
 	BaseModel
 
 	Role        string `gorm:"type:text;not null;" json:"role" form:"role" binding:"required"`
@@ -12,6 +12,6 @@ type ProjectLogs struct {
 	Project   Project `gorm:"constraint:OnDelete:SET NULL" json:"project" form:"project"`
 }
 
-func (pl ProjectLogs) TableName() string {
+func (pl ProjectLog) TableName() string {
 	return "project_logs"
 }

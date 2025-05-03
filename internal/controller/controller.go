@@ -36,6 +36,7 @@ type Controller struct {
 	Project        *ProjectController
 	ProjectBuilder *ProjectBuilderController
 	Signature      *SignatureController
+	Certificate    *CertificateController
 }
 
 func newBaseController(app *appcontext.Application) *baseController {
@@ -62,6 +63,7 @@ func NewController(app *appcontext.Application) *Controller {
 		Project:        &ProjectController{baseController: bc},
 		ProjectBuilder: &ProjectBuilderController{baseController: bc},
 		Signature:      &SignatureController{baseController: bc},
+		Certificate:    &CertificateController{baseController: bc},
 	}
 }
 

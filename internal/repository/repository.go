@@ -28,6 +28,8 @@ type Repository struct {
 	ColumnAnnotate    *ColumnAnnotateRepository
 	SignatureAnnotate *SignatureAnnotateRepository
 	Signature         *SignatureRepository
+	Certificate       *CertificateRepository
+	ProjectLog        *ProjectLogRepository
 }
 
 func newBaseRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface, s3 *minio.Client) *baseRepository {
@@ -48,6 +50,8 @@ func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTIn
 		ColumnAnnotate:    &ColumnAnnotateRepository{baseRepository: br},
 		SignatureAnnotate: &SignatureAnnotateRepository{baseRepository: br},
 		Signature:         &SignatureRepository{baseRepository: br},
+		Certificate:       &CertificateRepository{baseRepository: br},
+		ProjectLog:        &ProjectLogRepository{baseRepository: br},
 	}
 }
 

@@ -96,19 +96,19 @@ func main() {
 	r.Use(cors.New(corsConfig))
 	r.Use(_middleware.RateLimiterMiddleware)
 
-	_controller := controller.NewController(&app)
+	ctrller := controller.NewController(&app)
 
-	r.GET("/", _controller.Index.Index)
+	r.GET("/", ctrller.Index.Index)
 
 	rApi := r.Group("/api")
 
-	route.V1_Me(rApi, _controller.Project, _middleware)
-	route.V1_Signatures(rApi, _controller.Signature, _middleware)
-	route.V1_Projects(rApi, _controller.Project, _controller.ProjectBuilder, _controller.File, _middleware)
-	route.V1_Auth(rApi, _controller.Auth)
-	route.V1_OAuth(rApi, _controller.OAuth)
-	route.V1_Users(rApi, _controller.User)
-	route.V1_File(rApi, _controller.File)
+	route.V1_Me(rApi, ctrller.Project, _middleware)
+	route.V1_Signatures(rApi, ctrller.Signature, _middleware)
+	route.V1_Projects(rApi, ctrller.Project, ctrller.ProjectBuilder, ctrller.Certificate, ctrller.File, _middleware)
+	route.V1_Auth(rApi, ctrller.Auth)
+	route.V1_OAuth(rApi, ctrller.OAuth)
+	route.V1_Users(rApi, ctrller.User)
+	route.V1_File(rApi, ctrller.File)
 
 	if err := r.Run("0.0.0.0:" + app.Config.Port); err != nil {
 		logger.Panic("Error running server: %v \n", err)

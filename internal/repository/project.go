@@ -255,6 +255,27 @@ func (pr ProjectRepository) UpdateSetting(ctx context.Context, tx *gorm.DB, proj
 	return nil
 }
 
+func (pr ProjectRepository) UpdateStatus(ctx context.Context, tx *gorm.DB, projectId string, status constant.ProjectStatus) error {
+	pr.logger.Debugf("Update project status with projectId: %s and status: %v \n", projectId, status)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	// Need to select because gorm does not allow none-zero value to be updated unless selected
+	if err := db.WithContext(ctx).Model(&model.Project{}).Select("status").Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: projectId,
+		},
+	}).Updates(&model.Project{
+		Status: status,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (pr ProjectRepository) UpdateCSVFile(ctx context.Context, tx *gorm.DB, project model.Project, csvFile *model.File) error {
 	pr.logger.Debugf("Update project csv file with data: %v \n", project)
 

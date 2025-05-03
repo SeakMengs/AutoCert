@@ -1,0 +1,190 @@
+meta {
+  name: Get project certificates by project id
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{url}}/api/v1/projects/{{projectId}}/certificates
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  projectId: b027c70f-4793-41a6-9bfb-c12c9159e225
+}
+
+docs {
+  # API Documentation: Get Certificates By Project Id
+  
+  ## Endpoint
+  
+  ```
+  GET /api/projects/{projectId}/certificates
+  ```
+  
+  This endpoint retrieves certificates associated with a specific project, along with project details and logs. Access is restricted to users with Owner or Signatory roles.
+  
+  ## Path Parameters
+  
+  | Parameter | Type   | Description                                             |
+  | --------- | ------ | ------------------------------------------------------- |
+  | projectId | string | Required. The unique identifier of the project to view. |
+  
+  ## Authorization
+  
+  User must have one of the following project roles:
+  - Owner
+  - Signatory
+  
+  ## Response Format
+  
+  ### Success Response
+  
+  **Status Code:** 200 OK
+  
+  ```json
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {
+      "roles": [
+        0,  // Array of role constants (e.g., 0 for Owner, 1 for Signatory)
+        1
+      ],
+      "project": {
+        "id": "b027c70f-4793-41a6-9bfb-c12c9159e225",
+        "title": "Project Title",
+        "isPublic": false,
+        "status": "completed", // Project status (e.g., "draft", "in_progress", "completed")
+        "certificates": [
+          {
+            "id": "4f11eeb8-a509-44e2-bcce-78bec87d6052",
+            "number": 0,
+            "certificateUrl": "https://example.com/path/to/certificate.pdf",
+            "createdAt": "2025-05-03 20:49:48.8807 +0000 UTC"
+          }
+        ],
+        "logs": [
+          {
+            "id": "31231",
+            "role": "312",
+            "action": "do something",
+            "description": "Action description details",
+            "timestamp": "2025-05-03T20:49:48.88Z"
+          }
+        ]
+      }
+    }
+  }
+  ```
+  
+  ### Error Responses
+  
+  **Status Code:** 400 Bad Request
+  
+  ```json
+  {
+    "success": false,
+    "message": "Project id is required",
+    "error": {
+      "errors": [
+        {
+          "field": "projectId",
+          "message": "Project id is required"
+        }
+      ]
+    }
+  }
+  ```
+  
+  **Status Code:** 404 Not Found
+  
+  ```json
+  {
+    "success": false,
+    "message": "Project not found",
+    "error": {
+      "errors": [
+        {
+          "message": "Project not found",
+          "type": "notFound"
+        }
+      ]
+    }
+  }
+  ```
+  
+  **Status Code:** 403 Forbidden
+  
+  ```json
+  {
+    "success": false,
+    "message": "You do not have permission to access this project",
+    "error": {
+      "errors": [
+        {
+          "message": "You do not have permission to access this project",
+          "type": "forbidden"
+        }
+      ]
+    }
+  }
+  ```
+  
+  **Status Code:** 500 Internal Server Error
+  
+  ```json
+  {
+    "success": false,
+    "message": "Failed to get certificates",
+    "error": {
+      "errors": [
+        {
+          "message": "Error description"
+        }
+      ]
+    }
+  }
+  ```
+  
+  ## Data Structures
+  
+  ### ProjectRole (Enum)
+  Constants representing the possible roles a user can have within a project:
+  - Owner (0)
+  - Signatory (1)
+  
+  ### Certificate
+  | Field          | Type   | Description                                                     |
+  | -------------- | ------ | --------------------------------------------------------------- |
+  | id             | string | Unique identifier for the certificate                           |
+  | number         | int    | Certificate number/sequence                                     |
+  | certificateUrl | string | URL to download the certificate (presigned for secure access)   |
+  | createdAt      | string | Timestamp when the certificate was created                      |
+  
+  ### ProjectLog
+  | Field       | Type   | Description                                       |
+  | ----------- | ------ | ------------------------------------------------- |
+  | id          | string | Unique identifier for the log entry               |
+  | role        | string | Role that performed the action                    |
+  | action      | string | Type of action performed                          |
+  | description | string | Detailed description of the action                |
+  | timestamp   | string | Timestamp when the action was performed           |
+  
+  ### Project
+  | Field        | Type          | Description                              |
+  | ------------ | ------------- | ---------------------------------------- |
+  | id           | string        | Unique identifier for the project        |
+  | title        | string        | Project title                            |
+  | isPublic     | boolean       | Whether the project is publicly viewable |
+  | status       | string        | Current status of the project            |
+  | certificates | Certificate[] | Array of project certificates            |
+  | logs         | ProjectLog[]  | Array of project activity logs           |
+  
+  ## Notes
+  
+  1. Certificate URLs are presigned S3 URLs that expire after a set period (typically 1 hour).
+  2. Project logs include all activities performed on the project.
+  3. The response includes the user's roles for the project, which can be used to determine available actions.
+}

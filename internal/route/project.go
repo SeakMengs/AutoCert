@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func V1_Projects(r *gin.RouterGroup, pc *controller.ProjectController, pbc *controller.ProjectBuilderController, fc *controller.FileController, middleware *middleware.Middleware) {
+func V1_Projects(r *gin.RouterGroup, pc *controller.ProjectController, pbc *controller.ProjectBuilderController, cc *controller.CertificateController, fc *controller.FileController, middleware *middleware.Middleware) {
 	v1 := r.Group("/v1/projects")
 	v1.Use(middleware.AuthMiddleware)
 	{
@@ -14,6 +14,7 @@ func V1_Projects(r *gin.RouterGroup, pc *controller.ProjectController, pbc *cont
 		v1.GET("/:projectId", pc.GetProjectById)
 		v1.GET("/:projectId/thumbnail", fc.ServePdfContentThumbnail)
 		v1.GET("/:projectId/role", pc.GetProjectRole)
+		v1.GET("/:projectId/certificates", cc.GetCertificatesByProjectId)
 		v1.PUT("/:projectId/builder", pbc.ProjectBuilder)
 		v1.POST("/:projectId/builder/generate", pc.Generate)
 	}
