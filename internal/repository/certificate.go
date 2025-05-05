@@ -36,7 +36,7 @@ func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB
 	var certificates []model.Certificate
 	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
 		ProjectID: projectId,
-	}).Preload("CertificateFile").Find(&certificates).Error; err != nil {
+	}).Preload("CertificateFile").Order("number asc").Find(&certificates).Error; err != nil {
 		return certificates, err
 	}
 

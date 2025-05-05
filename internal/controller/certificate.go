@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -36,9 +37,10 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 		Title        string                        `json:"title"`
 		IsPublic     bool                          `json:"isPublic"`
 		Status       constant.ProjectStatus        `json:"status"`
-		Certificates []Certificate                 `json:"certificates"`
-		Logs         []ProjectLog                  `json:"logs"`
+		CreatedAt    *time.Time                    `json:"createdAt"`
 		Signatories  []repository.ProjectSignatory `json:"signatories"`
+		Logs         []ProjectLog                  `json:"logs"`
+		Certificates []Certificate                 `json:"certificates"`
 	}
 
 	type GetCertificatesByProjectIdResponse struct {
@@ -136,6 +138,7 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 			Title:        project.Title,
 			Status:       project.Status,
 			IsPublic:     project.IsPublic,
+			CreatedAt:    project.CreatedAt,
 			Certificates: certificateList,
 			Logs:         logList,
 			Signatories:  signatories,

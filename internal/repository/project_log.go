@@ -22,7 +22,7 @@ func (plr ProjectLogRepository) GetByProjectId(ctx context.Context, tx *gorm.DB,
 	var logs []*model.ProjectLog
 	if err := db.WithContext(ctx).Model(&model.ProjectLog{}).Where(model.ProjectLog{
 		ProjectID: projectId,
-	}).Find(&logs).Error; err != nil {
+	}).Order("timestamp asc").Find(&logs).Error; err != nil {
 		return logs, err
 	}
 

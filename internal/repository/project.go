@@ -106,9 +106,9 @@ type ProjectResponse struct {
 	Title       string                 `json:"title"`
 	TemplateUrl string                 `json:"templateUrl"`
 	IsPublic    bool                   `json:"isPublic"`
-	Signatories []ProjectSignatory     `json:"signatories"`
 	Status      constant.ProjectStatus `json:"status"`
 	CreatedAt   *time.Time             `json:"createdAt"`
+	Signatories []ProjectSignatory     `json:"signatories"`
 }
 
 func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB, authUser *auth.JWTPayload, search string, status []constant.ProjectStatus, page, pageSize uint) ([]ProjectResponse, int64, error) {
