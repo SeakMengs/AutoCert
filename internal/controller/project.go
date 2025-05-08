@@ -445,7 +445,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 			tx.Rollback()
 
 			pc.app.Logger.Error("failed to convert signature to autocert signature annotate", err)
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to process signature annotation", util.GenerateErrorMessages(err), nil)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to process signature annotation", util.GenerateErrorMessages(errors.New("failed to convert signature annotate to autocert signature annotate, most likely because signature file does not exist")), nil)
 			return
 		}
 		pageAnnotations.PageSignatureAnnotations[signature.Page] = append(pageAnnotations.PageSignatureAnnotations[signature.Page], *annotate)

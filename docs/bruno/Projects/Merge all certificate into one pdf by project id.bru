@@ -1,0 +1,15 @@
+meta {
+  name: Merge all certificate into one pdf by project id
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{url}}/api/v1/projects/{{projectId}}/certificates/merge
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  projectId: fe5b40d3-5628-4177-ae08-eed19845aefa
+}

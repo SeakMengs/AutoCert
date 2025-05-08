@@ -3,12 +3,15 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
 	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/SeakMengs/AutoCert/internal/util"
+	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
 )
 
@@ -61,7 +64,7 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 	}
 
 	if project == nil || project.ID == "" {
-		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), "notFound"), nil)
 		return
 	}
 
@@ -144,4 +147,150 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 			Signatories:  signatories,
 		},
 	})
+}
+
+func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
+	}
+
+	roles, project, err := cc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), "notFound"), nil)
+		return
+	}
+
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+		return
+	}
+
+	certificates, err := cc.app.Repository.Certificate.GetByProjectId(ctx, nil, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get certificates", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if len(certificates) == 0 {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "No certificates found for this project", util.GenerateErrorMessages(errors.New("no certificate in this project"), "certificates"), nil)
+		return
+	}
+
+	tempDir, err := os.MkdirTemp("", "certificates_zip_*")
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temporary directory", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.RemoveAll(tempDir)
+
+	for _, certificate := range certificates {
+		if certificate.CertificateFileId != "" {
+			base := filepath.Base(certificate.CertificateFile.FileName)
+			filePath := filepath.Join(tempDir, base)
+
+			err := certificate.CertificateFile.DownloadToLocal(ctx, cc.app.S3, filePath)
+			if err != nil {
+				util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download certificate file", util.GenerateErrorMessages(err), nil)
+				return
+			}
+		}
+	}
+
+	zipFilePath, err := os.CreateTemp("", "certificates_*.zip")
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create zip file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.Remove(zipFilePath.Name())
+	defer zipFilePath.Close()
+
+	err = util.ZipDir(tempDir, zipFilePath.Name())
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create zip file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	ctx.Header("Content-Disposition", "attachment; filename=certificates.zip")
+	ctx.File(zipFilePath.Name())
+}
+
+func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
+	}
+
+	roles, project, err := cc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), "notFound"), nil)
+		return
+	}
+
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+		return
+	}
+
+	certificates, err := cc.app.Repository.Certificate.GetByProjectId(ctx, nil, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get certificates", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if len(certificates) == 0 {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "No certificates found for this project", util.GenerateErrorMessages(errors.New("no certificate in this project"), "certificates"), nil)
+		return
+	}
+
+	tempDir, err := os.MkdirTemp("", "certificates_zip_*")
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temporary directory", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.RemoveAll(tempDir)
+
+	inFile := make([]string, 0, len(certificates))
+	for _, certificate := range certificates {
+		if certificate.CertificateFileId != "" {
+			base := filepath.Base(certificate.CertificateFile.FileName)
+			filePath := filepath.Join(tempDir, base)
+
+			err := certificate.CertificateFile.DownloadToLocal(ctx, cc.app.S3, filePath)
+			if err != nil {
+				util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download certificate file", util.GenerateErrorMessages(err), nil)
+				return
+			}
+
+			inFile = append(inFile, filePath)
+		}
+	}
+
+	mergeOutPut, err := os.CreateTemp("", "merged_certificates_*.pdf")
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create merged PDF file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	defer os.Remove(mergeOutPut.Name())
+
+	err = autocert.MergePdf(inFile, mergeOutPut.Name())
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to merge PDF files", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	ctx.Header("Content-Disposition", "attachment; filename=merged_certificates.pdf")
+	ctx.File(mergeOutPut.Name())
 }
