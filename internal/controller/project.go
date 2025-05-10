@@ -33,8 +33,16 @@ func getProjectDirectoryPath(projectId string) string {
 	return fmt.Sprintf("projects/%s", projectId)
 }
 
+func toProjectDirectoryPath(projectId string, filename string) string {
+	return filepath.Join(getProjectDirectoryPath(projectId), filepath.Base(filename))
+}
+
 func getGeneratedCertificateDirectoryPath(projectId string) string {
 	return getProjectDirectoryPath(projectId) + "/generated"
+}
+
+func toGeneratedCertificateDirectoryPath(projectId string, filename string) string {
+	return filepath.Join(getGeneratedCertificateDirectoryPath(projectId), filepath.Base(filename))
 }
 
 func (pc ProjectController) CreateProject(ctx *gin.Context) {
@@ -146,7 +154,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		Title:  body.Title,
 		UserID: user.ID,
 		TemplateFile: model.File{
-			FileName:       filepath.Base(finalPdf),
+			FileName:       toProjectDirectoryPath(newProjectId, file.Filename),
 			UniqueFileName: info.Key,
 			BucketName:     info.Bucket,
 			Size:           info.Size,
@@ -544,10 +552,10 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	}()
 
 	nowUpload := time.Now()
-	for i, filePath := range generatedFiles {
-		pc.app.Logger.Info("Generated file:", filePath)
+	for i, fpath := range generatedFiles {
+		pc.app.Logger.Info("Generated file:", fpath)
 
-		info, err := pc.uploadFileToS3ByPath(filePath, &FileUploadOptions{
+		info, err := pc.uploadFileToS3ByPath(fpath, &FileUploadOptions{
 			DirectoryPath: getGeneratedCertificateDirectoryPath(project.ID),
 			UniquePrefix:  false,
 		})
@@ -561,7 +569,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 			Number:    i + 1,
 			ProjectID: project.ID,
 			CertificateFile: model.File{
-				FileName:       filepath.Base(filePath),
+				FileName:       toGeneratedCertificateDirectoryPath(project.ID, fpath),
 				UniqueFileName: info.Key,
 				BucketName:     info.Bucket,
 				Size:           info.Size,

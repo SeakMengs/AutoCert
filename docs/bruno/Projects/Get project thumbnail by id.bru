@@ -5,7 +5,11 @@ meta {
 }
 
 get {
-  url: {{url}}/api/v1/projects/33268d7c-5124-4dcc-bba8-6321ad3a3f3a/thumbnail
-  body: multipartForm
+  url: {{url}}/api/v1/projects/{{projectId}}/thumbnail
+  body: none
   auth: none
+}
+
+vars:pre-request {
+  projectId: e572c9bb-87f6-4802-a24e-3ea88ea9f2fc
 }

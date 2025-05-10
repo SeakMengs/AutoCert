@@ -9,7 +9,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"path/filepath"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -503,7 +502,7 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 	}
 
 	err = pbc.app.Repository.Project.UpdateCSVFile(ctx, tx, *project, &model.File{
-		FileName:       filepath.Base(tmp.Name()),
+		FileName:       toProjectDirectoryPath(project.ID, tmp.Name()),
 		UniqueFileName: info.Key,
 		BucketName:     info.Bucket,
 		Size:           info.Size,

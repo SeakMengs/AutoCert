@@ -22,6 +22,11 @@ func ZipDir(dir string, zipFile string) error {
 			return err
 		}
 
+		// Skip the zip file itself to avoid recursion
+		if filePath == zipFile {
+			return nil
+		}
+
 		relPath, err := filepath.Rel(dir, filePath)
 		if err != nil {
 			return err

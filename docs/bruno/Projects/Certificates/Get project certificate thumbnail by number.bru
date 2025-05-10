@@ -1,0 +1,16 @@
+meta {
+  name: Get project certificate thumbnail by number
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{url}}/api/v1/projects/{{projectId}}/certificates/{{certificateNumber}}/thumbnail
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  projectId: e0d7ec80-812d-4038-a622-a7de1664105c
+  certificateNumber: 1
+}

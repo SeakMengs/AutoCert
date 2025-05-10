@@ -105,6 +105,7 @@ func main() {
 	route.V1_Me(rApi, ctrller.Project, _middleware)
 	route.V1_Signatures(rApi, ctrller.Signature, _middleware)
 	route.V1_Projects(rApi, ctrller.Project, ctrller.ProjectBuilder, ctrller.Certificate, ctrller.File, _middleware)
+	route.V1_Certificates(rApi, ctrller.Certificate, ctrller.File, _middleware)
 	route.V1_Auth(rApi, ctrller.Auth)
 	route.V1_OAuth(rApi, ctrller.OAuth)
 	route.V1_Users(rApi, ctrller.User)

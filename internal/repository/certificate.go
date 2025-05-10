@@ -26,7 +26,7 @@ func (cr CertificateRepository) Create(ctx context.Context, tx *gorm.DB, ca *mod
 	return ca, nil
 }
 
-func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB, projectId string) ([]model.Certificate, error) {
+func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB, projectId string) (*[]model.Certificate, error) {
 	plr.logger.Debugf("Get certificates by project id: %s", projectId)
 
 	db := plr.getDB(tx)
@@ -37,8 +37,23 @@ func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB
 	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
 		ProjectID: projectId,
 	}).Preload("CertificateFile").Order("number asc").Find(&certificates).Error; err != nil {
-		return certificates, err
+		return &certificates, err
 	}
 
-	return certificates, nil
+	return &certificates, nil
+}
+
+func (plr CertificateRepository) GetByNumber(ctx context.Context, tx *gorm.DB, projectId string, number int) (*model.Certificate, error) {
+	plr.logger.Debugf("Get certificate by number: %d, project id: %s", number, projectId)
+
+	db := plr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var certificate model.Certificate
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(map[string]any{"number": number, "project_id": projectId}).Preload("CertificateFile").First(&certificate).Error; err != nil {
+		return &certificate, err
+	}
+
+	return &certificate, nil
 }

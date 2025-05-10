@@ -91,8 +91,8 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 		return
 	}
 
-	if len(certificates) == 0 {
-		certificates = []model.Certificate{}
+	if len(*certificates) == 0 {
+		certificates = &[]model.Certificate{}
 	}
 
 	if len(logs) == 0 {
@@ -103,8 +103,8 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 		signatories = []repository.ProjectSignatory{}
 	}
 
-	certificateList := make([]Certificate, len(certificates))
-	for i, ca := range certificates {
+	certificateList := make([]Certificate, len(*certificates))
+	for i, ca := range *certificates {
 		certificateList[i] = Certificate{
 			ID:             ca.ID,
 			Number:         ca.Number,
@@ -178,7 +178,7 @@ func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 		return
 	}
 
-	if len(certificates) == 0 {
+	if len(*certificates) == 0 {
 		util.ResponseFailed(ctx, http.StatusBadRequest, "No certificates found for this project", util.GenerateErrorMessages(errors.New("no certificate in this project"), "certificates"), nil)
 		return
 	}
@@ -190,7 +190,7 @@ func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	for _, certificate := range certificates {
+	for _, certificate := range *certificates {
 		if certificate.CertificateFileId != "" {
 			base := filepath.Base(certificate.CertificateFile.FileName)
 			filePath := filepath.Join(tempDir, base)
@@ -250,7 +250,7 @@ func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
 		return
 	}
 
-	if len(certificates) == 0 {
+	if len(*certificates) == 0 {
 		util.ResponseFailed(ctx, http.StatusBadRequest, "No certificates found for this project", util.GenerateErrorMessages(errors.New("no certificate in this project"), "certificates"), nil)
 		return
 	}
@@ -262,8 +262,8 @@ func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	inFile := make([]string, 0, len(certificates))
-	for _, certificate := range certificates {
+	inFile := make([]string, 0, len(*certificates))
+	for _, certificate := range *certificates {
 		if certificate.CertificateFileId != "" {
 			base := filepath.Base(certificate.CertificateFile.FileName)
 			filePath := filepath.Join(tempDir, base)

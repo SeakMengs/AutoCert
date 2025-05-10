@@ -28,6 +28,10 @@ func getSignatureDirectoryPath(userId string) string {
 	return fmt.Sprintf("users/%s/signatures", userId)
 }
 
+func toSignatureDirectoryPath(userId string, filename string) string {
+	return filepath.Join(getSignatureDirectoryPath(userId), filepath.Base(filename))
+}
+
 // TODO: store pub key
 // TODO: limit file size
 func (sc SignatureController) AddSignature(ctx *gin.Context) {
@@ -86,7 +90,7 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 	sig := model.Signature{
 		UserID: user.ID,
 		SignatureFile: model.File{
-			FileName:       sigFile.Filename,
+			FileName:       toSignatureDirectoryPath(user.ID, sigFile.Filename),
 			UniqueFileName: info.Key,
 			BucketName:     info.Bucket,
 			Size:           info.Size,

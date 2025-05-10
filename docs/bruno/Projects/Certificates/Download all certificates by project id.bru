@@ -1,11 +1,11 @@
 meta {
-  name: Merge all certificate into one pdf by project id
+  name: Download all certificates by project id
   type: http
-  seq: 9
+  seq: 3
 }
 
 get {
-  url: {{url}}/api/v1/projects/{{projectId}}/certificates/merge
+  url: {{url}}/api/v1/projects/{{projectId}}/certificates/download
   body: none
   auth: inherit
 }
