@@ -40,6 +40,13 @@ func (car ColumnAnnotateRepository) Update(ctx context.Context, tx *gorm.DB, ca 
 		return errors.New("ID cannot be empty for update operation")
 	}
 
+	// remove key that cannot be updated
+	var forbiddenKeys = []string{"created_at", "updated_at"}
+
+	for _, key := range forbiddenKeys {
+		delete(ca, key)
+	}
+
 	if err := db.WithContext(ctx).Model(&model.ColumnAnnotate{}).Where(model.ColumnAnnotate{
 		BaseModel: model.BaseModel{
 			ID: ca["id"].(string),

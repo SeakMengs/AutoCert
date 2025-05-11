@@ -31,6 +31,7 @@ type CertificateGenerator struct {
 	Annotations    PageAnnotations
 	Settings       Settings
 	OutFilePattern string
+	csv            []map[string]string
 }
 
 func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annotations PageAnnotations, settings Settings, outFilePattern string) *CertificateGenerator {
@@ -225,8 +226,14 @@ func (cg *CertificateGenerator) Generate() ([]string, error) {
 		return nil, err
 	}
 
+	csvDataMaps, err := cg.readCSVData()
+	if err != nil {
+		return nil, err
+	}
+	cg.csv = csvDataMaps
+
 	// Handle case with no CSV file, just generate a single certificate
-	if cg.CSVPath == "" {
+	if len(cg.csv) == 0 {
 		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, 1))
 		if err := os.Rename(baseFile, outputFile); err != nil {
 			return nil, err
@@ -239,16 +246,11 @@ func (cg *CertificateGenerator) Generate() ([]string, error) {
 
 // Handles the parallel generation of certificates from CSV data.
 func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]string, error) {
-	dataMaps, err := cg.readCSVData()
-	if err != nil {
-		return nil, err
-	}
-
-	maxWorkers := determineWorkerCount(len(dataMaps))
+	maxWorkers := determineWorkerCount(len(cg.csv))
 
 	// Create channels for job distribution and result collection
-	jobs := make(chan Job, len(dataMaps))
-	results := make(chan Result, len(dataMaps))
+	jobs := make(chan Job, len(cg.csv))
+	results := make(chan Result, len(cg.csv))
 
 	var wg sync.WaitGroup
 	for range maxWorkers {
@@ -256,7 +258,7 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]string, erro
 		go cg.certificateWorker(jobs, results, baseFile, &wg)
 	}
 
-	for i, row := range dataMaps {
+	for i, row := range cg.csv {
 		// Create temp worker-specific directory for each job
 		workerID := fmt.Sprintf("worker-%d", i)
 		workerTmpDir := filepath.Join(cg.GetTmpDir(), workerID)
@@ -274,10 +276,14 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]string, erro
 		close(results)
 	}()
 
-	return cg.collectResults(results, len(dataMaps))
+	return cg.collectResults(results, len(cg.csv))
 }
 
 func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
+	if cg.CSVPath == "" {
+		return []map[string]string{}, nil
+	}
+
 	records, err := ReadCSVFromFile(cg.CSVPath)
 	if err != nil {
 		return nil, err
@@ -295,7 +301,7 @@ func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
 // Note: Can change to more than core count if needed
 // max worker should be at least 1 and should not exceed job count
 func determineWorkerCount(jobCount int) int {
-	maxWorkers := min(max(runtime.GOMAXPROCS(0), 1), jobCount)
+	maxWorkers := min(max(runtime.GOMAXPROCS(0)*2, 1), jobCount)
 
 	fmt.Printf("Using %d workers for processing\n", maxWorkers)
 

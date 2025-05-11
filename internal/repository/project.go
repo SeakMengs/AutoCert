@@ -184,7 +184,9 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 	var projects []model.Project
 	query := db.WithContext(ctx).Model(&model.Project{}).Preload("TemplateFile").
 		Joins("JOIN signature_annotates ON projects.id = signature_annotates.project_id").
-		Where("signature_annotates.email = ?", authUser.Email).Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned})
+		Where("signature_annotates.email = ?", authUser.Email).
+		Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned}).
+		Group("projects.id")
 
 	if len(status) > 0 {
 		query = query.Where("projects.status IN (?)", status)
@@ -201,7 +203,10 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 	var totalProjects int64
 	if err := db.WithContext(ctx).Model(&model.Project{}).
 		Joins("JOIN signature_annotates ON projects.id = signature_annotates.project_id").
-		Where("signature_annotates.email = ?", authUser.Email).Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned}).Count(&totalProjects).Error; err != nil {
+		Where("signature_annotates.email = ?", authUser.Email).
+		Where("signature_annotates.status IN (?)", []constant.SignatoryStatus{constant.SignatoryStatusInvited, constant.SignatoryStatusSigned}).
+		Group("projects.id").
+		Count(&totalProjects).Error; err != nil {
 		return nil, 0, err
 	}
 

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
@@ -16,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
+	"gorm.io/gorm"
 )
 
 type ProjectController struct {
@@ -396,6 +399,8 @@ func (pc ProjectController) GetSignatoryProjectList(ctx *gin.Context) {
 }
 
 // TODO: refactor and cleanup
+// TODO: handle remove signature file
+// TODO: handle empty annotates
 func (pc ProjectController) Generate(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
@@ -465,6 +470,12 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		pageAnnotations.PageColumnAnnotations[column.Page] = append(pageAnnotations.PageColumnAnnotations[column.Page], *column.ToAutoCertColumnAnnotate())
 	}
 
+	if len(pageAnnotations.PageSignatureAnnotations) == 0 && len(pageAnnotations.PageColumnAnnotations) == 0 {
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Cannot generate certificate", util.GenerateErrorMessages(errors.New("at least one signed signature or column annotation is required to generate the certificate"), "noAnnotate"), nil)
+		return
+	}
+
 	ext := filepath.Ext(project.TemplateFile.FileName)
 
 	templatePath, err := os.CreateTemp("", "template-*"+ext)
@@ -519,7 +530,8 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 
 	cfg := autocert.NewDefaultConfig()
 	settings := autocert.NewDefaultSettings()
-	outFilePattern := "certificate %d.pdf"
+	settings.EmbedQRCode = project.EmbedQr
+	outFilePattern := "certificate_%d.pdf"
 	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings, outFilePattern)
 
 	// TIP: Remove this for testing to see the generated files in the output directory
@@ -541,12 +553,16 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 
 	tx2 := pc.app.Repository.DB.Begin()
 	defer tx2.Commit()
+
+	tx2Rollback := func() {
+		// revert project status
+		pc.app.Repository.Project.UpdateStatus(ctx, nil, project.ID, project.Status)
+		tx2.Rollback()
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
-			// change project status back to it original status
-			pc.app.Repository.Project.UpdateStatus(ctx, tx2, project.ID, project.Status)
-
-			tx2.Rollback()
+			tx2Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(errors.New("failed to generate certificate")), nil)
 		}
 	}()
@@ -560,6 +576,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 			UniquePrefix:  false,
 		})
 		if err != nil {
+			tx2Rollback()
 			pc.app.Logger.Error("failed to upload file to s3", err)
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
 			return
@@ -568,12 +585,11 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		_, err = pc.app.Repository.Certificate.Create(ctx, tx2, &model.Certificate{
 			Number:    i + 1,
 			ProjectID: project.ID,
-			CertificateFile: model.File{
-				FileName:       toGeneratedCertificateDirectoryPath(project.ID, fpath),
-				UniqueFileName: info.Key,
-				BucketName:     info.Bucket,
-				Size:           info.Size,
-			},
+		}, &model.File{
+			FileName:       toGeneratedCertificateDirectoryPath(project.ID, fpath),
+			UniqueFileName: info.Key,
+			BucketName:     info.Bucket,
+			Size:           info.Size,
 		})
 
 		if err != nil {
@@ -581,19 +597,19 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 			// Doesn't remove all files, only the last upload. This could potentially leave some files in S3. Can be improved by deleting all files in the directory.
 			if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
 				pc.app.Logger.Errorf("Failed to delete file: %v", err)
-				tx2.Rollback()
+				tx2Rollback()
 				util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete file", util.GenerateErrorMessages(err), nil)
 				return
 			}
 
-			tx2.Rollback()
+			tx2Rollback()
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to save certificate", util.GenerateErrorMessages(err), nil)
 			return
 		}
 	}
 
 	if err := pc.app.Repository.Project.UpdateStatus(ctx, tx2, project.ID, constant.ProjectStatusCompleted); err != nil {
-		tx2.Rollback()
+		tx2Rollback()
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to update project status", util.GenerateErrorMessages(err), nil)
 		return
 	}
@@ -610,4 +626,134 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		"uploadTimeTaken":   fmt.Sprintf("Time taken to upload and save all certificates: %v", thenUpload.Sub(nowUpload)),
 		"totalTimeTaken":    fmt.Sprintf("Total time taken: %v", thenTotal.Sub(nowGenerate)),
 	})
+}
+
+func (pc ProjectController) ApproveSignature(ctx *gin.Context) {
+	type ApproveSignatureRequest struct {
+		SignatureAnnotateId string `json:"signatureAnnotateId" form:"signatureAnnotateId" binding:"required,strNotEmpty"`
+	}
+	var body ApproveSignatureRequest
+	err := ctx.ShouldBind(&body)
+	if err != nil {
+		pc.app.Logger.Errorf("Failed to bind request: %v", err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	fmt.Printf("ApproveSignatureRequest: %+v\n", body)
+
+	projectId := ctx.Param("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("projectId is required"), "projectId"), nil)
+		return
+	}
+
+	sigFile, err := ctx.FormFile("signatureFile")
+	if err != nil {
+		pc.app.Logger.Error(err)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "No signature file uploaded", util.GenerateErrorMessages(errors.New("signature file is required"), "signatureFile"), nil)
+		return
+	}
+
+	ext := filepath.Ext(sigFile.Filename)
+	if !slices.Contains(ALLOWED_SIGNATURE_FILE_TYPE, ext) {
+		pc.app.Logger.Errorf("Failed to approve signature: invalid file type %s", ext)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid file type", util.GenerateErrorMessages(errors.New("invalid file type"), "signatureFile"), nil)
+		return
+	}
+
+	user, err := pc.getAuthUser(ctx)
+	if err != nil {
+		pc.app.Logger.Errorf("Failed to get auth user: %v", err)
+		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	roles, project, err := pc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil {
+		util.ResponseFailed(ctx, http.StatusNotFound, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project not found"), "project"), nil)
+		return
+	}
+
+	if project.Status != constant.ProjectStatusDraft {
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project is not in draft status"), "project"), nil)
+		return
+	}
+
+	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureApprove}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to approve signature", util.GenerateErrorMessages(errors.New("you do not have permission to approve signature"), "forbidden"), nil)
+		return
+	}
+
+	sa, err := pc.app.Repository.SignatureAnnotate.GetById(ctx, nil, body.SignatureAnnotateId, projectId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			util.ResponseFailed(ctx, http.StatusNotFound, "Signature not found", util.GenerateErrorMessages(errors.New("annotate signature not found"), "notFound"), nil)
+			return
+		}
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get signature annotate", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if !strings.EqualFold(sa.Email, user.Email) {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature approval failed", util.GenerateErrorMessages(errors.New("the signature cannot be approved because it is not assigned to you"), "notSignatory"), nil)
+		return
+	}
+
+	if sa.Status != constant.SignatoryStatusInvited {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature approval failed", util.GenerateErrorMessages(errors.New("the signature cannot be approved because it is not in the invited status"), "status"), nil)
+		return
+	}
+
+	info, err := pc.uploadFileToS3ByFileHeader(sigFile, &FileUploadOptions{
+		DirectoryPath: getProjectDirectoryPath(project.ID),
+		UniquePrefix:  true,
+	})
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	tx := pc.app.Repository.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(errors.New("failed to approve signature")), nil)
+			return
+		}
+	}()
+
+	err = pc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, body.SignatureAnnotateId, &model.File{
+		FileName:       toProjectDirectoryPath(user.ID, sigFile.Filename),
+		UniqueFileName: info.Key,
+		BucketName:     info.Bucket,
+		Size:           info.Size,
+	})
+	if err != nil {
+		// delete the file from s3 if signature approval failed
+		if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
+			pc.app.Logger.Errorf("Failed to delete file: %v", err)
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete signature file", util.GenerateErrorMessages(err), nil)
+			return
+		}
+
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	util.ResponseSuccess(ctx, nil)
 }

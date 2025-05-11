@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/util"
@@ -34,6 +35,10 @@ func createBucketIfNotExists(s3 *minio.Client, bucketName string) error {
 	}
 
 	return nil
+}
+
+func CacheRequest(ctx *gin.Context, time time.Duration) {
+	ctx.Header("Cache-Control", fmt.Sprintf("public, max-age=%d", int(time.Seconds())))
 }
 
 func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
@@ -93,6 +98,7 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 	}
 	defer os.Remove(*pngFile)
 
+	CacheRequest(ctx, time.Hour*24)
 	ctx.File(*pngFile)
 }
 
@@ -181,5 +187,6 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 	}
 	defer os.Remove(*pngFile)
 
+	CacheRequest(ctx, time.Hour*24)
 	ctx.File(*pngFile)
 }

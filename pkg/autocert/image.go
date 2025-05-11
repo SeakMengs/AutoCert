@@ -11,7 +11,6 @@ import (
 	"github.com/tdewolff/canvas/renderers"
 )
 
-// Require libvips to be installed on the system.
 func ResizeImage(inFile, outFile string, width, height float64) error {
 	img, err := mergi.Import(impexp.NewFileImporter(inFile))
 	if err != nil {

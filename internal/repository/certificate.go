@@ -12,13 +12,18 @@ type CertificateRepository struct {
 	*baseRepository
 }
 
-func (cr CertificateRepository) Create(ctx context.Context, tx *gorm.DB, ca *model.Certificate) (*model.Certificate, error) {
-	cr.logger.Debugf("Create certificate: %s", ca.Number)
+func (cr CertificateRepository) Create(ctx context.Context, tx *gorm.DB, ca *model.Certificate, file *model.File) (*model.Certificate, error) {
+	cr.logger.Debugf("Create certificate: %d", ca.Number)
 
 	db := cr.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
+	if err := db.WithContext(ctx).Model(&model.File{}).Create(file).Error; err != nil {
+		return ca, err
+	}
+
+	ca.CertificateFileId = file.ID
 	if err := db.WithContext(ctx).Model(&model.Certificate{}).Create(ca).Error; err != nil {
 		return ca, err
 	}

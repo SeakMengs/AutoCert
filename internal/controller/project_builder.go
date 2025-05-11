@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -377,6 +376,8 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Conte
 		return errors.New("failed to remove signature annotate")
 	}
 
+	// TODO: remove signature file if exist
+
 	return nil
 }
 
@@ -416,9 +417,6 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Cont
 }
 
 func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
-	// print json of data
-	pbc.app.Logger.Debugf("SettingsUpdate: %s", string(data))
-
 	var payload SettingsUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return errors.New("invalid payload for SettingsUpdate")
@@ -428,8 +426,6 @@ func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *g
 	if !util.HasPermission(roles, []constant.ProjectPermission{constant.SettingsUpdate}) {
 		return errors.New("you do not have permission to update settings")
 	}
-
-	log.Printf("QrCodeEnabled: %t", payload.QrCodeEnabled)
 
 	err := pbc.app.Repository.Project.UpdateSetting(ctx, tx, project.ID, payload.QrCodeEnabled)
 	if err != nil {

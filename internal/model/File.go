@@ -3,12 +3,11 @@ package model
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"time"
 
 	"github.com/minio/minio-go/v7"
 )
-
-// TODO: refactor, save file based on folder like "users/{userID}/signatures/{unique_filename}"
 
 type File struct {
 	BaseModel
@@ -64,4 +63,12 @@ func (f File) Delete(ctx context.Context, s3 *minio.Client) error {
 	}
 
 	return nil
+}
+
+func (f File) ToBaseFilename() string {
+	return filepath.Base(f.FileName)
+}
+
+func (f File) ToBaseUniqueFilename() string {
+	return filepath.Base(f.UniqueFileName)
 }

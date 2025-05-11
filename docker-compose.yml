@@ -21,6 +21,8 @@ services:
     psql-db:
         image: postgres
         environment:
+            # Automatically create database based on the name of the database in .env file
+            POSTGRES_DB: ${DB_DATABASE}
             POSTGRES_USER: ${DB_USERNAME}
             POSTGRES_PASSWORD: ${DB_PASSWORD}
         ports:

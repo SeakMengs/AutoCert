@@ -35,11 +35,11 @@ func toSignatureDirectoryPath(userId string, filename string) string {
 // TODO: store pub key
 // TODO: limit file size
 func (sc SignatureController) AddSignature(ctx *gin.Context) {
-	type Request struct {
-		// Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`
-		// Page  int    `json:"page" form:"page" binding:"required,number,gte=1"`
-	}
-	var body Request
+	// type Request struct {
+	// 	// Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`
+	// 	// Page  int    `json:"page" form:"page" binding:"required,number,gte=1"`
+	// }
+	// var body Request
 
 	user, err := sc.getAuthUser(ctx)
 	if err != nil {
@@ -48,17 +48,17 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 		return
 	}
 
-	err = ctx.ShouldBind(&body)
-	if err != nil {
-		sc.app.Logger.Errorf("Failed to bind request: %v", err)
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
-		return
-	}
+	// err = ctx.ShouldBind(&body)
+	// if err != nil {
+	// 	sc.app.Logger.Errorf("Failed to bind request: %v", err)
+	// 	util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
 
 	sigFile, err := ctx.FormFile("signatureFile")
 	if err != nil {
 		sc.app.Logger.Error(err)
-		util.ResponseFailed(ctx, http.StatusBadRequest, "No template file uploaded", util.GenerateErrorMessages(errors.New("signature file is required"), "signatureFile"), nil)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "No signature file uploaded", util.GenerateErrorMessages(errors.New("signature file is required"), "signatureFile"), nil)
 		return
 	}
 
@@ -226,7 +226,8 @@ func (sc SignatureController) GetSignatureById(ctx *gin.Context) {
 
 	util.ResponseSuccess(ctx, gin.H{
 		"signature": gin.H{
-			"url": sigUrl,
+			"url":      sigUrl,
+			"filename": sig.SignatureFile.ToBaseFilename(),
 		},
 	})
 }
