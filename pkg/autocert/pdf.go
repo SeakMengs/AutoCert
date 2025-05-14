@@ -126,7 +126,7 @@ func PdfToThumbnailByPage(inFile, outDir, selectedPage string, maxWidth, maxHeig
 	}
 	defer file.Close()
 
-	if err := webp.Encode(file, thumb, &webp.Options{Lossless: true}); err != nil {
+	if err := webp.Encode(file, thumb, &webp.Options{Lossless: true, Quality: 100}); err != nil {
 		return "", err
 	}
 

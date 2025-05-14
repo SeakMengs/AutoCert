@@ -80,7 +80,7 @@ func main() {
 		S3:         s3,
 	}
 
-	_middleware := middleware.NewMiddleware(&app, rateLimiter)
+	midware := middleware.NewMiddleware(&app, rateLimiter)
 
 	if cfg.ENV == "production" {
 		logger.Info("Running in production mode")
@@ -94,7 +94,7 @@ func main() {
 	corsConfig.AllowOrigins = []string{"*"}
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With", "Accept"}
 	r.Use(cors.New(corsConfig))
-	r.Use(_middleware.RateLimiterMiddleware)
+	// r.Use(midware.RateLimiterMiddleware)
 
 	ctrller := controller.NewController(&app)
 
@@ -102,10 +102,10 @@ func main() {
 
 	rApi := r.Group("/api")
 
-	route.V1_Me(rApi, ctrller.Project, _middleware)
-	route.V1_Signatures(rApi, ctrller.Signature, _middleware)
-	route.V1_Projects(rApi, ctrller.Project, ctrller.ProjectBuilder, ctrller.Certificate, ctrller.File, _middleware)
-	route.V1_Certificates(rApi, ctrller.Certificate, ctrller.File, _middleware)
+	route.V1_Me(rApi, ctrller.Project, midware)
+	route.V1_Signatures(rApi, ctrller.Signature, midware)
+	route.V1_Projects(rApi, ctrller.Project, ctrller.ProjectBuilder, ctrller.Certificate, ctrller.File, midware)
+	route.V1_Certificates(rApi, ctrller.Certificate, ctrller.File, midware)
 	route.V1_Auth(rApi, ctrller.Auth)
 	route.V1_OAuth(rApi, ctrller.OAuth)
 	route.V1_Users(rApi, ctrller.User)

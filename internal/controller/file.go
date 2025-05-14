@@ -86,7 +86,7 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 		return
 	}
 
-	thumbnailPath, err := autocert.PdfToThumbnailByPage(pdfPath, tempOutDir, selectedPages, 256, 256)
+	thumbnailPath, err := autocert.PdfToThumbnailByPage(pdfPath, tempOutDir, selectedPages, 512, 512)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error converting PDF to PNG", util.GenerateErrorMessages(err), nil)
 		return
@@ -170,7 +170,7 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 		return
 	}
 
-	thumbnailPath, err := autocert.PdfToThumbnailByPage(pdfPath, tempOutDir, selectedPages, 256, 256)
+	thumbnailPath, err := autocert.PdfToThumbnailByPage(pdfPath, tempOutDir, selectedPages, 512, 512)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error converting PDF to PNG", util.GenerateErrorMessages(err), nil)
 		return
