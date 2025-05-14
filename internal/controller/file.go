@@ -86,20 +86,15 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 		return
 	}
 
-	pngFile, err := autocert.PdfToPngByPage(pdfPath, tempOutDir, selectedPages)
+	thumbnailPath, err := autocert.PdfToThumbnailByPage(pdfPath, tempOutDir, selectedPages, 256, 256)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error converting PDF to PNG", util.GenerateErrorMessages(err), nil)
 		return
 	}
+	defer os.Remove(thumbnailPath)
 
-	if pngFile == nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating PNG file", util.GenerateErrorMessages(err), nil)
-		return
-	}
-	defer os.Remove(*pngFile)
-
-	CacheRequest(ctx, time.Hour*24)
-	ctx.File(*pngFile)
+	CacheRequest(ctx, time.Minute*10)
+	ctx.File(thumbnailPath)
 }
 
 func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context) {
@@ -175,18 +170,13 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 		return
 	}
 
-	pngFile, err := autocert.PdfToPngByPage(pdfPath, tempOutDir, selectedPages)
+	thumbnailPath, err := autocert.PdfToThumbnailByPage(pdfPath, tempOutDir, selectedPages, 256, 256)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error converting PDF to PNG", util.GenerateErrorMessages(err), nil)
 		return
 	}
+	defer os.Remove(thumbnailPath)
 
-	if pngFile == nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating PNG file", util.GenerateErrorMessages(err), nil)
-		return
-	}
-	defer os.Remove(*pngFile)
-
-	CacheRequest(ctx, time.Hour*24)
-	ctx.File(*pngFile)
+	CacheRequest(ctx, time.Minute*10)
+	ctx.File(thumbnailPath)
 }

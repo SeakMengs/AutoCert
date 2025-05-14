@@ -2,6 +2,7 @@ package autocert
 
 import (
 	"fmt"
+	"image"
 	"image/png"
 	"io"
 	"mime/multipart"
@@ -9,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chai2010/webp"
 	"github.com/gen2brain/go-fitz"
+	"github.com/nfnt/resize"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
@@ -84,51 +87,74 @@ func ResizePdf(inFile, outFile string, selectedPage []string, width, height floa
 	return nil
 }
 
-// Extracts a specific page from a PDF file and converts it to PNG.
-// It takes the input PDF file path, output directory path, and the page number to extract.
-// If page does not exist, will throw an error.
-// Return file path to the converted png image
-func PdfToPngByPage(inFile, outDir string, selectedPage string) (*string, error) {
-	srcPdf, err := ExtractPdfByPage(inFile, outDir, selectedPage)
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(srcPdf)
-
-	if _, err := os.Stat(srcPdf); os.IsNotExist(err) {
-		return nil, fmt.Errorf("extracted PDF page does not exist: %s", srcPdf)
+// Extracts a page from a PDF and converts it to PNG without resizing.
+func PdfToPngByPage(inFile, outDir, selectedPage string) (string, error) {
+	img, base := extractPageImage(inFile, outDir, selectedPage)
+	if img == nil {
+		return "", fmt.Errorf("failed to extract image for page %s", selectedPage)
 	}
 
-	// Open the extracted PDF using go-fitz
-	doc, err := fitz.New(srcPdf)
+	outPath := filepath.Join(outDir, base+".png")
+	file, err := os.Create(outPath)
+
 	if err != nil {
-		return nil, err
+		return "", err
+	}
+	defer file.Close()
+
+	encoder := png.Encoder{CompressionLevel: png.BestCompression}
+	if err := encoder.Encode(file, img); err != nil {
+		return "", err
+	}
+
+	return outPath, nil
+}
+
+// Extracts a page, resizes it but maintain aspect ratio, and converts to WEBP.
+func PdfToThumbnailByPage(inFile, outDir, selectedPage string, maxWidth, maxHeight uint) (string, error) {
+	img, base := extractPageImage(inFile, outDir, selectedPage)
+	if img == nil {
+		return "", fmt.Errorf("failed to extract image for page %s", selectedPage)
+	}
+
+	thumb := resize.Thumbnail(maxWidth, maxHeight, img, resize.Lanczos3)
+	outPath := filepath.Join(outDir, base+".webp")
+
+	file, err := os.Create(outPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	if err := webp.Encode(file, thumb, &webp.Options{Lossless: true}); err != nil {
+		return "", err
+	}
+
+	return outPath, nil
+}
+
+// Extracts a single page image from PDF.
+// return image and base name of the extracted PDF file
+func extractPageImage(inFile, outDir, page string) (image.Image, string) {
+	extractedPdf, err := ExtractPdfByPage(inFile, outDir, page)
+	if err != nil {
+		return nil, ""
+	}
+	defer os.Remove(extractedPdf)
+
+	doc, err := fitz.New(extractedPdf)
+	if err != nil {
+		return nil, ""
 	}
 	defer doc.Close()
 
-	// Since we extracted only one page, we just need the first page (index 0)
 	img, err := doc.Image(0)
 	if err != nil {
-		return nil, err
+		return nil, ""
 	}
 
-	// Create output PNG file
-	imgExt := ".png"
-	filename := filepath.Base(srcPdf)
-	fileName := strings.TrimSuffix(filename, filepath.Ext(srcPdf))
-	outFilePath := filepath.Join(outDir, fmt.Sprintf("%s%s", fileName, imgExt))
-	outFile, err := os.Create(outFilePath)
-	if err != nil {
-		return nil, err
-	}
-	defer outFile.Close()
-
-	err = png.Encode(outFile, img)
-	if err != nil {
-		return nil, err
-	}
-
-	return &outFilePath, nil
+	base := strings.TrimSuffix(filepath.Base(extractedPdf), filepath.Ext(extractedPdf))
+	return img, base
 }
 
 // Merge inFiles by concatenation in the order specified and write the result to outfile.

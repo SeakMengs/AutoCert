@@ -5,6 +5,7 @@ go 1.24
 toolchain go1.24.1
 
 require (
+	github.com/chai2010/webp v1.4.0
 	github.com/gen2brain/go-fitz v1.24.14
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
@@ -14,6 +15,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/minio/minio-go/v7 v7.0.84
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/noelyahan/impexp v0.0.0-20201209034304-ee159d84b42f
 	github.com/noelyahan/mergi v0.0.0-20241105055807-221cd737ac6b
 	github.com/pdfcpu/pdfcpu v0.9.1
@@ -75,7 +77,6 @@ require (
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/noelyahan/mergitrans v0.0.0-20190507035323-73e76dcd7d2a // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

@@ -15,5 +15,12 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("PDF to PNG conversion successful. Output file: %s\n", *output)
+	// thumbnail
+	thumbnailOutput, err := autocert.PdfToThumbnailByPage(pdfFilePath, outputDir, "1", 256, 256)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("PDF converted to PNG: %s\n", output)
+	fmt.Printf("PDF converted to thumbnail : %s\n", thumbnailOutput)
 }
