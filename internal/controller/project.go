@@ -457,7 +457,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		if err != nil {
 			tx.Rollback()
 
-			pc.app.Logger.Error("failed to convert signature to autocert signature annotate", err)
+			pc.app.Logger.Error("failed to convert signature to autocert signature annotate: ", err)
 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to process signature annotation", util.GenerateErrorMessages(errors.New("failed to convert signature annotate to autocert signature annotate, most likely because signature file does not exist")), nil)
 			return
 		}
@@ -730,7 +730,7 @@ func (pc ProjectController) ApproveSignature(ctx *gin.Context) {
 	}()
 
 	err = pc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, body.SignatureAnnotateId, &model.File{
-		FileName:       toProjectDirectoryPath(user.ID, sigFile.Filename),
+		FileName:       toProjectDirectoryPath(projectId, sigFile.Filename),
 		UniqueFileName: info.Key,
 		BucketName:     info.Bucket,
 		Size:           info.Size,

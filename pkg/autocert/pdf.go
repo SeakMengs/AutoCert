@@ -87,7 +87,7 @@ func ResizePdf(inFile, outFile string, selectedPage []string, width, height floa
 	return nil
 }
 
-// Extracts a page from a PDF and converts it to PNG without resizing.
+// Extracts a page from a PDF and converts it to PNG without resizing and lose quality.
 func PdfToPngByPage(inFile, outDir, selectedPage string) (string, error) {
 	img, base := extractPageImage(inFile, outDir, selectedPage)
 	if img == nil {
@@ -110,24 +110,49 @@ func PdfToPngByPage(inFile, outDir, selectedPage string) (string, error) {
 	return outPath, nil
 }
 
-// Extracts a page, resizes it but maintain aspect ratio, and converts to WEBP.
-func PdfToThumbnailByPage(inFile, outDir, selectedPage string, maxWidth, maxHeight uint) (string, error) {
+type ThumbnailFormat int
+
+const (
+	ThumbnailFormatWebP ThumbnailFormat = iota
+	ThumbnailFormatPNG
+)
+
+// Extracts a page, resizes it but maintain aspect ratio, and converts to choosen output format.
+func PdfToThumbnailByPage(inFile, outDir, selectedPage string, maxWidth, maxHeight uint, outFormat ThumbnailFormat) (string, error) {
 	img, base := extractPageImage(inFile, outDir, selectedPage)
 	if img == nil {
 		return "", fmt.Errorf("failed to extract image for page %s", selectedPage)
 	}
 
 	thumb := resize.Thumbnail(maxWidth, maxHeight, img, resize.Lanczos3)
-	outPath := filepath.Join(outDir, base+".webp")
 
-	file, err := os.Create(outPath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
+	var outPath string
+	switch outFormat {
+	case ThumbnailFormatWebP:
+		outPath = filepath.Join(outDir, base+".webp")
+		file, err := os.Create(outPath)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
 
-	if err := webp.Encode(file, thumb, &webp.Options{Lossless: true, Quality: 100}); err != nil {
-		return "", err
+		if err := webp.Encode(file, thumb, &webp.Options{Lossless: true, Quality: 100}); err != nil {
+			return "", err
+		}
+	case ThumbnailFormatPNG:
+		outPath = filepath.Join(outDir, base+".png")
+		file, err := os.Create(outPath)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+
+		encoder := png.Encoder{CompressionLevel: png.BestCompression}
+		if err := encoder.Encode(file, thumb); err != nil {
+			return "", err
+		}
+	default:
+		return "", fmt.Errorf("unsupported thumbnail format")
 	}
 
 	return outPath, nil

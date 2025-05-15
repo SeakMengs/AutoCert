@@ -43,9 +43,9 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		},
 		UserID: authUser.ID,
 	}).Preload("TemplateFile").Preload("CSVFile").
+		Preload("SignatureAnnotates.SignatureFile").
 		Preload("SignatureAnnotates", func(db *gorm.DB) *gorm.DB {
-			return db.Joins("LEFT JOIN files ON files.id = signature_annotates.signature_file_id").
-				Order("signature_annotates.created_at ASC")
+			return db.Order("signature_annotates.created_at ASC")
 		}).
 		Preload("ColumnAnnotates", func(db *gorm.DB) *gorm.DB {
 			return db.Order("column_annotates.created_at ASC")

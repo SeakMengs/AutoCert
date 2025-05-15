@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -43,7 +44,7 @@ func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, err
 
 func (f File) DownloadToLocal(ctx context.Context, s3 *minio.Client, localPath string) error {
 	if f.BucketName == "" || f.UniqueFileName == "" || localPath == "" {
-		return errors.New("bucket name, unique file name and local path cannot be empty")
+		return fmt.Errorf("bucket name, unique file name, and local path cannot be empty: bucket=%s, uniqueFileName=%s, localPath=%s", f.BucketName, f.UniqueFileName, localPath)
 	}
 
 	err := s3.FGetObject(ctx, f.BucketName, f.UniqueFileName, localPath, minio.GetObjectOptions{})
