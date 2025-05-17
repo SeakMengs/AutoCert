@@ -16,7 +16,7 @@ func main() {
 	}
 
 	// thumbnail
-	thumbnailOutput, err := autocert.PdfToThumbnailByPage(pdfFilePath, outputDir, "1", 256, 256)
+	thumbnailOutput, err := autocert.PdfToThumbnailByPage(pdfFilePath, outputDir, "1", 256, 256, autocert.ThumbnailFormatPNG)
 	if err != nil {
 		panic(err)
 	}

@@ -47,6 +47,7 @@ func main() {
 	s3, err := minio.New(cfg.Minio.ENDPOINT, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.Minio.ACCESS_KEY, cfg.Minio.SECRET_KEY, ""),
 		Secure: cfg.Minio.USE_SSL,
+		Region: "us-east-1",
 	})
 	if err != nil {
 		logger.Error("Error connecting to minio")

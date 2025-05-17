@@ -140,7 +140,7 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 		query = query.Where("projects.title ILIKE ?", "%"+search+"%")
 	}
 
-	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&projects).Error; err != nil {
+	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Order("projects.created_at DESC").Find(&projects).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -204,7 +204,7 @@ func (pr ProjectRepository) GetProjectsForSignatory(ctx context.Context, tx *gor
 		query = query.Where("projects.title ILIKE ?", "%"+search+"%")
 	}
 
-	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&projects).Error; err != nil {
+	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Order("projects.created_at DESC").Find(&projects).Error; err != nil {
 		return nil, 0, err
 	}
 

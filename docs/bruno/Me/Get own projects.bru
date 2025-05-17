@@ -5,15 +5,17 @@ meta {
 }
 
 get {
-  url: {{url}}/api/v1/me/projects?page=1&pageSize=20&search
+  url: {{url}}/api/v1/me/projects?search=&page=1&status=0&status=1&status=2
   body: multipartForm
   auth: none
 }
 
 params:query {
-  page: 1
-  pageSize: 20
   search: 
+  page: 1
+  status: 0
+  status: 1
+  status: 2
   ~status: 0
   ~status: 1
 }
