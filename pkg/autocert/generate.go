@@ -232,8 +232,8 @@ func (cg *CertificateGenerator) Generate() ([]string, error) {
 	}
 	cg.csv = csvDataMaps
 
-	// Handle case with no CSV file, just generate a single certificate
-	if len(cg.csv) == 0 {
+	// Handle case with no CSV or column annot, just generate a single certificate
+	if len(cg.csv) == 0 || len(cg.Annotations.PageColumnAnnotations) == 0 {
 		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, 1))
 		if err := os.Rename(baseFile, outputFile); err != nil {
 			return nil, err
