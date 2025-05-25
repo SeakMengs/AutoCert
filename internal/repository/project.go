@@ -41,7 +41,6 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		BaseModel: model.BaseModel{
 			ID: projectID,
 		},
-		UserID: authUser.ID,
 	}).Preload("TemplateFile").Preload("CSVFile").
 		Preload("SignatureAnnotates.SignatureFile").
 		Preload("SignatureAnnotates", func(db *gorm.DB) *gorm.DB {
@@ -56,7 +55,7 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		}
 	}
 
-	if project.ID != "" {
+	if project.ID != "" && project.UserID == authUser.ID {
 		role = append(role, constant.ProjectRoleOwner)
 	}
 
