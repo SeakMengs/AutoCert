@@ -101,7 +101,7 @@ func (pr ProjectRepository) GetProjectSignatories(ctx context.Context, tx *gorm.
 				ProjectID: projectID,
 			},
 		}).
-		Scan(&signatories).Error; err != nil {
+		Find(&signatories).Error; err != nil {
 		return nil, err
 	}
 
