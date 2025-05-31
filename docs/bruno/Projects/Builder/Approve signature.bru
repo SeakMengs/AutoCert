@@ -4,282 +4,72 @@ meta {
   seq: 3
 }
 
-put {
-  url: {{url}}/api/v1/projects/{{projectId}}/builder/signature/approve
+patch {
+  url: {{url}}/api/v1/projects/{{projectId}}/builder/signature/{{signatureId}}/approve
   body: multipartForm
   auth: none
 }
 
 body:multipart-form {
-  signatureAnnotateId: O5BNuFcrXg7g1hCxwKUpq
   signatureFile: @file(/home/yato/Pictures/bit pf.png)
 }
 
 vars:pre-request {
   projectId: 6c081e27-b938-46c8-ab3a-0054ace5b548
+  signatureId: O5BNuFcrXg7g1hCxwKUpq
 }
 
 docs {
-  # Project Builder API Documentation
+  # Signature Approval API Documentation
   
-  ## Endpoint: Project Builder
+  ## Endpoint: Approve Signature
   
   ```
-  PATCH /api/projects/{projectId}/builder
+  POST /api/projects/{projectId}/signatures/{signatureId}/approve
   ```
   
-  This endpoint allows for updating and configuring various aspects of a project during its preparation stage.
+  This endpoint allows authorized signatories to approve and upload their signature for a specific signature annotation within a project.
   
   ### Path Parameters
   
   | Parameter | Type | Description |
   |-----------|------|-------------|
-  | projectId | string | Required. The unique identifier of the project to update. |
+  | projectId | string | Required. The unique identifier of the project containing the signature. |
+  | signatureId | string | Required. The unique identifier of the signature annotation to approve. |
   
   ### Request Format
   
   The request should be a multipart form containing:
   
-  - `events`: A JSON array of change events to apply to the project
-  - `csvFile`: (Optional) A CSV file, required only if the events list includes a `table:update` event
+  - `signatureFile`: A signature file (required). Must be one of the allowed file types.
   
-  ### Events Structure
+  ### File Requirements
   
-  Each event in the `events` array must include:
+  - **Required**: Yes
+  - **Allowed file types**: Based on `ALLOWED_SIGNATURE_FILE_TYPE` configuration
+  - **Common formats**: Typically `.png`, `.jpg`, `.jpeg`, `.pdf`, `.svg`
   
-  ```json
-  {
-    "type": "eventType",
-    "data": { ... }
-  }
-  ```
+  ### Authorization Requirements
   
-  The `type` field specifies the action to perform, and the `data` field contains the payload for that action.
-  
-  ### Event Types and Payloads
-  
-  #### 1. annotate:column:add
-  
-  Adds a new column annotation to the project.
-  
-  ```json
-  {
-    "type": "annotate:column:add",
-    "data": {
-      "id": "column-123",
-      "type": "column",
-      "page": 1,
-      "x": 100,
-      "y": 200,
-      "width": 150,
-      "height": 30,
-      "color": "#0000FF",
-      "value": "Name",
-      "fontName": "Arial",
-      "fontSize": 12,
-      "fontColor": "#000000",
-      "fontWeight": "normal",
-      "textFitRectBox": true
-    }
-  }
-  ```
-  
-  #### 2. annotate:column:update
-  
-  Updates an existing column annotation.
-  
-  ```json
-  {
-    "type": "annotate:column:update",
-    "data": {
-      "id": "column-123",
-      "type": "column",
-      "page": 1,
-      "x": 120,
-      "y": 220,
-      "width": 160,
-      "height": 35,
-      "color": "#0000FF",
-      "value": "Full Name",
-      "fontName": "Arial",
-      "fontSize": 14,
-      "fontColor": "#000000",
-      "fontWeight": "bold",
-      "textFitRectBox": true
-    }
-  }
-  ```
-  
-  #### 3. annotate:column:remove
-  
-  Removes a column annotation.
-  
-  ```json
-  {
-    "type": "annotate:column:remove",
-    "data": {
-      "id": "column-123"
-    }
-  }
-  ```
-  
-  #### 4. annotate:signature:add
-  
-  Adds a new signature annotation to the project.
-  
-  ```json
-  {
-    "type": "annotate:signature:add",
-    "data": {
-      "id": "signature-123",
-      "type": "signature",
-      "page": 2,
-      "x": 300,
-      "y": 400,
-      "width": 200,
-      "height": 50,
-      "color": "#FF0000",
-      "email": "signer@example.com"
-    }
-  }
-  ```
-  
-  #### 5. annotate:signature:update
-  
-  Updates an existing signature annotation.
-  
-  ```json
-  {
-    "type": "annotate:signature:update",
-    "data": {
-      "id": "signature-123",
-      "type": "signature",
-      "page": 2,
-      "x": 320,
-      "y": 420,
-      "width": 220,
-      "height": 60,
-      "color": "#FF0000"
-    }
-  }
-  ```
-  
-  #### 6. annotate:signature:remove
-  
-  Removes a signature annotation.
-  
-  ```json
-  {
-    "type": "annotate:signature:remove",
-    "data": {
-      "id": "signature-123"
-    }
-  }
-  ```
-  
-  #### 7. annotate:signature:invite
-  
-  Invites a signatory for a signature annotation.
-  
-  ```json
-  {
-    "type": "annotate:signature:invite",
-    "data": {
-      "id": "signature-123"
-    }
-  }
-  ```
-  
-  #### 8. annotate:signature:approve
-  
-  Approves a signature annotation.
-  
-  ```json
-  {
-    "type": "annotate:signature:approve",
-    "data": {
-      "id": "signature-123"
-    }
-  }
-  ```
-  
-  #### 9. settings:update
-  
-  Updates project settings.
-  
-  ```json
-  {
-    "type": "settings:update",
-    "data": {
-      "qrCodeEnabled": true
-    }
-  }
-  ```
-  
-  #### 10. table:update
-  
-  Updates the CSV data table for the project. Requires a CSV file to be included in the request.
-  
-  ```json
-  {
-    "type": "table:update",
-    "data": {}
-  }
-  ```
+  - User must be authenticated
+  - User must have `AnnotateSignatureApprove` permission for the project
+  - The signature annotation must be assigned to the authenticated user's email
+  - Project must be in `draft` status
+  - Signature annotation must be in `invited` status
   
   ### Example Request
   
-  ```
-  PATCH /api/projects/proj-123/builder
-  Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
-  
-  ------WebKitFormBoundary7MA4YWxkTrZu0gW
-  Content-Disposition: form-data; name="events"
-  
-  [
-    {
-      "type": "annotate:column:add",
-      "data": {
-        "id": "column-123",
-        "type": "column",
-        "page": 1,
-        "x": 100,
-        "y": 200,
-        "width": 150,
-        "height": 30,
-        "color": "#0000FF",
-        "value": "Name",
-        "fontName": "Arial",
-        "fontSize": 12,
-        "fontColor": "#000000",
-        "fontWeight": "normal",
-        "textFitRectBox": true
-      }
-    },
-    {
-      "type": "settings:update",
-      "data": {
-        "qrCodeEnabled": true
-      }
-    },
-    {
-      "type": "table:update",
-      "data": {}
-    }
-  ]
-  ------WebKitFormBoundary7MA4YWxkTrZu0gW
-  Content-Disposition: form-data; name="csvFile"; filename="data.csv"
-  Content-Type: text/csv
-  
-  id,name,email
-  1,John Doe,john@example.com
-  2,Jane Smith,jane@example.com
-  ------WebKitFormBoundary7MA4YWxkTrZu0gW--
+  ```bash
+  curl -X POST \
+    'https://api.example.com/api/projects/proj-123/signatures/sig-456/approve' \
+    -H 'Authorization: Bearer your-jwt-token' \
+    -H 'Content-Type: multipart/form-data' \
+    -F 'signatureFile=@signature.png'
   ```
   
-  ### Responses
+  ### Success Response
   
-  #### Success Response
+  **HTTP Status**: 200 OK
   
   ```json
   {
@@ -288,7 +78,9 @@ docs {
   }
   ```
   
-  #### Error Response
+  ### Error Responses
+  
+  #### 400 Bad Request - Missing Project ID
   
   ```json
   {
@@ -297,8 +89,8 @@ docs {
       "detail": "Failed to patch project builder",
       "errors": [
         {
-          "field": "events",
-          "message": "failed to update column annotate"
+          "field": "projectId",
+          "message": "projectId is required"
         }
       ]
     },
@@ -306,10 +98,247 @@ docs {
   }
   ```
   
+  #### 400 Bad Request - Missing Signature ID
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Failed to patch project builder",
+      "errors": [
+        {
+          "field": "signatureAnnotateId",
+          "message": "signatureAnnotateId is required"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 400 Bad Request - No Signature File
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "No signature file uploaded",
+      "errors": [
+        {
+          "field": "signatureFile",
+          "message": "signature file is required"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 400 Bad Request - Invalid File Type
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Invalid file type",
+      "errors": [
+        {
+          "field": "signatureFile",
+          "message": "invalid file type"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 400 Bad Request - Project Not in Draft Status
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Failed to patch project builder",
+      "errors": [
+        {
+          "field": "project",
+          "message": "project is not in draft status"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 400 Bad Request - Not Assigned Signatory
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Signature approval failed",
+      "errors": [
+        {
+          "field": "notSignatory",
+          "message": "the signature cannot be approved because it is not assigned to you"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 400 Bad Request - Invalid Signature Status
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Signature approval failed",
+      "errors": [
+        {
+          "field": "status",
+          "message": "the signature cannot be approved because it is not in the invited status"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 401 Unauthorized
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Unauthorized",
+      "errors": [
+        {
+          "field": "",
+          "message": "authentication required"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 403 Forbidden - Insufficient Permissions
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "You do not have permission to approve signature",
+      "errors": [
+        {
+          "field": "forbidden",
+          "message": "you do not have permission to approve signature"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 404 Not Found - Project Not Found
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Failed to patch project builder",
+      "errors": [
+        {
+          "field": "project",
+          "message": "project not found"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 404 Not Found - Signature Not Found
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Signature not found",
+      "errors": [
+        {
+          "field": "notFound",
+          "message": "annotate signature not found"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 500 Internal Server Error - File Upload Failed
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Failed to upload file",
+      "errors": [
+        {
+          "field": "",
+          "message": "file upload error details"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 500 Internal Server Error - Signature Approval Failed
+  
+  ```json
+  {
+    "data": null,
+    "error": {
+      "detail": "Failed to approve signature",
+      "errors": [
+        {
+          "field": "",
+          "message": "failed to approve signature"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  ### Business Logic Flow
+  
+  1. **Validation**: Validates required path parameters and file upload
+  2. **Authentication**: Verifies user authentication and retrieves user details
+  3. **Authorization**: Checks user permissions and project access rights
+  4. **Project Status Check**: Ensures project is in draft status
+  5. **Signature Validation**: Verifies signature assignment and status
+  6. **File Upload**: Uploads signature file to S3 storage
+  7. **Database Transaction**: Updates signature status and file information
+  8. **Cleanup**: Removes uploaded file if database transaction fails
+  
   ### Notes
   
-  1. All events in the request are processed in a transaction. If any event fails, all changes will be rolled back.
-  2. The project must be in the "draft" status for updates to be allowed.
-  3. The user must have the appropriate permissions for each event type they try to execute.
-  4. Table update events are always processed last since they involve file operations which are not transactional.
+  1. **File Storage**: Signature files are stored in S3 with a unique prefix and organized by project directory
+  2. **Transaction Safety**: All database operations are wrapped in a transaction that rolls back on failure
+  3. **File Cleanup**: If signature approval fails after file upload, the uploaded file is automatically deleted from S3
+  4. **Email Matching**: The signature can only be approved by the user whose email matches the signature annotation's assigned email
+  5. **Status Progression**: Signature annotations must be in "invited" status before they can be approved
+  6. **Project Permissions**: Users must have specific signature approval permissions for the project
+  
+  ### Security Considerations
+  
+  - Authentication is required for all requests
+  - Users can only approve signatures assigned to their email address
+  - File type validation prevents malicious file uploads
+  - Project-level permissions control access to signature approval functionality
+  - Database transactions ensure data consistency
 }

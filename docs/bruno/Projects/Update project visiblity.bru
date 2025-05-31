@@ -1,0 +1,273 @@
+meta {
+  name: Update project visiblity
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{url}}/api/v1/projects/{{projectId}}/visibility
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  isPublic: 0
+}
+
+vars:pre-request {
+  projectId: b083154a-e4fa-4d6c-ac39-0e71d73847b8
+}
+
+docs {
+  # Update Project Visibility API Documentation
+  
+  ## Endpoint: Update Project Visibility
+  
+  ```
+  PATCH /api/projects/{projectId}/visibility
+  ```
+  
+  This endpoint allows project owners to update the visibility status of a project, making it either public or private.
+  
+  ### Path Parameters
+  
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | projectId | string | Required. The unique identifier of the project to update. |
+  
+  ### Request Body
+  
+  The request can be sent as either JSON or form data.
+  
+  #### JSON Request
+  
+  ```json
+  {
+    "isPublic": true
+  }
+  ```
+  
+  #### Form Data Request
+  
+  ```
+  isPublic=true
+  ```
+  
+  ### Request Body Parameters
+  
+  | Parameter | Type | Required | Description |
+  |-----------|------|----------|-------------|
+  | isPublic | boolean | Yes | Set to `true` to make the project public, `false` to make it private. |
+  
+  ### Authorization Requirements
+  
+  - User must be authenticated
+  - User must have `ProjectRoleOwner` role for the specified project
+  - Project must exist and be accessible to the user
+  
+  ### Example Requests
+  
+  #### JSON Request
+  
+  ```bash
+  curl -X PATCH \
+    'https://api.example.com/api/projects/proj-123/visibility' \
+    -H 'Authorization: Bearer your-jwt-token' \
+    -H 'Content-Type: application/json' \
+    -d '{
+      "isPublic": true
+    }'
+  ```
+  
+  #### Form Data Request
+  
+  ```bash
+  curl -X PATCH \
+    'https://api.example.com/api/projects/proj-123/visibility' \
+    -H 'Authorization: Bearer your-jwt-token' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -d 'isPublic=false'
+  ```
+  
+  ### Success Response
+  
+  **HTTP Status**: 200 OK
+  
+  ```json
+  {
+    "data": null,
+    "status": "success"
+  }
+  ```
+  
+  ### Error Responses
+  
+  #### 400 Bad Request - Missing Project ID
+  
+  ```json
+  {
+    "data": null,
+    "message": "Project id is required",
+    "error": {
+      "errors": [
+        {
+          "field": "projectId",
+          "message": "Project id is required"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 400 Bad Request - Invalid Request Body
+  
+  ```json
+  {
+    "data": null,
+    "message": "Invalid request",
+    "error": {
+      "errors": [
+        {
+          "field": "isPublic",
+          "message": "isPublic field is required and must be a boolean"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 403 Forbidden - Insufficient Permissions
+  
+  ```json
+  {
+    "data": null,
+    "message": "You do not have permission to access this project",
+    "error": {
+      "errors": [
+        {
+          "field": "forbidden",
+          "message": "you do not have permission to access this project"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 404 Not Found - Project Not Found
+  
+  ```json
+  {
+    "data": null,
+    "message": "Project not found",
+    "error": {
+      "errors": [
+        {
+          "field": "notFound",
+          "message": "Project not found"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 500 Internal Server Error - Failed to Get Project Roles
+  
+  ```json
+  {
+    "data": null,
+    "message": "Failed to get project roles",
+    "error": {
+      "errors": [
+        {
+          "field": "",
+          "message": "internal server error details"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 500 Internal Server Error - Failed to Update Visibility
+  
+  ```json
+  {
+    "data": null,
+    "message": "Failed to toggle project visibility",
+    "error": {
+      "errors": [
+        {
+          "field": "",
+          "message": "database update error details"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  ### Request Body Validation
+  
+  The `isPublic` field must meet the following requirements:
+  
+  - **Required**: Yes
+  - **Type**: Boolean
+  - **Valid values**: `true` or `false`
+  - **Binding**: The field is validated using Go's binding validation with `required,bool` tags
+  
+  ### Business Logic Flow
+  
+  1. **Path Parameter Validation**: Validates that `projectId` is provided in the URL path
+  2. **Request Body Binding**: Binds and validates the request body (JSON or form data)
+  3. **Project Role Retrieval**: Fetches user roles and project information
+  4. **Project Existence Check**: Verifies the project exists and is accessible
+  5. **Permission Check**: Ensures user has owner role for the project
+  6. **Visibility Update**: Updates the project's visibility status in the database
+  
+  ### Authorization Details
+  
+  - **Required Role**: `ProjectRoleOwner`
+  - **Permission Level**: Only project owners can modify project visibility
+  - **Access Control**: Users can only update visibility for projects they own
+  
+  ### Use Cases
+  
+  #### Making a Project Public
+  
+  ```json
+  {
+    "isPublic": true
+  }
+  ```
+  
+  This will make the project visible to users who have the public link or appropriate access permissions.
+  
+  #### Making a Project Private
+  
+  ```json
+  {
+    "isPublic": false
+  }
+  ```
+  
+  This will restrict project access to users with explicit permissions only.
+  
+  ### Notes
+  
+  1. **Owner-Only Operation**: Only users with the `ProjectRoleOwner` role can update project visibility
+  2. **Boolean Validation**: The `isPublic` field must be a valid boolean value
+  3. **Flexible Input**: The endpoint accepts both JSON and form data formats
+  4. **Database Transaction**: The visibility update is performed as a single database operation
+  5. **Immediate Effect**: Visibility changes take effect immediately upon successful update
+  
+  ### Security Considerations
+  
+  - Authentication is required for all requests
+  - Only project owners can modify visibility settings
+  - Project existence and user permissions are validated before any changes
+  - Input validation prevents invalid data from being processed
+}

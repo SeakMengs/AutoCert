@@ -13,6 +13,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type CertificateController struct {
@@ -293,4 +294,53 @@ func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
 
 	ctx.Header("Content-Disposition", "attachment; filename=merged_certificates.pdf")
 	ctx.File(mergeOutPut.Name())
+}
+
+func (cc CertificateController) GetGeneratedCertificateById(ctx *gin.Context) {
+	certificateId := ctx.Param("certificateId")
+	if certificateId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Certificate id is required", util.GenerateErrorMessages(errors.New("certificateId is required"), "certificateId"), nil)
+		return
+	}
+
+	certificate, err := cc.app.Repository.Certificate.GetById(ctx, nil, certificateId)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			util.ResponseFailed(ctx, http.StatusNotFound, "Certificate not found", util.GenerateErrorMessages(errors.New("certificate not found"), "notFound"), nil)
+			return
+		}
+
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get certificate", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if certificate == nil || certificate.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Certificate not found", util.GenerateErrorMessages(errors.New("certificate not found"), "notFound"), nil)
+		return
+	}
+
+	if !certificate.Project.IsPublic {
+		util.ResponseFailed(ctx, http.StatusForbidden, "This project of requested certificate is not public", util.GenerateErrorMessages(errors.New("the project of requested certificate is not public"), "forbidden"), nil)
+		return
+	}
+
+	if certificate.CertificateFileId == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Certificate file not found", util.GenerateErrorMessages(errors.New("certificate file not found"), "notFound"), nil)
+		return
+	}
+
+	url, err := certificate.CertificateFile.ToPresignedUrl(ctx, cc.app.S3)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get presigned URL for certificate", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	util.ResponseSuccess(ctx, gin.H{
+		"id":             certificate.ID,
+		"certificateUrl": url,
+		"number":         certificate.Number,
+		"issuer":         certificate.Project.User.FirstName + " " + certificate.Project.User.LastName,
+		"issuedAt":       certificate.CreatedAt.String(),
+		"projectTitle":   certificate.Project.Title,
+	})
 }

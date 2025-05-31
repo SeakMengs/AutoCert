@@ -1,0 +1,257 @@
+meta {
+  name: Get certificate by id
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{url}}/api/v1/certificates/{{certificateId}}
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  certificateId: c218e408-e372-428a-8c50-4cd11b45274a
+}
+
+docs {
+  # Get Generated Certificate by ID API Documentation
+  
+  ## Endpoint: Get Generated Certificate
+  
+  ```
+  GET /api/v1/certificates/{certificateId}
+  ```
+  
+  This endpoint retrieves a generated certificate by its unique identifier and returns a presigned URL for accessing the certificate file along with certificate metadata.
+  
+  ### Path Parameters
+  
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | certificateId | string | Required. The unique identifier of the certificate to retrieve. |
+  
+  ### Authorization Requirements
+  
+  - No authentication required (public endpoint)
+  - The certificate's associated project must be public
+  - Certificate must exist and have an associated certificate file
+  
+  ### Example Request
+  
+  ```bash
+  curl -X GET \
+    'https://api.example.com/api/certificates/cert-123'
+  ```
+  
+  ### Success Response
+  
+  **HTTP Status**: 200 OK
+  
+  ```json
+  {
+    "data": {
+      "certificateUrl": "https://s3.amazonaws.com/bucket/certificate.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=...",
+      "issuer": "John Doe",
+      "issuedAt": "2024-01-15 10:30:45 +0000 UTC",
+      "projectTitle": "Web Development Certification Program",
+      "id": "c218e408-e372-428a-8c50-4cd11b45274a"
+    },
+    "status": "success"
+  }
+  ```
+  
+  ### Response Fields
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | certificateUrl | string | Presigned URL for downloading the certificate file |
+  | issuer | string | Full name of the certificate issuer (project owner) |
+  | issuedAt | string | Timestamp when the certificate was created |
+  | projectTitle | string | Title of the project that generated this certificate |
+  | id | string | Certificate id |
+  | number | int | Number of the certificate in the generated certificate |
+  
+  ### Error Responses
+  
+  #### 400 Bad Request - Missing Certificate ID
+  
+  ```json
+  {
+    "data": null,
+    "message": "Certificate id is required",
+    "error": {
+      "errors": [
+        {
+          "field": "certificateId",
+          "message": "certificateId is required"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 403 Forbidden - Project Not Public
+  
+  ```json
+  {
+    "data": null,
+    "message": "This project of requested certificate is not public",
+    "error": {
+      "errors": [
+        {
+          "field": "forbidden",
+          "message": "the project of requested certificate is not public"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 404 Not Found - Certificate Not Found
+  
+  ```json
+  {
+    "data": null,
+    "message": "Certificate not found",
+    "error": {
+      "errors": [
+        {
+          "field": "notFound",
+          "message": "certificate not found"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 404 Not Found - Certificate File Not Found
+  
+  ```json
+  {
+    "data": null,
+    "message": "Certificate file not found",
+    "error": {
+      "errors": [
+        {
+          "field": "notFound",
+          "message": "certificate file not found"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 500 Internal Server Error - Failed to Get Certificate
+  
+  ```json
+  {
+    "data": null,
+    "message": "Failed to get certificate",
+    "error": {
+      "errors": [
+        {
+          "field": "",
+          "message": "database query error details"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  #### 500 Internal Server Error - Failed to Generate Presigned URL
+  
+  ```json
+  {
+    "data": null,
+    "message": "Failed to get presigned URL for certificate",
+    "error": {
+      "errors": [
+        {
+          "field": "",
+          "message": "S3 presigned URL generation error details"
+        }
+      ]
+    },
+    "status": "failed"
+  }
+  ```
+  
+  ### Business Logic Flow
+  
+  1. **Path Parameter Validation**: Validates that `certificateId` is provided in the URL path
+  2. **Certificate Retrieval**: Fetches certificate details from the database including related project and user information
+  3. **Certificate Existence Check**: Verifies the certificate exists and has valid data
+  4. **Project Visibility Check**: Ensures the certificate's associated project is public
+  5. **Certificate File Check**: Verifies that a certificate file is associated with the certificate
+  6. **Presigned URL Generation**: Creates a temporary, secure URL for accessing the certificate file
+  7. **Response Assembly**: Returns certificate metadata along with the download URL
+  
+  ### Public Access Requirements
+  
+  This endpoint provides public access to certificates, but with the following restrictions:
+  
+  - **Project Visibility**: Only certificates from public projects can be accessed
+  - **File Availability**: Certificate must have an associated file in storage
+  - **Valid Certificate**: Certificate record must exist in the database
+  
+  ### Certificate URL Details
+  
+  - **Type**: Presigned S3 URL
+  - **Expiration**: URL has a limited lifetime (typically 15 minutes to 1 hour)
+  - **Direct Download**: URL provides direct access to the certificate file
+  - **Security**: URL includes authentication parameters for secure access
+  
+  ### Use Cases
+  
+  #### Certificate Verification
+  Organizations or individuals can use this endpoint to verify the authenticity of certificates by providing the certificate ID.
+  
+  #### Certificate Download
+  Recipients can download their certificates using the provided presigned URL.
+  
+  #### Public Certificate Display
+  Websites can display certificate information and provide download links for public certificates.
+  
+  ### Example Usage Scenarios
+  
+  ```bash
+  # Get certificate for verification
+  curl -X GET 'https://api.example.com/api/certificates/cert-abc123'
+  
+  # Response can be used to:
+  # 1. Display certificate information
+  # 2. Provide download link via certificateUrl
+  # 3. Show issuer and project details
+  # 4. Display issuance date
+  ```
+  
+  ### Notes
+  
+  1. **Public Endpoint**: No authentication required, but access is restricted to public project certificates
+  2. **Presigned URLs**: Certificate URLs are temporary and expire after a set period
+  3. **Related Data**: Response includes information about the issuer and originating project
+  4. **File Storage**: Certificate files are stored in S3 and accessed via presigned URLs
+  5. **Project Association**: Each certificate is linked to a specific project and user
+  
+  ### Security Considerations
+  
+  - Only certificates from public projects are accessible via this endpoint
+  - Presigned URLs provide secure, time-limited access to certificate files
+  - Certificate existence and project visibility are validated before generating download URLs
+  - No sensitive project or user information is exposed beyond what's necessary for certificate verification
+  
+  ### Error Handling
+  
+  The endpoint implements comprehensive error handling for various failure scenarios:
+  - Missing or invalid certificate IDs
+  - Non-existent certificates
+  - Private project restrictions
+  - Missing certificate files
+  - S3 access failures
+}

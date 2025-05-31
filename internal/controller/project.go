@@ -629,22 +629,15 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 }
 
 func (pc ProjectController) ApproveSignature(ctx *gin.Context) {
-	type ApproveSignatureRequest struct {
-		SignatureAnnotateId string `json:"signatureAnnotateId" form:"signatureAnnotateId" binding:"required,strNotEmpty"`
-	}
-	var body ApproveSignatureRequest
-	err := ctx.ShouldBind(&body)
-	if err != nil {
-		pc.app.Logger.Errorf("Failed to bind request: %v", err)
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	fmt.Printf("ApproveSignatureRequest: %+v\n", body)
-
 	projectId := ctx.Param("projectId")
 	if projectId == "" {
 		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("projectId is required"), "projectId"), nil)
+		return
+	}
+
+	signatureAnnotId := ctx.Param("signatureId")
+	if signatureAnnotId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("signatureAnnotateId is required"), "signatureAnnotateId"), nil)
 		return
 	}
 
@@ -690,7 +683,7 @@ func (pc ProjectController) ApproveSignature(ctx *gin.Context) {
 		return
 	}
 
-	sa, err := pc.app.Repository.SignatureAnnotate.GetById(ctx, nil, body.SignatureAnnotateId, projectId)
+	sa, err := pc.app.Repository.SignatureAnnotate.GetById(ctx, nil, signatureAnnotId, projectId)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			util.ResponseFailed(ctx, http.StatusNotFound, "Signature not found", util.GenerateErrorMessages(errors.New("annotate signature not found"), "notFound"), nil)
@@ -729,7 +722,7 @@ func (pc ProjectController) ApproveSignature(ctx *gin.Context) {
 		}
 	}()
 
-	err = pc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, body.SignatureAnnotateId, &model.File{
+	err = pc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, signatureAnnotId, &model.File{
 		FileName:       toProjectDirectoryPath(projectId, sigFile.Filename),
 		UniqueFileName: info.Key,
 		BucketName:     info.Bucket,
@@ -755,5 +748,43 @@ func (pc ProjectController) ApproveSignature(ctx *gin.Context) {
 		return
 	}
 
+	util.ResponseSuccess(ctx, nil)
+}
+
+func (pc ProjectController) UpdateProjectVisibility(ctx *gin.Context) {
+	type UpdateProjectVisibility struct {
+		IsPublic bool `json:"isPublic" form:"isPublic"`
+	}
+
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
+	}
+	var body UpdateProjectVisibility
+	err := ctx.ShouldBind(&body)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	roles, project, err := pc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
+		return
+	}
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+		return
+	}
+	err = pc.app.Repository.Project.UpdateProjectVisibility(ctx, pc.app.Repository.DB, projectId, body.IsPublic)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to toggle project visibility", util.GenerateErrorMessages(err), nil)
+		return
+	}
 	util.ResponseSuccess(ctx, nil)
 }

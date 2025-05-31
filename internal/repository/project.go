@@ -321,3 +321,23 @@ func (pr ProjectRepository) UpdateCSVFile(ctx context.Context, tx *gorm.DB, proj
 
 	return nil
 }
+
+func (pr ProjectRepository) UpdateProjectVisibility(ctx context.Context, tx *gorm.DB, projectId string, isPublic bool) error {
+	pr.logger.Debugf("Toggle project visibility with projectId: %s and isPublic: %v \n", projectId, isPublic)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	if err := db.WithContext(ctx).Model(&model.Project{}).Select("is_public").Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: projectId,
+		},
+	}).Updates(&model.Project{
+		IsPublic: isPublic,
+	}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

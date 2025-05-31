@@ -62,3 +62,22 @@ func (plr CertificateRepository) GetByNumber(ctx context.Context, tx *gorm.DB, p
 
 	return &certificate, nil
 }
+
+func (plr CertificateRepository) GetById(ctx context.Context, tx *gorm.DB, id string) (*model.Certificate, error) {
+	plr.logger.Debugf("Get certificate by id: %s", id)
+
+	db := plr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var certificate model.Certificate
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
+		BaseModel: model.BaseModel{
+			ID: id,
+		},
+	}).Preload("CertificateFile").Preload("Project.User").First(&certificate).Error; err != nil {
+		return &certificate, err
+	}
+
+	return &certificate, nil
+}
