@@ -150,7 +150,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		}
 	}()
 
-	_, err = pc.app.Repository.Project.Create(ctx, tx, &model.Project{
+	project, err := pc.app.Repository.Project.Create(ctx, tx, &model.Project{
 		BaseModel: model.BaseModel{
 			ID: newProjectId,
 		},
@@ -177,7 +177,9 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		return
 	}
 
-	util.ResponseSuccess(ctx, nil)
+	util.ResponseSuccess(ctx, gin.H{
+		"projectId": project.ID,
+	})
 }
 
 const (
