@@ -14,4 +14,5 @@ const (
 	SignatoryStatusNotInvited SignatoryStatus = iota
 	SignatoryStatusInvited
 	SignatoryStatusSigned
+	SignatoryStatusRejected
 )

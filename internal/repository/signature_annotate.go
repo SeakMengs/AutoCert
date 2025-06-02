@@ -138,6 +138,33 @@ func (sar SignatureAnnotateRepository) ApproveSignature(ctx context.Context, tx 
 	return nil
 }
 
+func (sar SignatureAnnotateRepository) RejectSignature(ctx context.Context, tx *gorm.DB, id string, reason string) error {
+	sar.logger.Debugf("Reject signature annotate with id: %s, reason: %s \n", id, reason)
+
+	db := sar.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	if err := db.WithContext(ctx).Model(&model.SignatureAnnotate{}).Select("status", "reason").Where(model.SignatureAnnotate{
+		BaseModel: model.BaseModel{
+			ID: id,
+		},
+		Status: constant.SignatoryStatusInvited,
+	}).Updates(&model.SignatureAnnotate{
+		Status: constant.SignatoryStatusRejected,
+		Reason: reason,
+	}).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("signatory not found or already rejected")
+		}
+
+		sar.logger.Errorf("Failed to reject signature annotate: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (sar SignatureAnnotateRepository) Delete(ctx context.Context, tx *gorm.DB, id string) error {
 	sar.logger.Debugf("Delete signature annotate with id: %d \n", id)
 

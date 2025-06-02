@@ -28,3 +28,17 @@ func (plr ProjectLogRepository) GetByProjectId(ctx context.Context, tx *gorm.DB,
 
 	return logs, nil
 }
+
+func (plr ProjectLogRepository) Save(ctx context.Context, tx *gorm.DB, log *model.ProjectLog) error {
+	plr.logger.Debugf("Save project log for project id: %s", log.ProjectID)
+
+	db := plr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	if err := db.WithContext(ctx).Create(log).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

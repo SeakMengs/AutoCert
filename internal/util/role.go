@@ -20,6 +20,7 @@ var rolePermissions = map[constant.ProjectRole][]constant.ProjectPermission{
 	},
 	constant.ProjectRoleSignatory: {
 		constant.AnnotateSignatureApprove,
+		constant.AnnotateSignatureReject,
 	},
 	constant.ProjectRoleNone: {},
 }

@@ -20,6 +20,7 @@ const (
 	AnnotateSignatureRemove  ProjectPermission = "annotate:signature:remove"
 	AnnotateSignatureInvite  ProjectPermission = "annotate:signature:invite"
 	AnnotateSignatureApprove ProjectPermission = "annotate:signature:approve"
+	AnnotateSignatureReject  ProjectPermission = "annotate:signature:reject"
 	SettingsUpdate           ProjectPermission = "settings:update"
 	TableUpdate              ProjectPermission = "table:update"
 
