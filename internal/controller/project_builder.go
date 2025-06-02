@@ -759,6 +759,23 @@ func (pbc ProjectBuilderController) ApproveSignature(ctx *gin.Context) {
 		return
 	}
 
+	err = pbc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
+		Role:      user.Email,
+		ProjectID: project.ID,
+		Action:    "Signatory approved signature",
+		Description: fmt.Sprintf(
+			"%s has approved the signature. Signature id: %s. Details: page %d, position (%.2f, %.2f), size (%.2f, %.2f).",
+			sa.Email, sa.ID, sa.Page, sa.X, sa.Y, sa.Width, sa.Height,
+		),
+		Timestamp: time.Now().Format(time.RFC3339),
+	})
+	if err != nil {
+		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to log project activity", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(err), nil)
