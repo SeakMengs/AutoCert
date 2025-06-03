@@ -173,14 +173,18 @@ func main() {
 
 	// Generate certificates.
 	// The outputFilePattern is a format string; here, certificates will be named "certificate_0.pdf", "certificate_1.pdf", etc.
-	generatedFiles, err := cg.Generate()
+	generatedResults, err := cg.Generate()
 	if err != nil {
 		log.Fatalf("Certificate generation failed: %v", err)
 	}
 
+	generatedFiles := make([]string, 0, len(generatedResults))
+
 	fmt.Println("Generated certificate files:")
-	for _, file := range generatedFiles {
-		absPath, _ := filepath.Abs(file)
+	for _, gr := range generatedResults {
+		generatedFiles = append(generatedFiles, gr.FilePath)
+
+		absPath, _ := filepath.Abs(gr.FilePath)
 		fmt.Println(absPath)
 	}
 

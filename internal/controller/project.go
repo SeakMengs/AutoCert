@@ -534,7 +534,8 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	}
 
 	cfg := autocert.NewDefaultConfig()
-	settings := autocert.NewDefaultSettings()
+	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", pc.app.Config.FRONTEND_URL) +
+		"/%s")
 	settings.EmbedQRCode = project.EmbedQr
 	outFilePattern := "certificate_%d.pdf"
 	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings, outFilePattern)
@@ -543,7 +544,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	defer os.RemoveAll(cg.GetOutputDir())
 
 	nowGenerate := time.Now()
-	generatedFiles, err := cg.Generate()
+	generatedResults, err := cg.Generate()
 	if err != nil {
 		tx.Rollback()
 
@@ -552,7 +553,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 	thenGenerate := time.Now()
-	pc.app.Logger.Infof("Time taken to generate %d certificates: %v", len(generatedFiles), thenGenerate.Sub(nowGenerate))
+	pc.app.Logger.Infof("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate))
 
 	tx.Commit()
 
@@ -573,10 +574,10 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	}()
 
 	nowUpload := time.Now()
-	for i, fpath := range generatedFiles {
-		pc.app.Logger.Info("Generated file:", fpath)
+	for _, gr := range generatedResults {
+		pc.app.Logger.Info("Generated file:", gr.FilePath)
 
-		info, err := pc.uploadFileToS3ByPath(fpath, &FileUploadOptions{
+		info, err := pc.uploadFileToS3ByPath(gr.FilePath, &FileUploadOptions{
 			DirectoryPath: getGeneratedCertificateDirectoryPath(project.ID),
 			UniquePrefix:  false,
 		})
@@ -588,10 +589,13 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		}
 
 		_, err = pc.app.Repository.Certificate.Create(ctx, tx2, &model.Certificate{
-			Number:    i + 1,
+			BaseModel: model.BaseModel{
+				ID: gr.ID,
+			},
+			Number:    gr.Number,
 			ProjectID: project.ID,
 		}, &model.File{
-			FileName:       toGeneratedCertificateDirectoryPath(project.ID, fpath),
+			FileName:       toGeneratedCertificateDirectoryPath(project.ID, gr.FilePath),
 			UniqueFileName: info.Key,
 			BucketName:     info.Bucket,
 			Size:           info.Size,
@@ -629,8 +633,8 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		Role:      user.Email,
 		Action:    "Requestor generated certificates",
 		Description: fmt.Sprintf(
-			"Generated %d certificates in %s, uploade and save in %s, total time taken: %s",
-			len(generatedFiles),
+			"Generated %d certificates in %s, upload and save in %s, total time taken: %s",
+			len(generatedResults),
 			thenGenerate.Sub(nowGenerate).String(),
 			thenUpload.Sub(nowUpload).String(),
 			thenTotal.Sub(nowGenerate).String(),
@@ -645,9 +649,9 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	}
 
 	util.ResponseSuccess(ctx, gin.H{
-		"files":             generatedFiles,
-		"count":             len(generatedFiles),
-		"generateTimeTaken": fmt.Sprintf("Time taken to generate %d certificates: %v", len(generatedFiles), thenGenerate.Sub(nowGenerate)),
+		"files":             generatedResults,
+		"count":             len(generatedResults),
+		"generateTimeTaken": fmt.Sprintf("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate)),
 		"uploadTimeTaken":   fmt.Sprintf("Time taken to upload and save all certificates: %v", thenUpload.Sub(nowUpload)),
 		"totalTimeTaken":    fmt.Sprintf("Total time taken: %v", thenTotal.Sub(nowGenerate)),
 	})

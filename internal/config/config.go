@@ -8,13 +8,14 @@ import (
 )
 
 type Config struct {
-	Port        string
-	ENV         string
-	DB          DatabaseConfig
-	RateLimiter RateLimiterConfig
-	Mail        MailConfig
-	Auth        AuthConfig
-	Minio       MinioConfig
+	Port         string
+	ENV          string
+	FRONTEND_URL string
+	DB           DatabaseConfig
+	RateLimiter  RateLimiterConfig
+	Mail         MailConfig
+	Auth         AuthConfig
+	Minio        MinioConfig
 }
 
 type RateLimiterConfig struct {
@@ -73,8 +74,9 @@ func GetConfig() Config {
 	}
 
 	return Config{
-		Port: env.GetString("PORT", "8080"),
-		ENV:  env.GetString("ENV", "development"),
+		Port:         env.GetString("PORT", "8080"),
+		ENV:          env.GetString("ENV", "development"),
+		FRONTEND_URL: env.GetString("FRONTEND_URL", "http://localhost:3000"),
 		DB: DatabaseConfig{
 			HOST:         env.GetString("DB_HOST", "127.0.0.1"),
 			PORT:         env.GetString("DB_PORT", "5432"),

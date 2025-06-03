@@ -8,17 +8,29 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"github.com/google/uuid"
 )
+
+type GeneratedResult struct {
+	Number   int
+	FilePath string
+	ID       string
+}
 
 type Settings struct {
 	RemoveLineBreaksBool bool
 	EmbedQRCode          bool
+	// eg fmt.Sprintf("%s/share/certificates", pc.app.Config.FRONTEND_URL) + "/%s"
+	// %s will be replaced with the certificate ID
+	QrURLPattern string
 }
 
-func NewDefaultSettings() *Settings {
+func NewDefaultSettings(qrUrlPattern string) *Settings {
 	return &Settings{
 		RemoveLineBreaksBool: true,
 		EmbedQRCode:          true,
+		QrURLPattern:         qrUrlPattern,
 	}
 }
 
@@ -205,6 +217,8 @@ type Job struct {
 
 // result represents the result of a certificate generation job.
 type Result struct {
+	// Unique identifier for the generated certificate (uuid)
+	id string
 	// CSV row index
 	index int
 	// Output file path after worker processing
@@ -218,7 +232,7 @@ type Result struct {
 // Returns a list of generated certificate file paths or each row in the CSV.
 // If no CSV is provided, it will generate a single certificate and apply the annotations.
 // The output file names will be based on the provided pattern. Eg. "certificate_%d.pdf"
-func (cg *CertificateGenerator) Generate() ([]string, error) {
+func (cg *CertificateGenerator) Generate() ([]GeneratedResult, error) {
 	defer os.RemoveAll(cg.GetTmpDir())
 
 	baseFile, err := cg.applySignatures(cg.TemplatePath)
@@ -238,14 +252,20 @@ func (cg *CertificateGenerator) Generate() ([]string, error) {
 		if err := os.Rename(baseFile, outputFile); err != nil {
 			return nil, err
 		}
-		return []string{outputFile}, nil
+		return []GeneratedResult{
+			{
+				Number:   1,
+				FilePath: outputFile,
+				ID:       uuid.NewString(),
+			},
+		}, nil
 	}
 
 	return cg.generateFromCSV(baseFile)
 }
 
 // Handles the parallel generation of certificates from CSV data.
-func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]string, error) {
+func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]GeneratedResult, error) {
 	maxWorkers := determineWorkerCount(len(cg.csv))
 
 	// Create channels for job distribution and result collection
@@ -313,8 +333,13 @@ func (cg *CertificateGenerator) certificateWorker(jobs <-chan Job, results chan<
 	defer wg.Done()
 
 	for j := range jobs {
-		outputFile, err := cg.processJob(j, baseFile)
-		results <- Result{j.index, outputFile, err}
+		outputFile, certId, err := cg.processJob(j, baseFile)
+		results <- Result{
+			id:         certId,
+			index:      j.index,
+			outputFile: outputFile,
+			err:        err,
+		}
 
 		// Clean up worker directory after processing
 		os.RemoveAll(j.tmpDir)
@@ -322,11 +347,14 @@ func (cg *CertificateGenerator) certificateWorker(jobs <-chan Job, results chan<
 }
 
 // Handle the processing of a single certificate job.
-func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, error) {
+// Return output file path, uuid, and error if any occurred.
+func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, string, error) {
+	certId := uuid.NewString()
+
 	// Copy the base file for this worker
 	workerBaseFile := filepath.Join(j.tmpDir, "base.pdf")
 	if err := copyFile(baseFile, workerBaseFile); err != nil {
-		return "", err
+		return "", certId, err
 	}
 
 	currentFile := workerBaseFile
@@ -340,7 +368,7 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 			var err error
 			currentFile, err = cg.applyTextAnnotation(currentFile, page, modifiedAnnot, j.tmpDir)
 			if err != nil {
-				return "", fmt.Errorf("failed to apply text annotation on page %d for row %d: %w", page, j.index, err)
+				return "", certId, fmt.Errorf("failed to apply text annotation on page %d for row %d: %w", page, j.index, err)
 			}
 		}
 	}
@@ -349,32 +377,35 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, erro
 	if cg.Settings.EmbedQRCode {
 		tmpQrCodeFile, err := os.CreateTemp(j.tmpDir, "autocert_qr_*.pdf")
 		if err != nil {
-			return "", err
+			return "", certId, err
 		}
 		defer os.Remove(tmpQrCodeFile.Name())
 
-		// TODO: put actual qr code link
-		GenerateQRCodeAsPdf(fmt.Sprintf("www.youtube.com?workerIndex=%d", j.index+1), tmpQrCodeFile.Name(), 50)
+		err = GenerateQRCodeAsPdf(fmt.Sprintf(cg.Settings.QrURLPattern, certId), tmpQrCodeFile.Name(), 50)
+		if err != nil {
+			return "", certId, fmt.Errorf("failed to generate QR code for row %d: %w", j.index, err)
+		}
+
 		err = EmbedQRCodeToPdf(currentFile, currentFile, tmpQrCodeFile.Name(), []string{})
 		if err != nil {
-			return "", fmt.Errorf("failed to embed QR code for row %d: %w", j.index, err)
+			return "", certId, fmt.Errorf("failed to embed QR code for row %d: %w", j.index, err)
 		}
 	}
 
 	// Move the final output file to the output directory
 	outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, j.index+1))
 	if err := os.Rename(currentFile, outputFile); err != nil {
-		return "", fmt.Errorf("failed to finalize certificate for row %d: %w", j.index, err)
+		return "", certId, fmt.Errorf("failed to finalize certificate for row %d: %w", j.index, err)
 	}
 
-	return outputFile, nil
+	return outputFile, certId, nil
 }
 
 // Collect and organize the results from worker goroutines.
-func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount int) ([]string, error) {
+func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount int) ([]GeneratedResult, error) {
 	// A map of generated files indexed by their original CSV row index
 	// This is used to ensure the output files are in the correct order
-	resultMap := make(map[int]string)
+	resultMap := make(map[int]Result)
 	var firstErr error
 
 	for r := range results {
@@ -383,7 +414,7 @@ func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount
 				firstErr = r.err
 			}
 		} else {
-			resultMap[r.index] = r.outputFile
+			resultMap[r.index] = r
 		}
 	}
 
@@ -392,10 +423,14 @@ func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount
 	}
 
 	// Build result list in the correct order
-	generatedFiles := make([]string, 0, totalCount)
+	generatedFiles := make([]GeneratedResult, 0, totalCount)
 	for i := range totalCount {
-		if file, ok := resultMap[i]; ok {
-			generatedFiles = append(generatedFiles, file)
+		if r, ok := resultMap[i]; ok {
+			generatedFiles = append(generatedFiles, GeneratedResult{
+				Number:   i + 1,
+				FilePath: r.outputFile,
+				ID:       r.id,
+			})
 		} else {
 			return nil, fmt.Errorf("missing result for row %d", i)
 		}
