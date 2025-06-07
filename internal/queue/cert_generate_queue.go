@@ -78,7 +78,7 @@ func (r *RabbitMQ) ConsumeCertificateGenerateJob(handler CertificateGenerateJobH
 				log.Printf("[Worker %d] Successfully processed job for ProjectID: %s, UserID: %s", workerID, jobPayload.ProjectID, jobPayload.UserID)
 				_ = r.Ack(msg)
 			}
-		}(i)
+		}(i + 1)
 	}
 
 	return nil

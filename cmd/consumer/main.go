@@ -112,6 +112,15 @@ func main() {
 func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, app *queue.ConsumerContext) error {
 	ctx := context.Background()
 
+	var queueWaitDuration string
+	createdAtTime, err := time.Parse(time.RFC3339, jobPayload.CreatedAt)
+	if err != nil {
+		app.Logger.Errorf("Failed to parse created_at time: %v", err)
+		queueWaitDuration = "unknown"
+	} else {
+		queueWaitDuration = time.Since(createdAtTime).String()
+	}
+
 	user, err := app.Repository.User.GetById(ctx, nil, jobPayload.UserID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -247,7 +256,7 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 
 	nowUpload := time.Now()
 	for _, gr := range generatedResults {
-		app.Logger.Info("Generated file:", gr.FilePath)
+		// app.Logger.Info("Generated file:", gr.FilePath)
 
 		info, err := util.UploadFileToS3ByPath(gr.FilePath, &util.FileUploadOptions{
 			DirectoryPath: util.GetGeneratedCertificateDirectoryPath(project.ID),
@@ -297,17 +306,17 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 
 	thenTotal := time.Now()
 
-	// Log completion
 	err = app.Repository.ProjectLog.Save(ctx, nil, &model.ProjectLog{
 		ProjectID: project.ID,
 		Role:      user.Email,
 		Action:    "Certificates generated successfully",
 		Description: fmt.Sprintf(
-			"Generated %d certificates in %s, upload and save in %s, total time taken: %s",
+			"Generated %d certificates in %s, upload and save in %s, total time taken: %s, total time waited in queue: %s",
 			len(generatedResults),
 			thenGenerate.Sub(nowGenerate).String(),
 			thenUpload.Sub(nowUpload).String(),
 			thenTotal.Sub(nowGenerate).String(),
+			queueWaitDuration,
 		),
 		Timestamp: time.Now().Format(time.RFC3339),
 	})
