@@ -9,6 +9,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/env"
 	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/middleware"
+	"github.com/SeakMengs/AutoCert/internal/queue"
 	ratelimiter "github.com/SeakMengs/AutoCert/internal/rate_limiter"
 	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/SeakMengs/AutoCert/internal/route"
@@ -43,6 +44,17 @@ func main() {
 	}
 	defer sqlDb.Close()
 	logger.Info("Database connected \n")
+
+	rabbitMQ, err := queue.NewRabbitMQ(cfg.RabbitMQ.GetConnectionString())
+	if err != nil {
+		logger.Panic("Error connecting to RabbitMQ: ", err)
+	}
+	logger.Info("RabbitMQ connected \n")
+	defer func() {
+		if err := rabbitMQ.Close(); err != nil {
+			logger.Errorf("Failed to close RabbitMQ connection: %v", err)
+		}
+	}()
 
 	s3, err := minio.New(cfg.Minio.ENDPOINT, &minio.Options{
 		Creds:  credentials.NewStaticV4(cfg.Minio.ACCESS_KEY, cfg.Minio.SECRET_KEY, ""),
@@ -79,6 +91,7 @@ func main() {
 		Mailer:     mail,
 		JWTService: jwtService,
 		S3:         s3,
+		Queue:      rabbitMQ,
 	}
 
 	midware := middleware.NewMiddleware(&app, rateLimiter)

@@ -1,15 +1,16 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/queue"
 	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
@@ -28,22 +29,6 @@ const (
 	ErrFailedToGetPageCountFromTemplateFile = "failed to get page count from template file"
 	ErrInvalidPageNumber                    = "page number must be between 1 and %d for the provided template, but got %d"
 )
-
-func getProjectDirectoryPath(projectId string) string {
-	return fmt.Sprintf("projects/%s", projectId)
-}
-
-func toProjectDirectoryPath(projectId string, filename string) string {
-	return filepath.Join(getProjectDirectoryPath(projectId), filepath.Base(filename))
-}
-
-func getGeneratedCertificateDirectoryPath(projectId string) string {
-	return getProjectDirectoryPath(projectId) + "/generated"
-}
-
-func toGeneratedCertificateDirectoryPath(projectId string, filename string) string {
-	return filepath.Join(getGeneratedCertificateDirectoryPath(projectId), filepath.Base(filename))
-}
 
 func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	type Request struct {
@@ -128,9 +113,11 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 
 	newProjectId := uuid.NewString()
 
-	info, err := pc.uploadFileToS3ByPath(finalPdf, &FileUploadOptions{
-		DirectoryPath: getProjectDirectoryPath(newProjectId),
+	info, err := util.UploadFileToS3ByPath(finalPdf, &util.FileUploadOptions{
+		DirectoryPath: util.GetProjectDirectoryPath(newProjectId),
 		UniquePrefix:  true,
+		Bucket:        pc.app.Config.Minio.BUCKET,
+		S3:            pc.app.S3,
 	})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
@@ -154,7 +141,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		Title:  body.Title,
 		UserID: user.ID,
 		TemplateFile: model.File{
-			FileName:       toProjectDirectoryPath(newProjectId, file.Filename),
+			FileName:       util.ToProjectDirectoryPath(newProjectId, file.Filename),
 			UniqueFileName: info.Key,
 			BucketName:     info.Bucket,
 			Size:           info.Size,
@@ -435,6 +422,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 	}
 
 	tx := pc.app.Repository.DB.Begin()
+	defer tx.Commit()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -448,213 +436,248 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	pageAnnotations := autocert.PageAnnotations{
-		PageSignatureAnnotations: make(map[uint][]autocert.SignatureAnnotate),
-		PageColumnAnnotations:    make(map[uint][]autocert.ColumnAnnotate),
-	}
-
-	for _, signature := range project.SignatureAnnotates {
-		if signature.Status != constant.SignatoryStatusSigned {
-			continue
-		}
-
-		annotate, err := signature.ToAutoCertSignatureAnnotate(ctx, pc.app.S3)
-		if err != nil {
-			tx.Rollback()
-
-			pc.app.Logger.Error("failed to convert signature to autocert signature annotate: ", err)
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to process signature annotation", util.GenerateErrorMessages(errors.New("failed to convert signature annotate to autocert signature annotate, most likely because signature file does not exist")), nil)
-			return
-		}
-		pageAnnotations.PageSignatureAnnotations[signature.Page] = append(pageAnnotations.PageSignatureAnnotations[signature.Page], *annotate)
-
-		defer os.Remove(annotate.SignatureFilePath)
-	}
-
-	for _, column := range project.ColumnAnnotates {
-		pageAnnotations.PageColumnAnnotations[column.Page] = append(pageAnnotations.PageColumnAnnotations[column.Page], *column.ToAutoCertColumnAnnotate())
-	}
-
-	if len(pageAnnotations.PageSignatureAnnotations) == 0 && len(pageAnnotations.PageColumnAnnotations) == 0 {
-		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Cannot generate certificate", util.GenerateErrorMessages(errors.New("at least one signed signature or column annotation is required to generate the certificate"), "noAnnotate"), nil)
-		return
-	}
-
-	ext := filepath.Ext(project.TemplateFile.FileName)
-
-	templatePath, err := os.CreateTemp("", "template-*"+ext)
-	if err != nil {
-		tx.Rollback()
-
-		pc.app.Logger.Error("failed to create temp file", err)
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
-		return
-	}
-	defer os.Remove(templatePath.Name())
-
-	err = project.TemplateFile.DownloadToLocal(ctx, pc.app.S3, templatePath.Name())
-	if err != nil {
-		tx.Rollback()
-
-		pc.app.Logger.Error("failed to download template file", err)
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download template file", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	csvPath, err := os.CreateTemp("", "csv-*"+ext)
-	if err != nil {
-		tx.Rollback()
-
-		pc.app.Logger.Error("failed to create temp file", err)
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
-		return
-	}
-	defer os.Remove(csvPath.Name())
-
-	if project.CSVFileID != "" {
-		err = project.CSVFile.DownloadToLocal(ctx, pc.app.S3, csvPath.Name())
-		if err != nil {
-			tx.Rollback()
-
-			pc.app.Logger.Error("failed to download csv file", err)
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download csv file", util.GenerateErrorMessages(err), nil)
-			return
-		}
-	} else {
-		// create empty csv file
-		_, err = csvPath.WriteString("")
-		if err != nil {
-			tx.Rollback()
-
-			pc.app.Logger.Error("failed to create empty csv file", err)
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create empty csv file", util.GenerateErrorMessages(err), nil)
-			return
-		}
-	}
-
-	cfg := autocert.NewDefaultConfig()
-	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", pc.app.Config.FRONTEND_URL) +
-		"/%s")
-	settings.EmbedQRCode = project.EmbedQr
-	outFilePattern := "certificate_%d.pdf"
-	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings, outFilePattern)
-
-	// TIP: Remove this for testing to see the generated files in the output directory
-	defer os.RemoveAll(cg.GetOutputDir())
-
-	nowGenerate := time.Now()
-	generatedResults, err := cg.Generate()
-	if err != nil {
-		tx.Rollback()
-
-		pc.app.Logger.Error("failed to generate certificate", err)
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(err), nil)
-		return
-	}
-	thenGenerate := time.Now()
-	pc.app.Logger.Infof("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate))
-
-	tx.Commit()
-
-	tx2 := pc.app.Repository.DB.Begin()
-	defer tx2.Commit()
-
-	tx2Rollback := func() {
-		// revert project status
-		pc.app.Repository.Project.UpdateStatus(ctx, nil, project.ID, project.Status)
-		tx2.Rollback()
-	}
-
-	defer func() {
-		if r := recover(); r != nil {
-			tx2Rollback()
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(errors.New("failed to generate certificate")), nil)
-		}
-	}()
-
-	nowUpload := time.Now()
-	for _, gr := range generatedResults {
-		pc.app.Logger.Info("Generated file:", gr.FilePath)
-
-		info, err := pc.uploadFileToS3ByPath(gr.FilePath, &FileUploadOptions{
-			DirectoryPath: getGeneratedCertificateDirectoryPath(project.ID),
-			UniquePrefix:  false,
-		})
-		if err != nil {
-			tx2Rollback()
-			pc.app.Logger.Error("failed to upload file to s3", err)
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
-			return
-		}
-
-		_, err = pc.app.Repository.Certificate.Create(ctx, tx2, &model.Certificate{
-			BaseModel: model.BaseModel{
-				ID: gr.ID,
-			},
-			Number:    gr.Number,
-			ProjectID: project.ID,
-		}, &model.File{
-			FileName:       toGeneratedCertificateDirectoryPath(project.ID, gr.FilePath),
-			UniqueFileName: info.Key,
-			BucketName:     info.Bucket,
-			Size:           info.Size,
-		})
-
-		if err != nil {
-			// delete the file from s3 if certificate creation in db failed
-			// Doesn't remove all files, only the last upload. This could potentially leave some files in S3. Can be improved by deleting all files in the directory.
-			if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
-				pc.app.Logger.Errorf("Failed to delete file: %v", err)
-				tx2Rollback()
-				util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete file", util.GenerateErrorMessages(err), nil)
-				return
-			}
-
-			tx2Rollback()
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to save certificate", util.GenerateErrorMessages(err), nil)
-			return
-		}
-	}
-
-	if err := pc.app.Repository.Project.UpdateStatus(ctx, tx2, project.ID, constant.ProjectStatusCompleted); err != nil {
-		tx2Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to update project status", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	thenUpload := time.Now()
-	pc.app.Logger.Infof("Time taken to upload and save all certificates: %v", thenUpload.Sub(nowUpload))
-
-	thenTotal := time.Now()
-
-	err = pc.app.Repository.ProjectLog.Save(ctx, tx2, &model.ProjectLog{
-		ProjectID: project.ID,
-		Role:      user.Email,
-		Action:    "Requestor generated certificates",
-		Description: fmt.Sprintf(
-			"Generated %d certificates in %s, upload and save in %s, total time taken: %s",
-			len(generatedResults),
-			thenGenerate.Sub(nowGenerate).String(),
-			thenUpload.Sub(nowUpload).String(),
-			thenTotal.Sub(nowGenerate).String(),
-		),
-		Timestamp: time.Now().Format(time.RFC3339),
+	payloadBytes, err := json.Marshal(queue.CertificateGeneratePayload{
+		ProjectID: projectId,
+		UserID:    user.ID,
+		Retry:     0,
 	})
 	if err != nil {
-		tx2Rollback()
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create job payload", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if err := pc.app.Queue.Publish(queue.QueueCertificateGenerate, payloadBytes); err != nil {
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to queue certificate generation", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if err := pc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
+		ProjectID: project.ID,
+		Role:      user.Email,
+		Action:    "Requestor generate certificates",
+		Description: fmt.Sprintf(
+			"%s has requested to generate certificates. The system has added the project to the queue for certificates generation.",
+			user.Email,
+		),
+		Timestamp: time.Now().Format(time.RFC3339),
+	}); err != nil {
+		tx.Rollback()
 		pc.app.Logger.Errorf("Failed to save project log: %v", err)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to save project log", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
-	util.ResponseSuccess(ctx, gin.H{
-		"files":             generatedResults,
-		"count":             len(generatedResults),
-		"generateTimeTaken": fmt.Sprintf("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate)),
-		"uploadTimeTaken":   fmt.Sprintf("Time taken to upload and save all certificates: %v", thenUpload.Sub(nowUpload)),
-		"totalTimeTaken":    fmt.Sprintf("Total time taken: %v", thenTotal.Sub(nowGenerate)),
-	})
+	util.ResponseSuccess(ctx, nil)
+
+	// pageAnnotations := autocert.PageAnnotations{
+	// 	PageSignatureAnnotations: make(map[uint][]autocert.SignatureAnnotate),
+	// 	PageColumnAnnotations:    make(map[uint][]autocert.ColumnAnnotate),
+	// }
+
+	// for _, signature := range project.SignatureAnnotates {
+	// 	if signature.Status != constant.SignatoryStatusSigned {
+	// 		continue
+	// 	}
+
+	// 	annotate, err := signature.ToAutoCertSignatureAnnotate(ctx, pc.app.S3)
+	// 	if err != nil {
+	// 		tx.Rollback()
+
+	// 		pc.app.Logger.Error("failed to convert signature to autocert signature annotate: ", err)
+	// 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to process signature annotation", util.GenerateErrorMessages(errors.New("failed to convert signature annotate to autocert signature annotate, most likely because signature file does not exist")), nil)
+	// 		return
+	// 	}
+	// 	pageAnnotations.PageSignatureAnnotations[signature.Page] = append(pageAnnotations.PageSignatureAnnotations[signature.Page], *annotate)
+
+	// 	defer os.Remove(annotate.SignatureFilePath)
+	// }
+
+	// for _, column := range project.ColumnAnnotates {
+	// 	pageAnnotations.PageColumnAnnotations[column.Page] = append(pageAnnotations.PageColumnAnnotations[column.Page], *column.ToAutoCertColumnAnnotate())
+	// }
+
+	// if len(pageAnnotations.PageSignatureAnnotations) == 0 && len(pageAnnotations.PageColumnAnnotations) == 0 {
+	// 	tx.Rollback()
+	// 	util.ResponseFailed(ctx, http.StatusBadRequest, "Cannot generate certificate", util.GenerateErrorMessages(errors.New("at least one signed signature or column annotation is required to generate the certificate"), "noAnnotate"), nil)
+	// 	return
+	// }
+
+	// ext := filepath.Ext(project.TemplateFile.FileName)
+
+	// templatePath, err := os.CreateTemp("", "template-*"+ext)
+	// if err != nil {
+	// 	tx.Rollback()
+
+	// 	pc.app.Logger.Error("failed to create temp file", err)
+	// 	util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
+	// defer os.Remove(templatePath.Name())
+
+	// err = project.TemplateFile.DownloadToLocal(ctx, pc.app.S3, templatePath.Name())
+	// if err != nil {
+	// 	tx.Rollback()
+
+	// 	pc.app.Logger.Error("failed to download template file", err)
+	// 	util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download template file", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
+
+	// csvPath, err := os.CreateTemp("", "csv-*"+ext)
+	// if err != nil {
+	// 	tx.Rollback()
+
+	// 	pc.app.Logger.Error("failed to create temp file", err)
+	// 	util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
+	// defer os.Remove(csvPath.Name())
+
+	// if project.CSVFileID != "" {
+	// 	err = project.CSVFile.DownloadToLocal(ctx, pc.app.S3, csvPath.Name())
+	// 	if err != nil {
+	// 		tx.Rollback()
+
+	// 		pc.app.Logger.Error("failed to download csv file", err)
+	// 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to download csv file", util.GenerateErrorMessages(err), nil)
+	// 		return
+	// 	}
+	// } else {
+	// 	// create empty csv file
+	// 	_, err = csvPath.WriteString("")
+	// 	if err != nil {
+	// 		tx.Rollback()
+
+	// 		pc.app.Logger.Error("failed to create empty csv file", err)
+	// 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create empty csv file", util.GenerateErrorMessages(err), nil)
+	// 		return
+	// 	}
+	// }
+
+	// cfg := autocert.NewDefaultConfig()
+	// settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", pc.app.Config.FRONTEND_URL) +
+	// 	"/%s")
+	// settings.EmbedQRCode = project.EmbedQr
+	// outFilePattern := "certificate_%d.pdf"
+	// cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings, outFilePattern)
+
+	// // TIP: Remove this for testing to see the generated files in the output directory
+	// defer os.RemoveAll(cg.GetOutputDir())
+
+	// nowGenerate := time.Now()
+	// generatedResults, err := cg.Generate()
+	// if err != nil {
+	// 	tx.Rollback()
+
+	// 	pc.app.Logger.Error("failed to generate certificate", err)
+	// 	util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
+	// thenGenerate := time.Now()
+	// pc.app.Logger.Infof("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate))
+
+	// tx.Commit()
+
+	// tx2 := pc.app.Repository.DB.Begin()
+	// defer tx2.Commit()
+
+	// tx2Rollback := func() {
+	// 	// revert project status
+	// 	pc.app.Repository.Project.UpdateStatus(ctx, nil, project.ID, project.Status)
+	// 	tx2.Rollback()
+	// }
+
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		tx2Rollback()
+	// 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to generate certificate", util.GenerateErrorMessages(errors.New("failed to generate certificate")), nil)
+	// 	}
+	// }()
+
+	// nowUpload := time.Now()
+	// for _, gr := range generatedResults {
+	// 	pc.app.Logger.Info("Generated file:", gr.FilePath)
+
+	// 	info, err := pc.uploadFileToS3ByPath(gr.FilePath, &FileUploadOptions{
+	// 		DirectoryPath: getGeneratedCertificateDirectoryPath(project.ID),
+	// 		UniquePrefix:  false,
+	// 	})
+	// 	if err != nil {
+	// 		tx2Rollback()
+	// 		pc.app.Logger.Error("failed to upload file to s3", err)
+	// 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
+	// 		return
+	// 	}
+
+	// 	_, err = pc.app.Repository.Certificate.Create(ctx, tx2, &model.Certificate{
+	// 		BaseModel: model.BaseModel{
+	// 			ID: gr.ID,
+	// 		},
+	// 		Number:    gr.Number,
+	// 		ProjectID: project.ID,
+	// 	}, &model.File{
+	// 		FileName:       toGeneratedCertificateDirectoryPath(project.ID, gr.FilePath),
+	// 		UniqueFileName: info.Key,
+	// 		BucketName:     info.Bucket,
+	// 		Size:           info.Size,
+	// 	})
+
+	// 	if err != nil {
+	// 		// delete the file from s3 if certificate creation in db failed
+	// 		// Doesn't remove all files, only the last upload. This could potentially leave some files in S3. Can be improved by deleting all files in the directory.
+	// 		if err := pc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
+	// 			pc.app.Logger.Errorf("Failed to delete file: %v", err)
+	// 			tx2Rollback()
+	// 			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete file", util.GenerateErrorMessages(err), nil)
+	// 			return
+	// 		}
+
+	// 		tx2Rollback()
+	// 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to save certificate", util.GenerateErrorMessages(err), nil)
+	// 		return
+	// 	}
+	// }
+
+	// if err := pc.app.Repository.Project.UpdateStatus(ctx, tx2, project.ID, constant.ProjectStatusCompleted); err != nil {
+	// 	tx2Rollback()
+	// 	util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to update project status", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
+
+	// thenUpload := time.Now()
+	// pc.app.Logger.Infof("Time taken to upload and save all certificates: %v", thenUpload.Sub(nowUpload))
+
+	// thenTotal := time.Now()
+
+	// err = pc.app.Repository.ProjectLog.Save(ctx, tx2, &model.ProjectLog{
+	// 	ProjectID: project.ID,
+	// 	Role:      user.Email,
+	// 	Action:    "Requestor generated certificates",
+	// 	Description: fmt.Sprintf(
+	// 		"Generated %d certificates in %s, upload and save in %s, total time taken: %s",
+	// 		len(generatedResults),
+	// 		thenGenerate.Sub(nowGenerate).String(),
+	// 		thenUpload.Sub(nowUpload).String(),
+	// 		thenTotal.Sub(nowGenerate).String(),
+	// 	),
+	// 	Timestamp: time.Now().Format(time.RFC3339),
+	// })
+	// if err != nil {
+	// 	tx2Rollback()
+	// 	pc.app.Logger.Errorf("Failed to save project log: %v", err)
+	// 	util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to save project log", util.GenerateErrorMessages(err), nil)
+	// 	return
+	// }
+
+	// util.ResponseSuccess(ctx, gin.H{
+	// 	"files":             generatedResults,
+	// 	"count":             len(generatedResults),
+	// 	"generateTimeTaken": fmt.Sprintf("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate)),
+	// 	"uploadTimeTaken":   fmt.Sprintf("Time taken to upload and save all certificates: %v", thenUpload.Sub(nowUpload)),
+	// 	"totalTimeTaken":    fmt.Sprintf("Total time taken: %v", thenTotal.Sub(nowGenerate)),
+	// })
 }
 
 func (pc ProjectController) UpdateProjectVisibility(ctx *gin.Context) {

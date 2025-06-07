@@ -12,12 +12,20 @@ services:
             DB_HOST: psql-db
         depends_on:
             - psql-db
-        # Check if the database is ready before starting the service because the service depends on the database
-        healthcheck:
-            test: ["CMD", "pg_isready", "-U", "root", "-h", "psql_db"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
+            - rabbitmq
+    autocert-worker:
+        build:
+            context: .
+            dockerfile: ./Dockerfile.consumer
+        volumes:
+            # Important to bind/mount your codebase dir to /worker dir for live reload
+            - ./:/worker
+        environment:
+            DB_HOST: psql-db
+            RABBITMQ_HOST: rabbitmq
+        depends_on:
+            - psql-db
+            - rabbitmq
     psql-db:
         image: postgres
         environment:
@@ -50,8 +58,39 @@ services:
             MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
             # Can remove if prod
         command: "server /data --console-address :9001"
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
         # extra_hosts:
-            # - "host.docker.internal:host-gateway"
+        # - "host.docker.internal:host-gateway"
+    # https://medium.com/@kaloyanmanev/how-to-run-rabbitmq-in-docker-compose-e5baccc3e644
+    rabbitmq:
+        image: rabbitmq:latest
+        restart: always
+        ports:
+            - "5672:5672" # RabbitMQ default port
+            - "15672:15672" # RabbitMQ management console
+        environment:
+            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+        configs:
+            - source: rabbitmq-plugins
+              target: /etc/rabbitmq/enabled_plugins
+        volumes:
+            - rabbitmq-lib:/var/lib/rabbitmq/
+            - rabbitmq-log:/var/log/rabbitmq
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+configs:
+    rabbitmq-plugins:
+        content: "[rabbitmq_management]."  
 volumes:
     psql_db_data:
     minio_data:
+    rabbitmq-lib:
+    rabbitmq-log:

@@ -75,6 +75,10 @@ func (pr ProjectRepository) GetRoleOfProject(ctx context.Context, tx *gorm.DB, p
 		role = append(role, constant.ProjectRoleSignatory)
 	}
 
+	if len(role) == 0 {
+		role = []constant.ProjectRole{}
+	}
+
 	return role, &project, nil
 }
 

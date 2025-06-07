@@ -19,6 +19,7 @@ require (
 	github.com/noelyahan/impexp v0.0.0-20201209034304-ee159d84b42f
 	github.com/noelyahan/mergi v0.0.0-20241105055807-221cd737ac6b
 	github.com/pdfcpu/pdfcpu v0.9.1
+	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/tdewolff/canvas v0.0.0-20250209140343-015076d8ff76

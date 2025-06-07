@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,28 +12,11 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
-	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
 
 type FileController struct {
 	*baseController
-}
-
-func createBucketIfNotExists(s3 *minio.Client, bucketName string) error {
-	exists, err := s3.BucketExists(context.Background(), bucketName)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		err = s3.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func CacheRequest(ctx *gin.Context, time time.Duration) {

@@ -620,9 +620,11 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 		return errors.New("invalid csv file")
 	}
 
-	info, err := pbc.uploadFileToS3ByPath(tmp.Name(), &FileUploadOptions{
-		DirectoryPath: getProjectDirectoryPath(project.ID),
+	info, err := util.UploadFileToS3ByPath(tmp.Name(), &util.FileUploadOptions{
+		DirectoryPath: util.GetProjectDirectoryPath(project.ID),
 		UniquePrefix:  true,
+		Bucket:        pbc.app.Config.Minio.BUCKET,
+		S3:            pbc.app.S3,
 	})
 	if err != nil {
 		pbc.app.Logger.Warnf("Failed to upload csv file: %v", err)
@@ -630,7 +632,7 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 	}
 
 	err = pbc.app.Repository.Project.UpdateCSVFile(ctx, tx, *project, &model.File{
-		FileName:       toProjectDirectoryPath(project.ID, tmp.Name()),
+		FileName:       util.ToProjectDirectoryPath(project.ID, tmp.Name()),
 		UniqueFileName: info.Key,
 		BucketName:     info.Bucket,
 		Size:           info.Size,
@@ -721,9 +723,11 @@ func (pbc ProjectBuilderController) ApproveSignature(ctx *gin.Context) {
 		return
 	}
 
-	info, err := pbc.uploadFileToS3ByFileHeader(sigFile, &FileUploadOptions{
-		DirectoryPath: getProjectDirectoryPath(project.ID),
+	info, err := util.UploadFileToS3ByFileHeader(sigFile, &util.FileUploadOptions{
+		DirectoryPath: util.GetProjectDirectoryPath(project.ID),
 		UniquePrefix:  true,
+		Bucket:        pbc.app.Config.Minio.BUCKET,
+		S3:            pbc.app.S3,
 	})
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
@@ -740,7 +744,7 @@ func (pbc ProjectBuilderController) ApproveSignature(ctx *gin.Context) {
 	}()
 
 	err = pbc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, signatureAnnotId, &model.File{
-		FileName:       toProjectDirectoryPath(projectId, sigFile.Filename),
+		FileName:       util.ToProjectDirectoryPath(projectId, sigFile.Filename),
 		UniqueFileName: info.Key,
 		BucketName:     info.Bucket,
 		Size:           info.Size,

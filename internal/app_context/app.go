@@ -4,6 +4,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/auth"
 	"github.com/SeakMengs/AutoCert/internal/config"
 	"github.com/SeakMengs/AutoCert/internal/mailer"
+	"github.com/SeakMengs/AutoCert/internal/queue"
 	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/minio/minio-go/v7"
 	"go.uber.org/zap"
@@ -14,7 +15,6 @@ type Application struct {
 	// Config holds application settings provided from .env file.
 	Config *config.Config
 
-	// Logger lol....
 	Logger *zap.SugaredLogger
 
 	// Repository provides access to data storage operations.
@@ -27,4 +27,6 @@ type Application struct {
 	JWTService auth.JWTInterface
 
 	S3 *minio.Client
+
+	Queue *queue.RabbitMQ
 }
