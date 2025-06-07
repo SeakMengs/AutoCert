@@ -70,8 +70,24 @@ func (r *RabbitMQ) ConsumeCertificateGenerateJob(handler CertificateGenerateJobH
 
 				if err := handler(jobPayload, app); err != nil {
 					log.Printf("[Worker %d] Handler error: %v", workerID, err)
-					// Requeue the message for retry
-					_ = r.Nack(msg, true)
+
+					payloadBytes, err := json.Marshal(jobPayload)
+					if err != nil {
+						log.Printf("[Worker %d] Failed to marshal job payload: %v", workerID, err)
+						_ = r.Nack(msg, false)
+						continue
+					}
+
+					// requeue with updated retry count
+					if err := r.Publish(QueueCertificateGenerate, payloadBytes); err != nil {
+						log.Printf("[Worker %d] Failed to requeue job: %v", workerID, err)
+						// Acknowledge the message and remove it from the queue
+						_ = r.Nack(msg, false)
+						continue
+					}
+
+					log.Printf("[Worker %d] Requeued job for ProjectID: %s, UserID: %s, Retry: %d", workerID, jobPayload.ProjectID, jobPayload.UserID, jobPayload.Retry)
+					_ = r.Ack(msg)
 					continue
 				}
 
