@@ -1,0 +1,9 @@
+Label,# Samples,Average,Min,Max,Std. Dev.,Error %,Throughput,Received KB/sec,Sent KB/sec,Avg. Bytes
+Create project,150,7394,216,11423,3050.00,0.667%,12.88771,11.71,4611.94,930.3
+Get project by id,150,2299,68,5723,1510.23,8.000%,9.65313,14.27,6.46,1513.7
+Patch project builder by id,150,4087,117,9993,2304.94,13.333%,6.31446,5.73,14.02,929.6
+Approve signature request by signature id,150,3895,106,9431,2432.89,30.000%,5.24384,4.96,36.46,968.0
+Get generated certificates by project id,150,4431,76,10370,2286.57,12.000%,4.06934,6.72,2.78,1690.7
+Get projects,150,7431,91,17151,4027.05,26.667%,3.46109,30.04,2.35,8888.2
+Get projects as a signatory,150,7236,134,19027,4448.66,6.667%,3.41413,51.66,2.35,15494.5
+TOTAL,1050,5253,68,19027,3584.02,13.905%,23.37489,99.18,1234.69,4345.0

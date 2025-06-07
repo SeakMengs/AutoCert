@@ -71,6 +71,13 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 		return
 	}
 	defer os.RemoveAll(tempOutDir)
+	defer func() {
+		if err := recover(); err != nil {
+			os.RemoveAll(tempOutDir)
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Error processing request", util.GenerateErrorMessages(errors.New("internal server error")), nil)
+			return
+		}
+	}()
 
 	pdfPath := fmt.Sprintf("%s/%s.pdf", tempOutDir, projectId)
 
@@ -155,6 +162,14 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 		return
 	}
 	defer os.RemoveAll(tempOutDir)
+	defer func() {
+		if err := recover(); err != nil {
+			os.RemoveAll(tempOutDir)
+
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Error processing request", util.GenerateErrorMessages(errors.New("internal server error")), nil)
+			return
+		}
+	}()
 
 	pdfPath := fmt.Sprintf("%s/%s_%s.pdf", tempOutDir, projectId, certificateNumber)
 

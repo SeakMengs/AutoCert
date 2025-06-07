@@ -11,11 +11,12 @@ patch {
 }
 
 body:multipart-form {
-  events: []
+  events: [{"type":"table:update","data":{"csvFile":{}}},{"type":"annotate:column:add","data":{"page":1,"x":180.24414971307968,"y":294.68970729644445,"width":482.45032058190253,"height":40,"color":"#FFC4C4","id":"JSXZ2GaEH71cAB4XNQIlX","value":"name","fontName":"Microsoft YaHei","fontSize":24,"fontWeight":"regular","fontColor":"#000000","textFitRectBox":true,"type":"column"}},{"type":"annotate:signature:add","data":{"page":1,"x":526.7134597171107,"y":385.9031881262963,"width":132.9905052889358,"height":82.98357839770371,"color":"#FFC4C4","id":"oCalXJ2bNMsB_C2NA8-Vx","status":0,"email":"lifegoalcs2@gmail.com","reason":"","type":"signature","signatureData":""}}]
+  csvFile: @file(/home/yato/Documents/Autocert/name.csv)
 }
 
 vars:pre-request {
-  projectId: 2fa1bd68-065e-4eba-9d6e-4f08e42ab65b
+  projectId: 92326117-1ee4-4f8f-ad07-e01ed04dee54
 }
 
 docs {
