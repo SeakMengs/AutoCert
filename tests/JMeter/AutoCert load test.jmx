@@ -5,10 +5,12 @@
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
         <collectionProp name="Arguments.arguments"/>
       </elementProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
     </TestPlan>
     <hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="AutoCert load test">
-        <intProp name="ThreadGroup.num_threads">1</intProp>
+        <intProp name="ThreadGroup.num_threads">100</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -18,7 +20,7 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Create project">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Create project" enabled="true">
           <stringProp name="HTTPSampler.domain">${url}</stringProp>
           <stringProp name="HTTPSampler.port">${port}</stringProp>
           <stringProp name="HTTPSampler.protocol">${protocol}</stringProp>
@@ -613,7 +615,7 @@ id in annotate is generated using
           <collectionProp name="Arguments.arguments">
             <elementProp name="accessToken" elementType="Argument">
               <stringProp name="Argument.name">accessToken</stringProp>
-              <stringProp name="Argument.value">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDk0MDM0OTcsImlhdCI6MTc0OTMxNzA5NywidHlwZSI6ImFjY2VzcyIsInVzZXIiOnsiaWQiOiIxZTM1NGViOS1mMTY4LTQ4MjEtOTAzMC05MmNhZTcwMGI3Y2MiLCJlbWFpbCI6ImxpZmVnb2FsY3MyQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IktpcmlnYXlhIiwibGFzdE5hbWUiOiJLaXJpZ2F5YSBLYXp1dG8iLCJwcm9maWxlVXJsIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jS1J3NVRkUTkwVkkybTY0cnRKS214elhYOTF6TzNQZURjVDBNejQ3Uk43YzAweG1BPXM5Ni1jIn19.lZZXXDGTR7Rr4EH9-4pM_qFwtKuAQHWzQMy4v1B3I-0</stringProp>
+              <stringProp name="Argument.value">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDkzNzY2NDAsImlhdCI6MTc0OTI5MDI0MCwidHlwZSI6ImFjY2VzcyIsInVzZXIiOnsiaWQiOiJiNWUxYjIzMi0zZTgxLTQ5YTAtOWMwMS1jZjI0YjM3Njc2NTQiLCJlbWFpbCI6ImxpZmVnb2FsY3MyQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IktpcmlnYXlhIiwibGFzdE5hbWUiOiJLaXJpZ2F5YSBLYXp1dG8iLCJwcm9maWxlVXJsIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jS1J3NVRkUTkwVkkybTY0cnRKS214elhYOTF6TzNQZURjVDBNejQ3Uk43YzAweG1BPXM5Ni1jIn19.UVNGXGQSF0cggWZyUWeKhh_my7Pvm3GRI6s7DIK5bZY</stringProp>
               <stringProp name="Argument.metadata">=</stringProp>
             </elementProp>
             <elementProp name="filePath" elementType="Argument">
@@ -623,21 +625,23 @@ id in annotate is generated using
             </elementProp>
             <elementProp name="url" elementType="Argument">
               <stringProp name="Argument.name">url</stringProp>
-              <stringProp name="Argument.value">127.0.0.1</stringProp>
+              <stringProp name="Argument.value">autocert-api.scormetry.site</stringProp>
               <stringProp name="Argument.metadata">=</stringProp>
             </elementProp>
             <elementProp name="protocol" elementType="Argument">
               <stringProp name="Argument.name">protocol</stringProp>
-              <stringProp name="Argument.value">http</stringProp>
+              <stringProp name="Argument.value">https</stringProp>
               <stringProp name="Argument.metadata">=</stringProp>
             </elementProp>
             <elementProp name="port" elementType="Argument">
               <stringProp name="Argument.name">port</stringProp>
-              <stringProp name="Argument.value">8080</stringProp>
+              <stringProp name="Argument.value"></stringProp>
               <stringProp name="Argument.metadata">=</stringProp>
             </elementProp>
           </collectionProp>
-          <stringProp name="TestPlan.comments">autocert-api.scormetry.site</stringProp>
+          <stringProp name="TestPlan.comments">autocert-api.scormetry.site
+
+127.0.0.1</stringProp>
         </Arguments>
         <hashTree/>
       </hashTree>

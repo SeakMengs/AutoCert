@@ -1,3 +1,5 @@
+API go service
+
 `sudo vim /etc/systemd/system/autocertapi.service`
 
 ```
@@ -22,6 +24,32 @@ WantedBy=multi-user.target
 sudo systemctl daemon-reload
 sudo systemctl enable autocertapi
 sudo systemctl start autocertapi
+```
+
+Worker go service
+
+`sudo vim /etc/systemd/system/autocertworker.service`
+
+```
+[Unit]
+Description=AutoCert Worker
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/AutoCert
+ExecStart=/var/www/AutoCert/autocertworker
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable autocertworker
+sudo systemctl start autocertworker
 ```
 
 Change postgres user password
@@ -69,4 +97,34 @@ ALTER SCHEMA public OWNER TO admin;
 
 -- Set default privileges for future tables in the schema
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO admin;
+```
+
+RabbitMQ
+
+```sh
+sudo rabbitmq-plugins enable rabbitmq_management
+```
+
+queue port: 5672
+management port: 15672
+
+Delete guest user
+
+```sh
+sudo rabbitmqctl delete_user guest
+```
+
+Create a new user
+
+```sh
+sudo rabbitmqctl add_user autocert loveeavlong
+sudo rabbitmqctl set_user_tags autocert administrator
+sudo rabbitmqctl set_permissions -p / autocert ".*" ".*" ".*"
+```
+
+Check user and permissions
+
+```sh
+sudo rabbitmqctl list_users
+sudo rabbitmqctl list_permissions -p /
 ```
