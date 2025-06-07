@@ -13,7 +13,7 @@ type CertificateRepository struct {
 }
 
 func (cr CertificateRepository) Create(ctx context.Context, tx *gorm.DB, ca *model.Certificate, file *model.File) (*model.Certificate, error) {
-	cr.logger.Debugf("Create certificate: %d", ca.Number)
+	// cr.logger.Debugf("Create certificate: %d", ca.Number)
 
 	db := cr.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)

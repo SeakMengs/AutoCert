@@ -34,7 +34,7 @@ type CertificateGeneratePayload struct {
 	Retry     int    `json:"retry" default:"0"`
 }
 
-type CertificateGenerateJobHandler func(jobPayload CertificateGeneratePayload, app *ConsumerContext) error
+type CertificateGenerateJobHandler func(jobPayload CertificateGeneratePayload, app *ConsumerContext) (bool, error)
 
 func (r *RabbitMQ) ConsumeCertificateGenerateJob(handler CertificateGenerateJobHandler, maxWorker int, app *ConsumerContext) error {
 	msgs, err := r.Consume(QueueCertificateGenerate)
@@ -68,8 +68,14 @@ func (r *RabbitMQ) ConsumeCertificateGenerateJob(handler CertificateGenerateJobH
 					continue
 				}
 
-				if err := handler(jobPayload, app); err != nil {
+				shouldRequeue, err := handler(jobPayload, app)
+				if err != nil {
 					log.Printf("[Worker %d] Handler error: %v", workerID, err)
+
+					if !shouldRequeue {
+						_ = r.Nack(msg, false)
+						continue
+					}
 
 					payloadBytes, err := json.Marshal(jobPayload)
 					if err != nil {

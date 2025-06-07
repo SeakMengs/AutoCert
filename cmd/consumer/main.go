@@ -109,7 +109,8 @@ func main() {
 	select {}
 }
 
-func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, app *queue.ConsumerContext) error {
+// Return shouldRequeue, err
+func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, app *queue.ConsumerContext) (bool, error) {
 	ctx := context.Background()
 
 	var queueWaitDuration string
@@ -125,16 +126,16 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			app.Logger.Error("User not found: ", jobPayload.UserID)
-			return errors.New("user not found")
+			return false, errors.New("user not found")
 		}
 
 		app.Logger.Error("Failed to get user: ", err)
-		return err
+		return true, err
 	}
 
 	if user == nil {
 		app.Logger.Error("User not found: ", jobPayload.UserID)
-		return errors.New("user not found")
+		return false, errors.New("user not found")
 	}
 
 	roles, project, err := app.Repository.Project.GetRoleOfProject(ctx, nil, jobPayload.ProjectID, &auth.JWTPayload{
@@ -145,22 +146,22 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 		ProfileURL: user.ProfileURL,
 	})
 	if err != nil {
-		return err
+		return true, fmt.Errorf("failed to get project roles: %w", err)
 	}
 
 	if project == nil || project.ID == "" {
 		app.Logger.Error("Project not found: ", jobPayload.ProjectID)
-		return errors.New("project not found")
+		return false, errors.New("project not found")
 	}
 
 	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
 		app.Logger.Warnf("User %s does not have permission to generate certificates for project %s", user.Email, project.ID)
-		return errors.New("user does not have permission to generate certificates for this project")
+		return false, errors.New("user does not have permission to generate certificates for this project")
 	}
 
 	if project.Status != constant.ProjectStatusProcessing {
 		app.Logger.Warnf("Project %s is not in processing status, current status: %s", project.ID, project.Status)
-		return errors.New("project is not in processing status")
+		return false, errors.New("project is not in processing status")
 	}
 
 	pageAnnotations := autocert.PageAnnotations{
@@ -176,7 +177,7 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 		annotate, err := signature.ToAutoCertSignatureAnnotate(ctx, app.S3)
 		if err != nil {
 			app.Logger.Error("failed to convert signature to autocert signature annotate: ", err)
-			return err
+			return true, err
 		}
 		pageAnnotations.PageSignatureAnnotations[signature.Page] = append(pageAnnotations.PageSignatureAnnotations[signature.Page], *annotate)
 
@@ -189,27 +190,27 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 
 	if len(pageAnnotations.PageSignatureAnnotations) == 0 && len(pageAnnotations.PageColumnAnnotations) == 0 {
 		app.Logger.Error("No annotations found for certificate generation")
-		return errors.New("at least one signed signature or column annotation is required to generate the certificate")
+		return false, errors.New("at least one signed signature or column annotation is required to generate the certificate")
 	}
 
 	ext := filepath.Ext(project.TemplateFile.FileName)
 	templatePath, err := os.CreateTemp("", "autocert-template-*"+ext)
 	if err != nil {
 		app.Logger.Error("failed to create temp file", err)
-		return err
+		return true, err
 	}
 	defer os.Remove(templatePath.Name())
 
 	err = project.TemplateFile.DownloadToLocal(ctx, app.S3, templatePath.Name())
 	if err != nil {
 		app.Logger.Error("failed to download template file", err)
-		return err
+		return true, err
 	}
 
 	csvPath, err := os.CreateTemp("", "autocert-csv-*"+ext)
 	if err != nil {
 		app.Logger.Error("failed to create temp file", err)
-		return err
+		return true, err
 	}
 	defer os.Remove(csvPath.Name())
 
@@ -217,14 +218,14 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 		err = project.CSVFile.DownloadToLocal(ctx, app.S3, csvPath.Name())
 		if err != nil {
 			app.Logger.Error("failed to download csv file", err)
-			return err
+			return true, err
 		}
 	} else {
 		// create empty csv file
 		_, err = csvPath.WriteString("")
 		if err != nil {
 			app.Logger.Error("failed to create empty csv file", err)
-			return err
+			return true, err
 		}
 	}
 
@@ -241,7 +242,7 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 	generatedResults, err := cg.Generate()
 	if err != nil {
 		app.Logger.Error("failed to generate certificate", err)
-		return err
+		return true, fmt.Errorf("failed to generate certificate: %w", err)
 	}
 	thenGenerate := time.Now()
 	app.Logger.Infof("Time taken to generate %d certificates: %v", len(generatedResults), thenGenerate.Sub(nowGenerate))
@@ -267,7 +268,7 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 		if err != nil {
 			tx.Rollback()
 			app.Logger.Error("failed to upload file to s3", err)
-			return err
+			return true, fmt.Errorf("failed to upload file to s3: %w", err)
 		}
 
 		_, err = app.Repository.Certificate.Create(ctx, tx, &model.Certificate{
@@ -290,13 +291,13 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 				app.Logger.Errorf("Failed to delete file: %v", err)
 			}
 			tx.Rollback()
-			return err
+			return true, fmt.Errorf("failed to create certificate in db: %w", err)
 		}
 	}
 
 	if err := app.Repository.Project.UpdateStatus(ctx, tx, project.ID, constant.ProjectStatusCompleted); err != nil {
 		tx.Rollback()
-		return err
+		return true, fmt.Errorf("failed to update project status to completed: %w", err)
 	}
 
 	tx.Commit()
@@ -322,9 +323,9 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 	})
 	if err != nil {
 		app.Logger.Errorf("Failed to save project log: %v", err)
-		return err
+		return true, fmt.Errorf("failed to save project log: %w", err)
 	}
 
 	app.Logger.Infof("Successfully generated %d certificates for project %s", len(generatedResults), project.ID)
-	return nil
+	return false, nil
 }
