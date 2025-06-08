@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
+	"gorm.io/gorm"
 )
 
 type ProjectController struct {
@@ -421,6 +423,11 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
+	if len(project.SignatureAnnotates) == 0 && len(project.ColumnAnnotates) == 0 {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project must have at least one signature or column annotate", util.GenerateErrorMessages(errors.New("project must have at least one signature or column annotate"), "noAnnotate"), nil)
+		return
+	}
+
 	tx := pc.app.Repository.DB.Begin()
 	defer tx.Commit()
 	defer func() {
@@ -470,6 +477,8 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
+	tx.Commit()
+
 	util.ResponseSuccess(ctx, nil)
 }
 
@@ -495,18 +504,87 @@ func (pc ProjectController) UpdateProjectVisibility(ctx *gin.Context) {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
 	}
+
 	if project == nil || project.ID == "" {
 		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
 		return
 	}
+
 	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
 		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
 		return
 	}
-	err = pc.app.Repository.Project.UpdateProjectVisibility(ctx, pc.app.Repository.DB, projectId, body.IsPublic)
+
+	err = pc.app.Repository.Project.UpdateProjectVisibility(ctx, nil, projectId, body.IsPublic)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to toggle project visibility", util.GenerateErrorMessages(err), nil)
 		return
 	}
+
 	util.ResponseSuccess(ctx, nil)
+}
+
+func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
+	}
+
+	roles, project, err := pc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
+		return
+	}
+
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+		return
+	}
+
+	ctx.Header("Content-Type", "text/event-stream")
+	ctx.Header("Cache-Control", "no-cache")
+	ctx.Header("Connection", "keep-alive")
+	ctx.Header("Access-Control-Allow-Origin", "*")
+
+	// Stream status, update ever 2 seconds, if status is not processing, close the stream.
+	ctx.Stream(func(w io.Writer) bool {
+		status, err := pc.app.Repository.Project.GetProjectStatus(ctx, nil, projectId)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				ctx.SSEvent("status", gin.H{
+					"status": -1,
+					"error":  util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"),
+				})
+				return false
+			}
+
+			pc.app.Logger.Errorf("Failed to get project status: %v", err)
+			ctx.SSEvent("status", gin.H{
+				"status": -1,
+				"error":  util.GenerateErrorMessages(err),
+			})
+			return false
+		}
+
+		if status != constant.ProjectStatusProcessing {
+			// If status is not processing, close the stream
+			ctx.SSEvent("status", gin.H{
+				"status": status,
+			})
+			return false
+		}
+
+		// If status is processing, send the status every 2 seconds
+		ctx.SSEvent("status", gin.H{
+			"status": status,
+		})
+		time.Sleep(2 * time.Second)
+		return true
+	})
 }

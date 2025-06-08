@@ -28,6 +28,7 @@ type ProjectBuilderController struct {
 
 // TODO: add validation for each field
 // TODO: correct data type, for now we accept everything from the model.{x}Annotate
+// TODO: check lock like frontend
 type AnnotateType string
 
 const (

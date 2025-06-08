@@ -345,3 +345,22 @@ func (pr ProjectRepository) UpdateProjectVisibility(ctx context.Context, tx *gor
 
 	return nil
 }
+
+func (pr ProjectRepository) GetProjectStatus(ctx context.Context, tx *gorm.DB, projectId string) (constant.ProjectStatus, error) {
+	pr.logger.Debugf("Get project status with projectId: %s \n", projectId)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var project model.Project
+	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: projectId,
+		},
+	}).Select("status").First(&project).Error; err != nil {
+		return constant.ProjectStatusDraft, err
+	}
+
+	return project.Status, nil
+}

@@ -5,12 +5,10 @@
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables">
         <collectionProp name="Arguments.arguments"/>
       </elementProp>
-      <boolProp name="TestPlan.functional_mode">false</boolProp>
-      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
     </TestPlan>
     <hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="AutoCert load test">
-        <intProp name="ThreadGroup.num_threads">100</intProp>
+        <intProp name="ThreadGroup.num_threads">125</intProp>
         <intProp name="ThreadGroup.ramp_time">1</intProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -615,7 +613,7 @@ id in annotate is generated using
           <collectionProp name="Arguments.arguments">
             <elementProp name="accessToken" elementType="Argument">
               <stringProp name="Argument.name">accessToken</stringProp>
-              <stringProp name="Argument.value">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDkzNzY2NDAsImlhdCI6MTc0OTI5MDI0MCwidHlwZSI6ImFjY2VzcyIsInVzZXIiOnsiaWQiOiJiNWUxYjIzMi0zZTgxLTQ5YTAtOWMwMS1jZjI0YjM3Njc2NTQiLCJlbWFpbCI6ImxpZmVnb2FsY3MyQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IktpcmlnYXlhIiwibGFzdE5hbWUiOiJLaXJpZ2F5YSBLYXp1dG8iLCJwcm9maWxlVXJsIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jS1J3NVRkUTkwVkkybTY0cnRKS214elhYOTF6TzNQZURjVDBNejQ3Uk43YzAweG1BPXM5Ni1jIn19.UVNGXGQSF0cggWZyUWeKhh_my7Pvm3GRI6s7DIK5bZY</stringProp>
+              <stringProp name="Argument.value">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDk0MTQ0NjgsImlhdCI6MTc0OTMyODA2OCwidHlwZSI6ImFjY2VzcyIsInVzZXIiOnsiaWQiOiI1OTA0ZmMxYy1hOGNlLTQwMjgtOGUyNy0zODJiMWQ3MTMyMTYiLCJlbWFpbCI6ImxpZmVnb2FsY3MyQGdtYWlsLmNvbSIsImZpcnN0TmFtZSI6IktpcmlnYXlhIiwibGFzdE5hbWUiOiJLaXJpZ2F5YSBLYXp1dG8iLCJwcm9maWxlVXJsIjoiaHR0cHM6Ly9saDMuZ29vZ2xldXNlcmNvbnRlbnQuY29tL2EvQUNnOG9jS1J3NVRkUTkwVkkybTY0cnRKS214elhYOTF6TzNQZURjVDBNejQ3Uk43YzAweG1BPXM5Ni1jIn19.lnOarN8RJryBlpFmbSujCdITL1WSXfLbjd5y9aLAJBo</stringProp>
               <stringProp name="Argument.metadata">=</stringProp>
             </elementProp>
             <elementProp name="filePath" elementType="Argument">

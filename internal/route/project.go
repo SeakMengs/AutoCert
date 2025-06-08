@@ -12,6 +12,7 @@ func V1_Projects(r *gin.RouterGroup, pc *controller.ProjectController, pbc *cont
 	{
 		v1.POST("", pc.CreateProject)
 		v1.GET("/:projectId", pc.GetProjectById)
+		v1.GET("/:projectId/sse/status", pc.ProjectStatusSSE)
 		v1.GET("/:projectId/thumbnail", fc.ServeProjectThumbnail)
 
 		v1.PATCH("/:projectId/visibility", pc.UpdateProjectVisibility)

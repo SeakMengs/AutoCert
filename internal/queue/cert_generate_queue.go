@@ -1,11 +1,13 @@
 package queue
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 
 	"github.com/SeakMengs/AutoCert/internal/auth"
 	"github.com/SeakMengs/AutoCert/internal/config"
+	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/minio/minio-go/v7"
 	"go.uber.org/zap"
@@ -36,6 +38,16 @@ type CertificateGeneratePayload struct {
 
 type CertificateGenerateJobHandler func(jobPayload CertificateGeneratePayload, app *ConsumerContext) (bool, error)
 
+func dropQeueCleanUp(app *ConsumerContext, projectId string) error {
+	ctx := context.Background()
+
+	if err := app.Repository.Project.UpdateStatus(ctx, nil, projectId, constant.ProjectStatusDraft); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *RabbitMQ) ConsumeCertificateGenerateJob(handler CertificateGenerateJobHandler, maxWorker int, app *ConsumerContext) error {
 	msgs, err := r.Consume(QueueCertificateGenerate)
 	if err != nil {
@@ -61,19 +73,27 @@ func (r *RabbitMQ) ConsumeCertificateGenerateJob(handler CertificateGenerateJobH
 				}
 
 				jobPayload.Retry++
-				if jobPayload.Retry >= MAX_QUEUE_RETRY {
+				if jobPayload.Retry > MAX_QUEUE_RETRY {
 					log.Printf("[Worker %d] Max retries reached", workerID)
 					// Acknowledge the message and remove it from the queue
 					_ = r.Nack(msg, false)
 					continue
 				}
+				lastRetry := jobPayload.Retry == MAX_QUEUE_RETRY
 
 				shouldRequeue, err := handler(jobPayload, app)
 				if err != nil {
 					log.Printf("[Worker %d] Handler error: %v", workerID, err)
 
-					if !shouldRequeue {
-						_ = r.Nack(msg, false)
+					if !shouldRequeue || lastRetry {
+						if err := dropQeueCleanUp(app, jobPayload.ProjectID); err != nil {
+							log.Printf("[Worker %d] Failed to clean up project %s: %v", workerID, jobPayload.ProjectID, err)
+							r.Nack(msg, false)
+							continue
+						}
+
+						log.Printf("[Worker %d] Dropped project %s due to max retries", workerID, jobPayload.ProjectID)
+						r.Nack(msg, false)
 						continue
 					}
 

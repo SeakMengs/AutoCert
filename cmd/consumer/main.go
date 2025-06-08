@@ -160,7 +160,7 @@ func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, 
 	}
 
 	if project.Status != constant.ProjectStatusProcessing {
-		app.Logger.Warnf("Project %s is not in processing status, current status: %s", project.ID, project.Status)
+		app.Logger.Warnf("Project %s is not in processing status, current status: %d", project.ID, project.Status)
 		return false, errors.New("project is not in processing status")
 	}
 

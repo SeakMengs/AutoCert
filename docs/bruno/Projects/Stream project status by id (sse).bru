@@ -1,0 +1,225 @@
+meta {
+  name: Stream project status by id (sse)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{url}}/api/v1/projects/{{projectId}}/sse/status
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  projectId: c5572095-b9f9-475f-b999-f350ab561e11
+}
+
+docs {
+  # Get Project By ID API Documentation
+  
+  ## Endpoint: Get Project By ID
+  
+  ```
+  GET /api/projects/{projectId}
+  ```
+  
+  This endpoint retrieves detailed information about a specific project, including its properties, annotations, and associated file URLs.
+  
+  ### Path Parameters
+  
+  | Parameter | Type | Description |
+  |-----------|------|-------------|
+  | projectId | string | Required. The unique identifier of the project to retrieve. |
+  
+  ### Authorization
+  
+  This endpoint requires the user to have one of the following roles:
+  - Project Owner (`owner`)
+  - Signatory (`signatory`)
+  
+  ### Response Format
+  
+  #### Success Response (200 OK)
+  
+  ```json
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {
+      "roles": [
+        0
+      ],
+      "project": {
+        "id": "66670bf2-ee75-495b-8c91-864b1fbc4e07",
+        "title": "2",
+        "templateUrl": "http://172.17.0.1:9000/autocert/1745254103174384500_template-3257995318_page_1.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=CBaYCubcIsrSvccedTW0%2F20250426%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250426T192816Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=95f502dfcd16a6fd6711bab836c43db0202dcdee8ea8d278c927f106096f9dae",
+        "isPublic": false,
+        "status": 0,
+        "embedQr": false,
+        "csvFileUrl": "http://172.17.0.1:9000/autocert/1745254111153364918_autocert-4041503758.csv?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=CBaYCubcIsrSvccedTW0%2F20250426%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250426T192816Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=87788b2cd42b50b6a7d066f2723c64948a29a0d7f13ece032551d28f5d122ac0",
+        "columnAnnotates": [
+          {
+            "page": 1,
+            "x": 214,
+            "y": 442,
+            "width": 150,
+            "height": 40,
+            "color": "#FFC4C4",
+            "id": "VJHTTYH3XiCHkBYOXpOx5",
+            "value": "555",
+            "fontName": "Arial",
+            "fontSize": 24,
+            "fontWeight": "regular",
+            "fontColor": "#000000",
+            "textFitRectBox": true
+          }
+        ],
+        "signatureAnnotates": [
+          {
+            "page": 1,
+            "x": 221.99999999999997,
+            "y": 591,
+            "width": 140,
+            "height": 90,
+            "color": "#FFC4C4",
+            "id": "7odHOWEx1zJh1dfIZoWga",
+            "status": 0,
+            "email": "lifegoalcs2@gmail.com"
+          }
+        ]
+      }
+    }
+  }
+  ```
+  
+  #### Error Responses
+  
+  1. **Bad Request (400)**
+  ```json
+  {
+    "success": false,
+    "message": "Project ID is required",
+    "errors": [
+      {
+        "field": "projectId",
+        "message": "Project ID is required"
+      }
+    ],
+    "data": null
+  }
+  ```
+  
+  2. **Not Found (404)**
+  ```json
+  {
+    "success": false,
+    "message": "Project not found",
+    "errors": [
+      {
+        "field": "notFound",
+        "message": "Project not found"
+      }
+    ],
+    "data": null
+  }
+  ```
+  
+  3. **Forbidden (403)**
+  ```json
+  {
+    "success": false,
+    "message": "You do not have permission to access this project",
+    "errors": [
+      {
+        "field": "forbidden",
+        "message": "you do not have permission to access this project"
+      }
+    ],
+    "data": null
+  }
+  ```
+  
+  4. **Internal Server Error (500)**
+  ```json
+  {
+    "success": false,
+    "message": "Failed to get template file URL",
+    "errors": [
+      {
+        "message": "error details"
+      }
+    ],
+    "data": null
+  }
+  ```
+  
+  ### Response Fields
+  
+  #### `roles` array
+  
+  List of roles the requesting user has for this project.
+  
+  | Value | Description |
+  |-------|-------------|
+  | 0 | The user owns this project (owner) |
+  | 1 | The user is a signatory for this project (signatory) |
+  
+  #### `project` object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the project |
+  | title | string | Project title |
+  | templateUrl | string | Pre-signed URL to access the template file |
+  | isPublic | boolean | Whether the project is publicly accessible |
+  | status | number | Current status of the project (0 = draft, 1 = completed) |
+  | embedQr | boolean | Whether QR code embedding is enabled for the project |
+  | csvFileUrl | string | Pre-signed URL to access the CSV data file (if available) |
+  | columnAnnotates | array | List of column annotations configured for the project |
+  | signatureAnnotates | array | List of signature annotations configured for the project |
+  
+  #### Column Annotate Object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the annotation |
+  | page | number | Page number where the annotation appears |
+  | x | number | X-coordinate of the annotation |
+  | y | number | Y-coordinate of the annotation |
+  | width | number | Width of the annotation |
+  | height | number | Height of the annotation |
+  | color | string | Color of the annotation box (hex format) |
+  | value | string | Text value of the column annotation |
+  | fontName | string | Font used for the text |
+  | fontSize | number | Font size for the text |
+  | fontColor | string | Color of the text (hex format) |
+  | fontWeight | string | Weight of the font (e.g., "normal", "bold") |
+  | textFitRectBox | boolean | Whether the text should fit within the annotation box |
+  | projectId | string | ID of the project this annotation belongs to (not shown in response) |
+  | createdAt | string | ISO timestamp of creation time (not shown in response) |
+  | updatedAt | string | ISO timestamp of last update time (not shown in response) |
+  
+  #### Signature Annotate Object
+  
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | id | string | Unique identifier for the annotation |
+  | page | number | Page number where the annotation appears |
+  | x | number | X-coordinate of the annotation |
+  | y | number | Y-coordinate of the annotation |
+  | width | number | Width of the annotation |
+  | height | number | Height of the annotation |
+  | color | string | Color of the annotation box (hex format) |
+  | status | number | Current status of the signature (0 = notInvited, 1 = invited, 2 = approved) |
+  | email | string | Email address of the signatory |
+  | projectId | string | ID of the project this annotation belongs to |
+  | createdAt | string | ISO timestamp of creation time |
+  | updatedAt | string | ISO timestamp of last update time |
+  
+  ### Notes
+  
+  1. The `templateUrl` and `csvFileUrl` are pre-signed URLs with limited validity.
+  2. Empty arrays for `columnAnnotates` and `signatureAnnotates` will be returned as empty arrays rather than null.
+  3. If no CSV file is associated with the project, `csvFileUrl` will be an empty string.
+  4. If no template file is associated with the project, `templateUrl` will be an empty string.
+}
