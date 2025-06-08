@@ -554,6 +554,8 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 	ctx.Header("Connection", "keep-alive")
 	ctx.Header("Access-Control-Allow-Origin", "*")
 
+	sent := 0
+
 	// Stream status, update ever 2 seconds, if status is not processing, close the stream.
 	ctx.Stream(func(w io.Writer) bool {
 		status, err := pc.app.Repository.Project.GetProjectStatus(ctx, nil, projectId)
@@ -571,7 +573,7 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 				"status": -1,
 				"error":  util.GenerateErrorMessages(err),
 			})
-			return false
+			return true
 		}
 
 		if status != constant.ProjectStatusProcessing {
@@ -586,7 +588,12 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 		ctx.SSEvent("status", gin.H{
 			"status": status,
 		})
-		time.Sleep(2 * time.Second)
+
+		if sent > 0 {
+			time.Sleep(2 * time.Second)
+		}
+
+		sent++
 		return true
 	})
 }
