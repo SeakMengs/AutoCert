@@ -99,7 +99,9 @@ func main() {
 
 	logger.Infof("Connected to RabbitMQ at %s", cfg.RabbitMQ.GetConnectionString())
 
-	if err := rabbitMQ.ConsumeCertificateGenerateJob(CertificateGenerateJobHandler, MAX_WORKER, &app); err != nil {
+	ctx := context.Background()
+
+	if err := rabbitMQ.ConsumeCertificateGenerateJob(ctx, CertificateGenerateJobHandler, MAX_WORKER, &app); err != nil {
 		logger.Fatalf("Failed to consume certificate generate job: %v", err)
 	}
 
@@ -110,9 +112,7 @@ func main() {
 }
 
 // Return shouldRequeue, err
-func CertificateGenerateJobHandler(jobPayload queue.CertificateGeneratePayload, app *queue.ConsumerContext) (bool, error) {
-	ctx := context.Background()
-
+func CertificateGenerateJobHandler(ctx context.Context, jobPayload queue.CertificateGeneratePayload, app *queue.ConsumerContext) (bool, error) {
 	var queueWaitDuration string
 	createdAtTime, err := time.Parse(time.RFC3339, jobPayload.CreatedAt)
 	if err != nil {

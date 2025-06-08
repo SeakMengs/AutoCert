@@ -423,10 +423,10 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	if len(project.SignatureAnnotates) == 0 && len(project.ColumnAnnotates) == 0 {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Project must have at least one signature or column annotate", util.GenerateErrorMessages(errors.New("project must have at least one signature or column annotate"), "noAnnotate"), nil)
-		return
-	}
+	// if len(project.SignatureAnnotates) == 0 && len(project.ColumnAnnotates) == 0 {
+	// 	util.ResponseFailed(ctx, http.StatusBadRequest, "Project must have at least one signature or column annotate", util.GenerateErrorMessages(errors.New("project must have at least one signature or column annotate"), "noAnnotate"), nil)
+	// 	return
+	// }
 
 	tx := pc.app.Repository.DB.Begin()
 	defer tx.Commit()
@@ -442,26 +442,28 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to update project status", util.GenerateErrorMessages(err), nil)
 		return
 	}
+	// commit before publishing to ensure the status is updated
+	tx.Commit()
 
-	payloadBytes, err := json.Marshal(queue.CertificateGeneratePayload{
-		ProjectID: projectId,
-		UserID:    user.ID,
-		Retry:     0,
-		CreatedAt: time.Now().Format(time.RFC3339),
-	})
+	tx2 := pc.app.Repository.DB.Begin()
+	defer tx2.Commit()
+
+	payloadBytes, err := json.Marshal(queue.NewCertificateGeneratePayload(project.ID, user.ID))
 	if err != nil {
 		tx.Rollback()
+		pc.app.Repository.Project.UpdateStatus(ctx, nil, project.ID, project.Status)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create job payload", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
 	if err := pc.app.Queue.Publish(queue.QueueCertificateGenerate, payloadBytes); err != nil {
 		tx.Rollback()
+		pc.app.Repository.Project.UpdateStatus(ctx, nil, project.ID, project.Status)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to queue certificate generation", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
-	if err := pc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
+	if err := pc.app.Repository.ProjectLog.Save(ctx, tx2, &model.ProjectLog{
 		ProjectID: project.ID,
 		Role:      user.Email,
 		Action:    "Requestor generate certificates",
@@ -471,14 +473,14 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		),
 		Timestamp: time.Now().Format(time.RFC3339),
 	}); err != nil {
-		tx.Rollback()
+		tx2.Rollback()
+		pc.app.Repository.Project.UpdateStatus(ctx, nil, project.ID, project.Status)
 		pc.app.Logger.Errorf("Failed to save project log: %v", err)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to save project log", util.GenerateErrorMessages(err), nil)
 		return
 	}
 
-	tx.Commit()
-
+	tx2.Commit()
 	util.ResponseSuccess(ctx, nil)
 }
 
