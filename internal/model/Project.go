@@ -1,6 +1,8 @@
 package model
 
-import "github.com/SeakMengs/AutoCert/internal/constant"
+import (
+	"github.com/SeakMengs/AutoCert/internal/constant"
+)
 
 type Project struct {
 	BaseModel

@@ -364,3 +364,83 @@ func (pr ProjectRepository) GetProjectStatus(ctx context.Context, tx *gorm.DB, p
 
 	return project.Status, nil
 }
+
+// TODO: clean this up, fix db model
+func (pr ProjectRepository) Delete(ctx context.Context, tx *gorm.DB, projectId string) error {
+	pr.logger.Debugf("Delete project and its associates with projectId: %s \n", projectId)
+
+	db := pr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	var p model.Project
+	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: projectId,
+		},
+	}).First(&p).Error; err != nil {
+		return err
+	}
+
+	// // Before deleting a project, we need to delete its associated files
+	// if p.TemplateFileID != "" {
+	// 	if err := tx.Model(&model.File{}).Where(model.File{
+	// 		BaseModel: model.BaseModel{
+	// 			ID: p.TemplateFileID,
+	// 		},
+	// 	}).Delete(&model.File{}).Error; err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// if p.CSVFileID != "" {
+	// 	if err := tx.Model(&model.File{}).Where(model.File{
+	// 		BaseModel: model.BaseModel{
+	// 			ID: p.CSVFileID,
+	// 		},
+	// 	}).Delete(&model.File{}).Error; err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	// Delete associated signature annotations
+	if err := tx.Model(&model.ProjectLog{}).Where(&model.ProjectLog{
+		ProjectID: p.ID,
+	}).Delete(&model.ProjectLog{}).Error; err != nil {
+		return err
+	}
+
+	if err := tx.Model(&model.SignatureAnnotate{}).Where(&model.SignatureAnnotate{
+		BaseAnnotateModel: model.BaseAnnotateModel{
+			ProjectID: p.ID,
+		},
+	}).Delete(&model.SignatureAnnotate{}).Error; err != nil {
+		return err
+	}
+
+	// Delete associated column annotations
+	if err := tx.Model(&model.ColumnAnnotate{}).Where(&model.ColumnAnnotate{
+		BaseAnnotateModel: model.BaseAnnotateModel{
+			ProjectID: p.ID,
+		},
+	}).Delete(&model.ColumnAnnotate{}).Error; err != nil {
+		return err
+	}
+
+	// Delete certificates associated with the project
+	if err := tx.Model(&model.Certificate{}).Where(&model.Certificate{
+		ProjectID: p.ID,
+	}).Delete(&model.Certificate{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.WithContext(ctx).Model(&model.Project{}).Where(&model.Project{
+		BaseModel: model.BaseModel{
+			ID: projectId,
+		},
+	}).Delete(&model.Project{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

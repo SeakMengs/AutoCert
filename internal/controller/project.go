@@ -597,3 +597,76 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 		return true
 	})
 }
+
+// TODO: clean up
+func (pc ProjectController) DeleteProject(ctx *gin.Context) {
+	projectId := ctx.Params.ByName("projectId")
+	if projectId == "" {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
+		return
+	}
+
+	roles, project, err := pc.getProjectRole(ctx, projectId)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	if project == nil || project.ID == "" {
+		util.ResponseFailed(ctx, http.StatusNotFound, "Project not found", util.GenerateErrorMessages(errors.New(ErrProjectNotFound), nil, "notFound"), nil)
+		return
+	}
+
+	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+		return
+	}
+
+	tx := pc.app.Repository.DB.Begin()
+	defer tx.Commit()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete project", util.GenerateErrorMessages(errors.New("failed to delete project")), nil)
+			return
+		}
+	}()
+	if err := pc.app.Repository.Project.Delete(ctx, tx, projectId); err != nil {
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete project", util.GenerateErrorMessages(err), nil)
+		return
+	}
+
+	fmt.Printf("Project directory: %s\n", util.GetProjectDirectoryPath(projectId))
+
+	// Remove the project directory from S3
+	// Remove all objects under the project directory prefix in S3
+	prefix := util.GetProjectDirectoryPath(projectId)
+	objectCh := pc.app.S3.ListObjects(ctx, pc.app.Config.Minio.BUCKET, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+
+	var removeErr error
+	for object := range objectCh {
+		if object.Err != nil {
+			removeErr = object.Err
+			break
+		}
+		err := pc.app.S3.RemoveObject(ctx, pc.app.Config.Minio.BUCKET, object.Key, minio.RemoveObjectOptions{})
+		if err != nil {
+			removeErr = err
+			break
+		}
+	}
+	if removeErr != nil {
+		pc.app.Logger.Errorf("Failed to delete project directory from S3: %v", removeErr)
+		tx.Rollback()
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete project directory from S3", util.GenerateErrorMessages(removeErr), nil)
+		return
+	}
+
+	tx.Commit()
+
+	util.ResponseSuccess(ctx, nil)
+}

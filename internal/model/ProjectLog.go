@@ -8,7 +8,7 @@ type ProjectLog struct {
 	Description string `gorm:"type:text;not null;" json:"description" form:"description" binding:"required"`
 	Timestamp   string `gorm:"type:timestamp;not null;" json:"timestamp" form:"timestamp" binding:"required"`
 
-	ProjectID string  `gorm:"type:text;not null" json:"projectId" form:"projectId"`
+	ProjectID string  `gorm:"type:text" json:"projectId" form:"projectId"`
 	Project   Project `gorm:"constraint:OnDelete:SET NULL" json:"project" form:"project"`
 }
 
