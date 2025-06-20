@@ -65,7 +65,7 @@ func (gm *GmailMailer) Send(templateFile MailTemplateFile, toEmail string, data 
 		return http.StatusInternalServerError, fmt.Errorf("failed to send email: %w", err)
 	}
 
-	gm.logger.Infow("email sent successfully", "toEmail", toEmail, "templateFile", templateFile)
+	// gm.logger.Infow("email sent successfully", "toEmail", toEmail, "templateFile", templateFile)
 
 	return http.StatusOK, nil
 }

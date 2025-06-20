@@ -64,7 +64,7 @@ func main() {
 	jwtService := auth.NewJwt(cfg.Auth,
 		logger)
 	repo := repository.NewRepository(db, logger, jwtService, s3)
-	app := queue.ConsumerContext{
+	app := queue.CertificateConsumerContext{
 		Config:     &cfg,
 		Repository: repo,
 		Logger:     logger,
@@ -87,7 +87,7 @@ func main() {
 
 	ctx := context.Background()
 
-	if err := rabbitMQ.ConsumeCertificateGenerateJob(ctx, CertificateGenerateJobHandler, MAX_WORKER, &app); err != nil {
+	if err := rabbitMQ.ConsumeCertificateGenerateJob(ctx, certificateGenerateJobHandler, MAX_WORKER, &app); err != nil {
 		logger.Fatalf("Failed to consume certificate generate job: %v", err)
 	}
 
@@ -98,7 +98,7 @@ func main() {
 }
 
 // Return shouldRequeue, err
-func CertificateGenerateJobHandler(ctx context.Context, jobPayload queue.CertificateGeneratePayload, app *queue.ConsumerContext) (bool, error) {
+func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.CertificateGeneratePayload, app *queue.CertificateConsumerContext) (bool, error) {
 	var queueWaitDuration string
 	createdAtTime, err := time.Parse(time.RFC3339, jobPayload.CreatedAt)
 	if err != nil {

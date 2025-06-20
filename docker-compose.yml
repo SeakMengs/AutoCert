@@ -13,13 +13,26 @@ services:
         depends_on:
             - psql-db
             - rabbitmq
-    autocert-worker:
+    autocert-cert-worker:
         build:
             context: .
-            dockerfile: ./Dockerfile.consumer
+            dockerfile: ./Dockerfile.cert_consumer
         volumes:
             # Important to bind/mount your codebase dir to /worker dir for live reload
-            - ./:/worker
+            - ./:/cert_worker
+        environment:
+            DB_HOST: psql-db
+            RABBITMQ_HOST: rabbitmq
+        depends_on:
+            - psql-db
+            - rabbitmq
+    autocert-mail-worker:
+        build:
+            context: .
+            dockerfile: ./Dockerfile.mail_consumer
+        volumes:
+            # Important to bind/mount your codebase dir to /worker dir for live reload
+            - ./:/mail_worker
         environment:
             DB_HOST: psql-db
             RABBITMQ_HOST: rabbitmq

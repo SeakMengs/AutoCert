@@ -16,19 +16,12 @@ import (
 	"go.uber.org/zap"
 )
 
-type ConsumerContext struct {
-	// Config holds application settings provided from .env file.
-	Config *config.Config
-
-	Logger *zap.SugaredLogger
-
-	// Repository provides access to data storage operations.
+type CertificateConsumerContext struct {
+	Config     *config.Config
+	Logger     *zap.SugaredLogger
 	Repository *repository.Repository
-
-	// JWTService manages JWT operations for authentication such as generate, verify, refresh token.
 	JWTService auth.JWTInterface
-
-	S3 *minio.Client
+	S3         *minio.Client
 }
 
 type CertificateGeneratePayload struct {
@@ -48,9 +41,9 @@ func NewCertificateGeneratePayload(projectID, userID string) CertificateGenerate
 	}
 }
 
-type CertificateGenerateJobHandler func(ctx context.Context, jobPayload CertificateGeneratePayload, app *ConsumerContext) (bool, error)
+type CertificateGenerateJobHandler func(ctx context.Context, jobPayload CertificateGeneratePayload, app *CertificateConsumerContext) (bool, error)
 
-func (r *RabbitMQ) ConsumeCertificateGenerateJob(ctx context.Context, handler CertificateGenerateJobHandler, maxWorker int, app *ConsumerContext) error {
+func (r *RabbitMQ) ConsumeCertificateGenerateJob(ctx context.Context, handler CertificateGenerateJobHandler, maxWorker int, app *CertificateConsumerContext) error {
 	msgs, err := r.Consume(QueueCertificateGenerate)
 	if err != nil {
 		return fmt.Errorf("failed to start consuming: %w", err)
@@ -66,7 +59,7 @@ func (r *RabbitMQ) ConsumeCertificateGenerateJob(ctx context.Context, handler Ce
 }
 
 // Run a single worker that processes certificate generation jobs
-func runCertificateWorker(ctx context.Context, rabbitMQ *RabbitMQ, workerNumber int, msgs <-chan amqp091.Delivery, handler CertificateGenerateJobHandler, app *ConsumerContext) {
+func runCertificateWorker(ctx context.Context, rabbitMQ *RabbitMQ, workerNumber int, msgs <-chan amqp091.Delivery, handler CertificateGenerateJobHandler, app *CertificateConsumerContext) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -83,7 +76,7 @@ func runCertificateWorker(ctx context.Context, rabbitMQ *RabbitMQ, workerNumber 
 }
 
 // Handle a single certificate generation job message
-func processCertificateJob(ctx context.Context, rabbitMQ *RabbitMQ, workerNumber int, msg amqp091.Delivery, handler CertificateGenerateJobHandler, app *ConsumerContext) {
+func processCertificateJob(ctx context.Context, rabbitMQ *RabbitMQ, workerNumber int, msg amqp091.Delivery, handler CertificateGenerateJobHandler, app *CertificateConsumerContext) {
 	if msg.Body == nil {
 		log.Printf("[Worker %d] Received empty message body", workerNumber)
 		rabbitMQ.Nack(msg, false)
@@ -120,14 +113,14 @@ func processCertificateJob(ctx context.Context, rabbitMQ *RabbitMQ, workerNumber
 }
 
 // Handle cleanup when a job fails then acknowledge the message and remove it from the queue without requeuing
-func handleCertificateJobFailure(ctx context.Context, rabbitMQ *RabbitMQ, workerPrefix string, msg amqp091.Delivery, jobPayload CertificateGeneratePayload, app *ConsumerContext) {
+func handleCertificateJobFailure(ctx context.Context, rabbitMQ *RabbitMQ, workerPrefix string, msg amqp091.Delivery, jobPayload CertificateGeneratePayload, app *CertificateConsumerContext) {
 	if err := dropQueueCleanUp(ctx, app, jobPayload.ProjectID); err != nil {
 		log.Printf("%s Failed to clean up project %s: %v", workerPrefix, jobPayload.ProjectID, err)
 	}
 	rabbitMQ.Nack(msg, false)
 }
 
-func dropQueueCleanUp(ctx context.Context, app *ConsumerContext, projectID string) error {
+func dropQueueCleanUp(ctx context.Context, app *CertificateConsumerContext, projectID string) error {
 	if err := app.Repository.Project.UpdateStatus(ctx, nil, projectID, constant.ProjectStatusDraft); err != nil {
 		return fmt.Errorf("failed to update project status: %w", err)
 	}

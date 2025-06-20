@@ -13,7 +13,13 @@ type QueueName string
 
 const (
 	QueueCertificateGenerate QueueName = "certificate_generate_queue"
+	QueueMail                QueueName = "mail_queue"
 )
+
+var queues = []QueueName{
+	QueueCertificateGenerate,
+	QueueMail,
+}
 
 const (
 	MAX_QUEUE_RETRY = 3
@@ -30,17 +36,19 @@ func NewRabbitMQ(url string) (*RabbitMQ, error) {
 		return nil, err
 	}
 
-	// Declare a queue to ensure it exists before publishing messages
-	_, err = channel.QueueDeclare(
-		string(QueueCertificateGenerate), // name of the queue
-		true,                             // durable
-		false,                            // delete when unused
-		false,                            // exclusive
-		false,                            // no-wait
-		nil,                              // arguments
-	)
-	if err != nil {
-		return nil, err
+	// Declare all queues to ensure they exist before publishing messages
+	for _, q := range queues {
+		_, err = channel.QueueDeclare(
+			string(q), // name of the queue
+			true,      // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			nil,       // arguments
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &RabbitMQ{

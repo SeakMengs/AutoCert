@@ -1,6 +1,6 @@
 ARG GO_VERSION=1.24.2
 FROM golang:${GO_VERSION} 
-WORKDIR /cert_worker
+WORKDIR /mail_worker
 
 RUN apt-get update && \
     apt-get install -y vim
@@ -10,4 +10,4 @@ RUN go install github.com/air-verse/air@latest
 COPY go.mod go.sum ./
 RUN go mod download
 
-CMD ["air", "-c", ".air.cert_consumer.toml"]
+CMD ["air", "-c", ".air.mail_consumer.toml"]

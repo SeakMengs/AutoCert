@@ -8,7 +8,6 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/database"
 	"github.com/SeakMengs/AutoCert/internal/env"
 	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
-	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/middleware"
 	"github.com/SeakMengs/AutoCert/internal/queue"
 	ratelimiter "github.com/SeakMengs/AutoCert/internal/rate_limiter"
@@ -72,7 +71,6 @@ func main() {
 	}
 
 	rateLimiter := ratelimiter.NewRateLimiter(cfg.RateLimiter, logger)
-	mail := mailer.NewGmailMailer(cfg.Mail.GMAIL_USERNAME, cfg.Mail.GMAIL_APP_PASSWORD, logger)
 	jwtService := auth.NewJwt(cfg.Auth,
 		logger)
 	repo := repository.NewRepository(db, logger, jwtService, s3)
@@ -80,7 +78,6 @@ func main() {
 		Config:     &cfg,
 		Repository: repo,
 		Logger:     logger,
-		Mailer:     mail,
 		JWTService: jwtService,
 		S3:         s3,
 		Queue:      rabbitMQ,

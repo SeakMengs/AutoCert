@@ -16,6 +16,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/internal/queue"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/gin-gonic/gin"
@@ -80,7 +81,8 @@ type AnnotateSignatureRemove struct {
 }
 
 type AnnotateSignatureInvite struct {
-	ID string `json:"id" binding:"required" form:"id"`
+	ID       string `json:"id" binding:"required" form:"id"`
+	SendMail bool   `json:"sendMail" form:"sendMail"`
 }
 
 type AnnotateSignatureReject struct {
@@ -466,6 +468,10 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 		return errors.New("failed to get signature annotate")
 	}
 
+	if annot.Status != constant.SignatoryStatusNotInvited {
+		return errors.New("signature annotate is not in the correct status to invite signatory")
+	}
+
 	err = pbc.app.Repository.SignatureAnnotate.InviteSignatory(ctx, tx, payload.ID)
 	if err != nil {
 		return errors.New("failed to invite signatory")
@@ -491,21 +497,40 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 		return errors.New("failed to log project activity")
 	}
 
-	recipientName := annot.Email
-	if atIdx := strings.Index(recipientName, "@"); atIdx > 0 {
-		recipientName = recipientName[:atIdx]
-	}
-	code, err := pbc.app.Mailer.Send(mailer.TemplateSignatureRequestInvitation, annot.Email, mailer.SignatureRequestInvitationData{
-		RecipientName:           recipientName,
-		InviterName:             fmt.Sprintf("%s %s (%s)", user.FirstName, user.LastName, user.Email),
-		CertificateProjectTitle: project.Title,
-		SigningURL:              fmt.Sprintf("%s/dashboard/projects/%s/builder", pbc.app.Config.FRONTEND_URL, project.ID),
-		APP_NAME:                util.GetAppName(),
-		APP_LOGO_URL:            util.GetAppLogoURL(pbc.app.Config.FRONTEND_URL),
-	})
-	if code != http.StatusOK || err != nil {
-		pbc.app.Logger.Errorf("Failed to send signature request invitation email: %v", err)
-		return errors.New("failed to send signature request invitation email")
+	if payload.SendMail {
+		recipientName := annot.Email
+		if atIdx := strings.Index(recipientName, "@"); atIdx > 0 {
+			recipientName = recipientName[:atIdx]
+		}
+
+		mailData, err := queue.NewSignatureRequestInvitationMailJob(annot.Email,
+			mailer.SignatureRequestInvitationData{
+				RecipientName:           recipientName,
+				InviterName:             fmt.Sprintf("%s %s (%s)", user.FirstName, user.LastName, user.Email),
+				CertificateProjectTitle: project.Title,
+				SigningURL:              fmt.Sprintf("%s/dashboard/projects/%s/builder", pbc.app.Config.FRONTEND_URL, project.ID),
+				APP_NAME:                util.GetAppName(),
+				APP_LOGO_URL:            util.GetAppLogoURL(pbc.app.Config.FRONTEND_URL),
+				ProjectID:               project.ID,
+				SignatureRequestID:      annot.ID,
+			})
+		if err != nil {
+			pbc.app.Logger.Errorf("Failed to create signature request invitation mail job: %v", err)
+			return errors.New("failed to create signature request invitation mail job")
+		}
+
+		payloadBytes, err := json.Marshal(mailData)
+		if err != nil {
+			pbc.app.Logger.Errorf("Failed to marshal signature request invitation mail job payload: %v", err)
+			return errors.New("failed to create signature request invitation mail job")
+		}
+
+		if err := pbc.app.Queue.Publish(queue.QueueMail, payloadBytes); err != nil {
+			pbc.app.Logger.Errorf("Failed to publish signature request invitation mail job: %v", err)
+			return errors.New("failed to create signature request invitation mail job")
+		}
+	} else {
+		pbc.app.Logger.Debugf("Skip sending mail for signature invite for signature id: %s and project id: %s because SendMail is false", annot.ID, project.ID)
 	}
 
 	return nil

@@ -18,6 +18,8 @@ type SignatureRequestInvitationData struct {
 	SigningURL              string
 	APP_NAME                string
 	APP_LOGO_URL            string
+	ProjectID               string
+	SignatureRequestID      string
 }
 
 type Client interface {
