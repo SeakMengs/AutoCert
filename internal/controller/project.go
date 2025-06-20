@@ -192,16 +192,21 @@ func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
 }
 
 func (pc ProjectController) GetProjectById(ctx *gin.Context) {
+	type SignatureAnnotate struct {
+		model.SignatureAnnotate
+		SignatureUrl string `json:"signatureUrl"`
+	}
+
 	type ProjectById struct {
-		ID                 string                    `json:"id"`
-		Title              string                    `json:"title"`
-		TemplateUrl        string                    `json:"templateUrl"`
-		IsPublic           bool                      `json:"isPublic"`
-		Status             constant.ProjectStatus    `json:"status"`
-		EmbedQr            bool                      `json:"embedQr"`
-		CSVFileUrl         string                    `json:"csvFileUrl"`
-		ColumnAnnotates    []model.ColumnAnnotate    `json:"columnAnnotates"`
-		SignatureAnnotates []model.SignatureAnnotate `json:"signatureAnnotates"`
+		ID                 string                 `json:"id"`
+		Title              string                 `json:"title"`
+		TemplateUrl        string                 `json:"templateUrl"`
+		IsPublic           bool                   `json:"isPublic"`
+		Status             constant.ProjectStatus `json:"status"`
+		EmbedQr            bool                   `json:"embedQr"`
+		CSVFileUrl         string                 `json:"csvFileUrl"`
+		ColumnAnnotates    []model.ColumnAnnotate `json:"columnAnnotates"`
+		SignatureAnnotates []SignatureAnnotate    `json:"signatureAnnotates"`
 	}
 
 	type GetProjectByIdResponse struct {
@@ -265,6 +270,26 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 		templateUrl = ""
 	}
 
+	signatureAnnotates := []SignatureAnnotate{}
+	for _, sa := range project.SignatureAnnotates {
+		if sa.SignatureFileID != "" {
+			signatureUrl, err := sa.SignatureFile.ToPresignedUrl(ctx, pc.app.S3)
+			if err != nil {
+				util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get signature file URL", util.GenerateErrorMessages(err), nil)
+				return
+			}
+			signatureAnnotates = append(signatureAnnotates, SignatureAnnotate{
+				SignatureAnnotate: sa,
+				SignatureUrl:      signatureUrl,
+			})
+		} else {
+			signatureAnnotates = append(signatureAnnotates, SignatureAnnotate{
+				SignatureAnnotate: sa,
+				SignatureUrl:      "",
+			})
+		}
+	}
+
 	util.ResponseSuccess(ctx, GetProjectByIdResponse{
 		Roles: roles,
 		Project: ProjectById{
@@ -276,7 +301,7 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 			EmbedQr:            project.EmbedQr,
 			CSVFileUrl:         csvFileUrl,
 			ColumnAnnotates:    project.ColumnAnnotates,
-			SignatureAnnotates: project.SignatureAnnotates,
+			SignatureAnnotates: signatureAnnotates,
 		},
 	})
 }
@@ -576,13 +601,13 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 			return true
 		}
 
-		if status != constant.ProjectStatusProcessing {
-			// If status is not processing, close the stream
-			ctx.SSEvent("status", gin.H{
-				"status": status,
-			})
-			return false
-		}
+		// if status != constant.ProjectStatusProcessing {
+		// 	// If status is not processing, close the stream
+		// 	ctx.SSEvent("status", gin.H{
+		// 		"status": status,
+		// 	})
+		// 	return false
+		// }
 
 		// If status is processing, send the status every 2 seconds
 		ctx.SSEvent("status", gin.H{
