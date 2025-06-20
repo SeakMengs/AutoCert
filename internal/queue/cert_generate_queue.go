@@ -134,7 +134,7 @@ func dropQueueCleanUp(ctx context.Context, app *ConsumerContext, projectID strin
 	return nil
 }
 
-// Requeues a failed job with updated retry count
+// Requeue a failed job with updated retry count
 func requeueCertificateJob(rabbitMQ *RabbitMQ, workerPrefix string, msg amqp091.Delivery, jobPayload CertificateGeneratePayload) {
 	jobPayload.Try++
 	payloadBytes, err := json.Marshal(jobPayload)

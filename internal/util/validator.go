@@ -227,3 +227,16 @@ func CustomMax(fl validator.FieldLevel) bool {
 
 	return len(trimmedValue) <= maxLengthInt
 }
+
+func RegisterCustomValidations(v *validator.Validate) error {
+	if err := v.RegisterValidation("strNotEmpty", StrNotEmpty); err != nil {
+		return fmt.Errorf("failed to register strNotEmpty validation: %w", err)
+	}
+	if err := v.RegisterValidation("cmin", CustomMin); err != nil {
+		return fmt.Errorf("failed to register cmin validation: %w", err)
+	}
+	if err := v.RegisterValidation("cmax", CustomMax); err != nil {
+		return fmt.Errorf("failed to register cmax validation: %w", err)
+	}
+	return nil
+}

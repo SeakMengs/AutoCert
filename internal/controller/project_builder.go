@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
+	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/model"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
@@ -199,6 +200,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	util.ResponseSuccess(ctx, nil)
 }
 
+// TODO: add rerturn error key and defer functionof each event handler
 type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error
 
 func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermission]EventHandlerType {
@@ -487,6 +489,23 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
 		return errors.New("failed to log project activity")
+	}
+
+	recipientName := annot.Email
+	if atIdx := strings.Index(recipientName, "@"); atIdx > 0 {
+		recipientName = recipientName[:atIdx]
+	}
+	code, err := pbc.app.Mailer.Send(mailer.TemplateSignatureRequestInvitation, annot.Email, mailer.SignatureRequestInvitationData{
+		RecipientName:           recipientName,
+		InviterName:             fmt.Sprintf("%s %s (%s)", user.FirstName, user.LastName, user.Email),
+		CertificateProjectTitle: project.Title,
+		SigningURL:              fmt.Sprintf("%s/dashboard/projects/%s/builder", pbc.app.Config.FRONTEND_URL, project.ID),
+		APP_NAME:                util.GetAppName(),
+		APP_LOGO_URL:            util.GetAppLogoURL(pbc.app.Config.FRONTEND_URL),
+	})
+	if code != http.StatusOK || err != nil {
+		pbc.app.Logger.Errorf("Failed to send signature request invitation email: %v", err)
+		return errors.New("failed to send signature request invitation email")
 	}
 
 	return nil

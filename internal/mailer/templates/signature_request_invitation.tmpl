@@ -1,0 +1,246 @@
+{{define "subject"}} You're invited to sign a certificate! {{end}}
+
+{{define "body"}}
+<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Certificate Signing Invitation</title>
+    <style>
+      /* Basic Reset */
+      body {
+        font-family: 'Inter', sans-serif; /* Or a similar clean sans-serif font */
+        margin: 0;
+        padding: 0;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+        line-height: 1.6;
+        color: #333333;
+      }
+      table {
+        border-collapse: separate;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+        width: 100%;
+      }
+      table td {
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        vertical-align: top;
+      }
+
+      /* Body & Container */
+      .body {
+        background-color: #f8faff; /* Light blue similar to from-blue-50 */
+        width: 100%;
+      }
+      .container {
+        display: block;
+        margin: 0 auto !important;
+        max-width: 600px;
+        padding: 20px;
+        width: 600px;
+      }
+
+      /* Main Content Area */
+      .main {
+        background: #ffffff;
+        border-radius: 8px; /* Rounded corners */
+        width: 100%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+      }
+      .wrapper {
+        padding: 30px;
+      }
+      .content-block {
+        padding-bottom: 20px;
+      }
+
+      /* Typography */
+      h1, h2, h3, h4 {
+        color: #000000;
+        font-family: 'Inter', sans-serif;
+        font-weight: 400;
+        margin: 0;
+        margin-bottom: 15px;
+      }
+      p, ul, ol {
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: normal;
+        margin: 0;
+        margin-bottom: 15px;
+      }
+      a {
+        color: #2563EB; /* Blue-600 */
+        text-decoration: none;
+      }
+
+      /* Buttons */
+      .btn {
+        box-sizing: border-box;
+        width: 100%;
+      }
+      .btn > tbody > tr > td {
+        padding-bottom: 15px;
+      }
+      .btn table {
+        width: auto;
+      }
+      .btn table td {
+        background-color: #ffffff;
+        border-radius: 6px;
+        text-align: center;
+      }
+      .btn a {
+        background-color: #2563EB; /* Blue-600 */
+        border: solid 1px #2563EB;
+        border-radius: 6px;
+        box-sizing: border-box;
+        color: #ffffff;
+        cursor: pointer;
+        display: inline-block;
+        font-size: 16px; /* Slightly larger for buttons */
+        font-weight: bold;
+        margin: 0;
+        padding: 12px 25px;
+        text-decoration: none;
+        text-transform: capitalize;
+        transition: background-color 0.2s ease, border-color 0.2s ease;
+      }
+       /* Hover effect (may not work in all email clients) */
+      .btn a:hover {
+        background-color: #1d4ed8 !important; /* A slightly darker blue */
+        border-color: #1d4ed8 !important;
+      }
+
+      /* Footer */
+      .footer {
+        clear: both;
+        margin-top: 20px;
+        text-align: center;
+        width: 100%;
+      }
+      .footer td, .footer p, .footer span, .footer a {
+        color: #999999;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      /* Responsive */
+      @media only screen and (max-width: 620px) {
+        table[class=body] h1 {
+          font-size: 28px !important;
+          margin-bottom: 10px !important;
+        }
+        table[class=body] p,
+        table[class=body] ul,
+        table[class=body] ol,
+        table[class=body] td,
+        table[class=body] span,
+        table[class=body] a {
+          font-size: 16px !important;
+        }
+        table[class=body] .wrapper,
+        table[class=body] .article {
+          padding: 10px !important;
+        }
+        table[class=body] .content {
+          padding: 0 !important;
+        }
+        table[class=body] .container {
+          padding: 0 !important;
+          width: 100% !important;
+        }
+        table[class=body] .main {
+          border-left-width: 0 !important;
+          border-radius: 0 !important;
+          border-right-width: 0 !important;
+        }
+        table[class=body] .btn table {
+          width: 100% !important;
+        }
+        table[class=body] .btn a {
+          width: 100% !important;
+        }
+        table[class=body] .img-responsive {
+          height: auto !important;
+          max-width: 100% !important;
+          width: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body class="body">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="body">
+      <tr>
+        <td>&nbsp;</td>
+        <td class="container">
+          <div class="content">
+
+            <!-- START CENTERED WHITE CONTAINER -->
+            <table role="presentation" class="main">
+              <!-- START MAIN CONTENT AREA -->
+              <tr>
+                <td class="wrapper">
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td>
+                        <p style="font-size: 18px; font-weight: bold; color: #2563EB; margin-bottom: 20px; text-align: center;">
+                           <img src="{{.APP_LOGO_URL}}" alt="App Logo" width="40" height="40" style="vertical-align: middle; margin-right: 8px; border-radius: 4px;"> {{.APP_NAME}}
+                        </p>
+                        <p>Hi {{.RecipientName}},</p>
+                        <p>You've been invited by <strong>{{.InviterName}}</strong> to sign a certificate titled "<strong>{{.CertificateProjectTitle}}</strong>" on {{.APP_NAME}}.</p>
+                        <p style="margin-bottom: 25px;">Please click the button below to view and sign the certificate:</p>
+
+                        <table role="presentation" border="0" cellpadding="0" cellspacing="0" class="btn">
+                          <tbody>
+                            <tr>
+                              <td align="center">
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                                  <tbody>
+                                    <tr>
+                                      <td> <a href="{{.SigningURL}}" target="_blank">View and Sign Certificate</a> </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <p>If you did not expect this invitation, please safely disregard this email.</p>
+                        <p>Thanks,</p>
+                        <p>The {{.APP_NAME}} Team</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- END MAIN CONTENT AREA -->
+            </table>
+            <!-- END CENTERED WHITE CONTAINER -->
+
+            <!-- START FOOTER -->
+            <div class="footer">
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td class="content-block">
+                    <span class="apple-link">Sent by {{.APP_NAME}}</span>
+                    <br> You are receiving this email because someone invited you to sign a document.
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <!-- END FOOTER -->
+
+          </div>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </table>
+  </body>
+</html>
+{{end}}

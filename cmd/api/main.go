@@ -7,6 +7,7 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/controller"
 	"github.com/SeakMengs/AutoCert/internal/database"
 	"github.com/SeakMengs/AutoCert/internal/env"
+	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
 	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/middleware"
 	"github.com/SeakMengs/AutoCert/internal/queue"
@@ -18,8 +19,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 // this function run before main
@@ -56,31 +55,24 @@ func main() {
 		}
 	}()
 
-	s3, err := minio.New(cfg.Minio.ENDPOINT, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.Minio.ACCESS_KEY, cfg.Minio.SECRET_KEY, ""),
-		Secure: cfg.Minio.USE_SSL,
-		Region: "us-east-1",
-	})
+	s3, err := filestorage.NewMinioClient(&cfg.Minio)
+	if err != nil {
+		logger.Error("Error connecting to minio")
+		logger.Panic(err)
+	}
 	if err != nil {
 		logger.Error("Error connecting to minio")
 		logger.Panic(err)
 	}
 
-	// Custom validation
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		if err := v.RegisterValidation("strNotEmpty", util.StrNotEmpty); err != nil {
-			return
-		}
-		if err = v.RegisterValidation("cmin", util.CustomMin); err != nil {
-			return
-		}
-		if err = v.RegisterValidation("cmax", util.CustomMax); err != nil {
-			return
+		if err := util.RegisterCustomValidations(v); err != nil {
+			logger.Panicf("Failed to register custom validations: %v", err)
 		}
 	}
 
 	rateLimiter := ratelimiter.NewRateLimiter(cfg.RateLimiter, logger)
-	mail := mailer.NewSendgrid(cfg.Mail.SEND_GRID.API_KEY, cfg.Mail.FROM_EMAIL, cfg.IsProduction(), logger)
+	mail := mailer.NewGmailMailer(cfg.Mail.GMAIL_USERNAME, cfg.Mail.GMAIL_APP_PASSWORD, logger)
 	jwtService := auth.NewJwt(cfg.Auth,
 		logger)
 	repo := repository.NewRepository(db, logger, jwtService, s3)

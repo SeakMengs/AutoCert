@@ -13,15 +13,14 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/database"
 	"github.com/SeakMengs/AutoCert/internal/env"
+	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
 	"github.com/SeakMengs/AutoCert/internal/model"
 	"github.com/SeakMengs/AutoCert/internal/queue"
 	"github.com/SeakMengs/AutoCert/internal/repository"
 	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
-	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 	"gorm.io/gorm"
 )
 
@@ -50,29 +49,16 @@ func main() {
 	defer sqlDb.Close()
 	logger.Info("Database connected \n")
 
-	// TODO: write the minio.New into a function so it can be used in ./cmd/api/main.go
-	// and ./cmd/consumer/main.go
-	s3, err := minio.New(cfg.Minio.ENDPOINT, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.Minio.ACCESS_KEY, cfg.Minio.SECRET_KEY, ""),
-		Secure: cfg.Minio.USE_SSL,
-		Region: "us-east-1",
-	})
+	s3, err := filestorage.NewMinioClient(&cfg.Minio)
 	if err != nil {
 		logger.Error("Error connecting to minio")
 		logger.Panic(err)
 	}
 
 	// Custom validation
-	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		if err := v.RegisterValidation("strNotEmpty", util.StrNotEmpty); err != nil {
-			return
-		}
-		if err = v.RegisterValidation("cmin", util.CustomMin); err != nil {
-			return
-		}
-		if err = v.RegisterValidation("cmax", util.CustomMax); err != nil {
-			return
-		}
+	v := validator.New()
+	if err := util.RegisterCustomValidations(v); err != nil {
+		logger.Panicf("Failed to register custom validations: %v", err)
 	}
 
 	jwtService := auth.NewJwt(cfg.Auth,

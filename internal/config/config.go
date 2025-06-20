@@ -48,12 +48,8 @@ type DatabaseConfig struct {
 }
 
 type MailConfig struct {
-	SEND_GRID  SendGridConfig
-	FROM_EMAIL string
-}
-
-type SendGridConfig struct {
-	API_KEY string
+	GMAIL_USERNAME     string
+	GMAIL_APP_PASSWORD string
 }
 
 type MinioConfig struct {
@@ -118,10 +114,8 @@ func GetRateLimiterConfig() RateLimiterConfig {
 
 func GetMailConfig() MailConfig {
 	return MailConfig{
-		FROM_EMAIL: env.GetString("MAIL_FROM_EMAIL", ""),
-		SEND_GRID: SendGridConfig{
-			API_KEY: env.GetString("MAIL_SEND_GRID_API_KEY", ""),
-		},
+		GMAIL_USERNAME:     env.GetString("GMAIL_USERNAME", ""),
+		GMAIL_APP_PASSWORD: env.GetString("GMAIL_APP_PASSWORD", ""),
 	}
 }
 
