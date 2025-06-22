@@ -60,8 +60,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		return
 	}
 
-	// create temp file for validate and optimized pdf
-	tempFile, err := os.CreateTemp("", "template-*.pdf")
+	tempFile, err := util.CreateTemp("autocert_template-*.pdf")
 	if err != nil {
 		pc.app.Logger.Error(err)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp file", util.GenerateErrorMessages(err), nil)

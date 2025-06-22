@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/skip2/go-qrcode"
 	qrsvg "github.com/wamuir/svg-qr-code"
 )
@@ -28,7 +29,7 @@ func GenerateQRCodeAsPdf(link, outFile string, size int) error {
 		return err
 	}
 
-	tmpQrSvg, err := os.CreateTemp("", "autocert_qr_*.svg")
+	tmpQrSvg, err := util.CreateTemp("autocert_qr_*.svg")
 	if err != nil {
 		return err
 	}

@@ -2,10 +2,10 @@ package model
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 
 	"github.com/SeakMengs/AutoCert/internal/constant"
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"github.com/minio/minio-go/v7"
 )
@@ -29,7 +29,7 @@ func (sa SignatureAnnotate) TableName() string {
 // Don't forget to defer remove the file after using the temp file
 func (sa SignatureAnnotate) ToAutoCertSignatureAnnotate(ctx context.Context, s3 *minio.Client) (*autocert.SignatureAnnotate, error) {
 	ext := filepath.Ext(sa.SignatureFile.FileName)
-	tmp, err := os.CreateTemp("", "signature_file_*"+ext)
+	tmp, err := util.CreateTemp("autocert_signature_file_*" + ext)
 	if err != nil {
 		return nil, err
 	}

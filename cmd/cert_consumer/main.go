@@ -181,7 +181,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 	}
 
 	ext := filepath.Ext(project.TemplateFile.FileName)
-	templatePath, err := os.CreateTemp("", "autocert-template-*"+ext)
+	templatePath, err := util.CreateTemp("autocert-template-*" + ext)
 	if err != nil {
 		app.Logger.Error("failed to create temp file", err)
 		return true, err
@@ -194,7 +194,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 		return true, err
 	}
 
-	csvPath, err := os.CreateTemp("", "autocert-csv-*"+ext)
+	csvPath, err := util.CreateTemp("autocert-csv-*" + ext)
 	if err != nil {
 		app.Logger.Error("failed to create temp file", err)
 		return true, err

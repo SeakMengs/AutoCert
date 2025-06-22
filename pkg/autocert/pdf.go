@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/SeakMengs/AutoCert/internal/util"
 	"github.com/chai2010/webp"
 	"github.com/gen2brain/go-fitz"
 	"github.com/nfnt/resize"
@@ -210,7 +211,7 @@ func OptimizePdf(srcFile multipart.FileHeader, outfile string) error {
 	}
 	defer src.Close()
 
-	tmpFile, err := os.CreateTemp("", "optimized_*.pdf")
+	tmpFile, err := util.CreateTemp("autocert_optimized_*.pdf")
 	if err != nil {
 		return err
 	}

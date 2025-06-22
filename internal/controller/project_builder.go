@@ -639,7 +639,7 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 	defer f.Close()
 
 	// Create a temp file
-	tmp, err := os.CreateTemp("", "autocert-*.csv")
+	tmp, err := util.CreateTemp("autocert-*.csv")
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to create temp file: %v", err)
 		return fmt.Errorf("failed to save table data")

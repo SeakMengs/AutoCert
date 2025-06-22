@@ -204,7 +204,7 @@ func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 		}
 	}
 
-	zipFilePath, err := os.CreateTemp("", "certificates_*.zip")
+	zipFilePath, err := util.CreateTemp("autocert_certificates_*.zip")
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create zip file", util.GenerateErrorMessages(err), nil)
 		return
@@ -279,7 +279,7 @@ func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
 		}
 	}
 
-	mergeOutPut, err := os.CreateTemp("", "merged_certificates_*.pdf")
+	mergeOutPut, err := util.CreateTemp("autocert_merged_certificates_*.pdf")
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create merged PDF file", util.GenerateErrorMessages(err), nil)
 		return
