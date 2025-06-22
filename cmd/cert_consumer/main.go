@@ -54,6 +54,7 @@ func main() {
 		logger.Error("Error connecting to minio")
 		logger.Panic(err)
 	}
+	logger.Info("Minio connected \n")
 
 	// Custom validation
 	v := validator.New()

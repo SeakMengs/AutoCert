@@ -39,7 +39,7 @@ func (oc OAuthController) ContinueWithGoogle(ctx *gin.Context) {
 
 	url := oc.googleOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
-	oc.app.Logger.Debugf("OAuth: Google, Redirect to: %s", url)
+	oc.app.Logger.Infof("OAuth: Google, Redirect to: %s", url)
 	ctx.Redirect(http.StatusTemporaryRedirect, url)
 }
 

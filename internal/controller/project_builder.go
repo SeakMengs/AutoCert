@@ -137,14 +137,12 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		return
 	}
 
-	// Get the events JSON from the form.
 	eventsJSON := ctx.PostForm("events")
 	if eventsJSON == "" {
 		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("events is required"), "events"), nil)
 		return
 	}
 
-	// Unmarshal the events JSON into an array.
 	var events []AutoCertChangeEvent
 	if err := json.Unmarshal([]byte(eventsJSON), &events); err != nil {
 		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("failed to parse events"), "events"), nil)

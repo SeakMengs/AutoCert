@@ -50,6 +50,7 @@ func main() {
 		logger.Error("Error connecting to minio")
 		logger.Panic(err)
 	}
+	logger.Info("Minio connected \n")
 
 	// Custom validation
 	v := validator.New()
@@ -123,7 +124,7 @@ func mailJobHandler(ctx context.Context, jobPayload queue.MailJobPayload, app *q
 			return true, fmt.Errorf("email sending failed with status: %d", status)
 		}
 
-		return true, nil
+		return false, nil
 	default:
 		return false, fmt.Errorf("unsupported template: %s", jobPayload.TemplateFile)
 	}

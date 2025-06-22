@@ -63,6 +63,7 @@ func main() {
 		logger.Error("Error connecting to minio")
 		logger.Panic(err)
 	}
+	logger.Info("Minio connected \n")
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		if err := util.RegisterCustomValidations(v); err != nil {
