@@ -173,7 +173,7 @@ func (cg *CertificateGenerator) embedTextAnnotation(currentFile string, page uin
 		dir = cg.TempDir()
 	}
 
-	tmpOut, err := os.CreateTemp(dir, "autocert_*.pdf")
+	tmpOut, err := os.CreateTemp(dir, "autocert_temp_template_pdf_*.pdf")
 	if err != nil {
 		return "", err
 	}
@@ -270,7 +270,8 @@ func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]Ge
 }
 
 func (cg *CertificateGenerator) generateBatchCertificates(baseFile string) ([]GeneratedResult, error) {
-	maxWorkers := calculateWorkerCount(len(cg.csvData))
+	maxWorkers := DeterminWorkers(len(cg.csvData))
+	fmt.Printf("Using %d workers for generating certificate for project id: %s\n", maxWorkers, cg.ID)
 
 	jobs := make(chan generationJob, len(cg.csvData))
 	results := make(chan generationResult, len(cg.csvData))
@@ -314,10 +315,8 @@ func (cg *CertificateGenerator) loadCSVData() ([]map[string]string, error) {
 	return ParseCSVToMap(records)
 }
 
-func calculateWorkerCount(jobCount int) int {
-	maxWorkers := min(max(runtime.GOMAXPROCS(0)*2, 1), jobCount)
-	fmt.Printf("Using %d workers for processing\n", maxWorkers)
-	return maxWorkers
+func DeterminWorkers(jobCount int) int {
+	return min(max(runtime.GOMAXPROCS(0)*2, 1), jobCount)
 }
 
 func (cg *CertificateGenerator) processWorkerJobs(jobs <-chan generationJob, results chan<- generationResult, baseFile string, wg *sync.WaitGroup) {

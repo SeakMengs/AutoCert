@@ -1,9 +1,17 @@
 package util
 
+import (
+	"runtime"
+)
+
 func GetAppName() string {
 	return "AutoCert"
 }
 
 func GetAppLogoURL(frontURL string) string {
 	return frontURL + "/logo.svg"
+}
+
+func DetermineWorkers(jobCount int) int {
+	return min(max(runtime.GOMAXPROCS(0)*2, 1), jobCount)
 }

@@ -12,23 +12,32 @@ type CertificateRepository struct {
 	*baseRepository
 }
 
-func (cr CertificateRepository) Create(ctx context.Context, tx *gorm.DB, ca *model.Certificate, file *model.File) (*model.Certificate, error) {
+func (cr CertificateRepository) Create(ctx context.Context, tx *gorm.DB, ca *model.Certificate) (*model.Certificate, error) {
 	// cr.logger.Debugf("Create certificate: %d", ca.Number)
 
 	db := cr.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	if err := db.WithContext(ctx).Model(&model.File{}).Create(file).Error; err != nil {
-		return ca, err
-	}
-
-	ca.CertificateFileId = file.ID
 	if err := db.WithContext(ctx).Model(&model.Certificate{}).Create(ca).Error; err != nil {
 		return ca, err
 	}
 
 	return ca, nil
+}
+
+func (cr CertificateRepository) CreateMany(ctx context.Context, tx *gorm.DB, certificates []*model.Certificate) ([]*model.Certificate, error) {
+	cr.logger.Debugf("Create multiple certificates: %d", len(certificates))
+
+	db := cr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Create(certificates).Error; err != nil {
+		return certificates, err
+	}
+
+	return certificates, nil
 }
 
 func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB, projectId string) (*[]model.Certificate, error) {
