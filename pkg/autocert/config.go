@@ -17,8 +17,8 @@ type Config struct {
 func NewDefaultConfig() *Config {
 	cfg := Config{
 		FontMetadataPath: "font_metadata.json",
-		OutputDir:        "autocert_tmp/output",
-		TmpDir:           "autocert_tmp/tmp",
+		OutputDir:        fmt.Sprintf("%s/autocert/generate/output", os.TempDir()),
+		TmpDir:           fmt.Sprintf("%s/autocert/generate/tmp", os.TempDir()),
 	}
 
 	// Create the directories if they do not exist

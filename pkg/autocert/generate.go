@@ -21,9 +21,7 @@ type GeneratedResult struct {
 type Settings struct {
 	RemoveLineBreaksBool bool
 	EmbedQRCode          bool
-	// eg fmt.Sprintf("%s/share/certificates", pc.app.Config.FRONTEND_URL) + "/%s"
-	// %s will be replaced with the certificate ID
-	QrURLPattern string
+	QrURLPattern         string
 }
 
 func NewDefaultSettings(qrUrlPattern string) *Settings {
@@ -35,7 +33,6 @@ func NewDefaultSettings(qrUrlPattern string) *Settings {
 }
 
 type CertificateGenerator struct {
-	// ID is a unique identifier which will be used to create folder and store the generated files.
 	ID             string
 	TemplatePath   string
 	CSVPath        string
@@ -43,7 +40,8 @@ type CertificateGenerator struct {
 	Annotations    PageAnnotations
 	Settings       Settings
 	OutFilePattern string
-	csv            []map[string]string
+	csvData        []map[string]string
+	textRenderers  map[string]*TextRenderer
 }
 
 func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annotations PageAnnotations, settings Settings, outFilePattern string) *CertificateGenerator {
@@ -55,11 +53,11 @@ func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annot
 		Annotations:    annotations,
 		Settings:       settings,
 		OutFilePattern: outFilePattern,
+		textRenderers:  make(map[string]*TextRenderer),
 	}
 }
 
-// Returns the output directory path for this generator.
-func (cg *CertificateGenerator) GetOutputDir() string {
+func (cg *CertificateGenerator) OutputDir() string {
 	outputDir := filepath.Join(cg.Cfg.OutputDir, cg.ID)
 	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -69,8 +67,7 @@ func (cg *CertificateGenerator) GetOutputDir() string {
 	return outputDir
 }
 
-// Returns the temporary directory path for this generator.
-func (cg *CertificateGenerator) GetTmpDir() string {
+func (cg *CertificateGenerator) TempDir() string {
 	tmpDir := filepath.Join(cg.Cfg.TmpDir, cg.ID)
 	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -80,13 +77,12 @@ func (cg *CertificateGenerator) GetTmpDir() string {
 	return tmpDir
 }
 
-// Apply all signature annotations to the input PDF file.
-func (cg *CertificateGenerator) applySignatures(inputFile string) (string, error) {
+func (cg *CertificateGenerator) embedSignatures(inputFile string) (string, error) {
 	currentFile := inputFile
 
 	for page, sigAnnots := range cg.Annotations.PageSignatureAnnotations {
 		for _, annot := range sigAnnots {
-			tmpOut, err := os.CreateTemp(cg.GetTmpDir(), "autocert_*.pdf")
+			tmpOut, err := os.CreateTemp(cg.TempDir(), "autocert_*.pdf")
 			if err != nil {
 				return "", err
 			}
@@ -94,13 +90,12 @@ func (cg *CertificateGenerator) applySignatures(inputFile string) (string, error
 			selectedPages := []string{fmt.Sprintf("%d", page)}
 			signatureFile := annot.SignatureFilePath
 
-			// Skip if the signature file does not exist
 			if _, err := os.Stat(signatureFile); os.IsNotExist(err) {
 				log.Printf("Signature file %s does not exist, skipping annotation %s\n", signatureFile, annot.ID)
 				continue
 			}
 
-			signatureFile, err = cg.normalizeSignatureFormat(signatureFile, annot)
+			signatureFile, err = cg.convertSignatureFormat(signatureFile, annot)
 			if err != nil {
 				return "", err
 			}
@@ -116,11 +111,10 @@ func (cg *CertificateGenerator) applySignatures(inputFile string) (string, error
 	return currentFile, nil
 }
 
-func (cg *CertificateGenerator) normalizeSignatureFormat(signatureFile string, annot SignatureAnnotate) (string, error) {
+func (cg *CertificateGenerator) convertSignatureFormat(signatureFile string, annot SignatureAnnotate) (string, error) {
 	switch filepath.Ext(signatureFile) {
 	case ".png", ".jpg", ".jpeg":
-		// Resize the image following the annotation size
-		tmpImg, err := os.CreateTemp(cg.GetTmpDir(), "autocert_img_*.png")
+		tmpImg, err := os.CreateTemp(cg.TempDir(), "autocert_img_*.png")
 		if err != nil {
 			return "", fmt.Errorf("failed to create temporary image file: %w", err)
 		}
@@ -131,7 +125,7 @@ func (cg *CertificateGenerator) normalizeSignatureFormat(signatureFile string, a
 
 		return tmpImg.Name(), nil
 	case ".svg":
-		tmpSvg, err := os.CreateTemp(cg.GetTmpDir(), "autocert_svg_sig_*.pdf")
+		tmpSvg, err := os.CreateTemp(cg.TempDir(), "autocert_svg_sig_*.pdf")
 		if err != nil {
 			return "", fmt.Errorf("failed to create temporary SVG file: %w", err)
 		}
@@ -148,14 +142,35 @@ func (cg *CertificateGenerator) normalizeSignatureFormat(signatureFile string, a
 	}
 }
 
-// Apply all text annotations to the input PDF file.
-func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uint, annot ColumnAnnotate, tmpDir string) (string, error) {
+func (cg *CertificateGenerator) initializeTextRenderers() error {
+	for _, colAnnots := range cg.Annotations.PageColumnAnnotations {
+		for _, annot := range colAnnots {
+			if _, exists := cg.textRenderers[annot.ID]; exists {
+				continue
+			}
+
+			font := annot.Font()
+			if annot.TextFitRectBox {
+				font.Size = 0
+			}
+
+			textRenderer, err := NewTextRenderer(cg.Cfg, *annot.Rect(), *font, cg.Settings)
+			if err != nil {
+				return fmt.Errorf("failed to create text renderer for annotation %s: %w", annot.ID, err)
+			}
+
+			cg.textRenderers[annot.ID] = textRenderer
+		}
+	}
+	return nil
+}
+
+func (cg *CertificateGenerator) embedTextAnnotation(currentFile string, page uint, annot ColumnAnnotate, tmpDir string) (string, error) {
 	selectedPages := []string{fmt.Sprintf("%d", page)}
 
-	// Create temporary files in the provided directory (tpmDir is worker pool dir)
 	dir := tmpDir
 	if dir == "" {
-		dir = cg.GetTmpDir()
+		dir = cg.TempDir()
 	}
 
 	tmpOut, err := os.CreateTemp(dir, "autocert_*.pdf")
@@ -168,10 +183,7 @@ func (cg *CertificateGenerator) applyTextAnnotation(currentFile string, page uin
 		return "", err
 	}
 
-	textRenderer, err := NewTextRenderer(cg.Cfg, *annot.Rect(), *annot.Font(), cg.Settings)
-	if err != nil {
-		return "", err
-	}
+	textRenderer := cg.textRenderers[annot.ID]
 
 	if err := textRenderer.RenderSvgTextAsPdf(annot.Value, annot.TextAlign, txtFile.Name()); err != nil {
 		return "", err
@@ -198,96 +210,86 @@ func copyFile(src, dst string) error {
 	defer destFile.Close()
 
 	_, err = io.Copy(destFile, sourceFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
-// job represents a single certificate generation job.
-type Job struct {
-	// CSV row index
-	index int
-	// CSV data for this row.
-	data map[string]string
-	// Temporary directory for this worker
+type generationJob struct {
+	index  int
+	data   map[string]string
 	tmpDir string
 }
 
-// result represents the result of a certificate generation job.
-type Result struct {
-	// Unique identifier for the generated certificate (uuid)
-	id string
-	// CSV row index
-	index int
-	// Output file path after worker processing
+type generationResult struct {
+	id         string
+	index      int
 	outputFile string
-	// Error if any occurred during processing
-	// (nil if processing was successful)
-	err error
+	err        error
 }
 
-// Generate certificate based on the provided template and CSV data and annotations type.
-// Returns a list of generated certificate file paths or each row in the CSV.
-// If no CSV is provided, it will generate a single certificate and apply the annotations.
-// The output file names will be based on the provided pattern. Eg. "certificate_%d.pdf"
 func (cg *CertificateGenerator) Generate() ([]GeneratedResult, error) {
-	defer os.RemoveAll(cg.GetTmpDir())
+	defer os.RemoveAll(cg.TempDir())
 
-	baseFile, err := cg.applySignatures(cg.TemplatePath)
+	baseFile, err := cg.embedSignatures(cg.TemplatePath)
 	if err != nil {
 		return nil, err
 	}
 
-	csvDataMaps, err := cg.readCSVData()
+	csvDataMaps, err := cg.loadCSVData()
 	if err != nil {
 		return nil, err
 	}
-	cg.csv = csvDataMaps
+	cg.csvData = csvDataMaps
 
-	// Handle case with no CSV or column annot, just generate a single certificate
-	if len(cg.csv) == 0 || len(cg.Annotations.PageColumnAnnotations) == 0 {
-		outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, 1))
-		if err := os.Rename(baseFile, outputFile); err != nil {
-			return nil, err
-		}
-		return []GeneratedResult{
-			{
-				Number:   1,
-				FilePath: outputFile,
-				ID:       uuid.NewString(),
-			},
-		}, nil
+	if len(cg.csvData) == 0 || len(cg.Annotations.PageColumnAnnotations) == 0 {
+		return cg.generateSingleCertificate(baseFile)
 	}
 
-	return cg.generateFromCSV(baseFile)
+	if err := cg.initializeTextRenderers(); err != nil {
+		return nil, err
+	}
+
+	return cg.generateBatchCertificates(baseFile)
 }
 
-// Handles the parallel generation of certificates from CSV data.
-func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]GeneratedResult, error) {
-	maxWorkers := determineWorkerCount(len(cg.csv))
+func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]GeneratedResult, error) {
+	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, 1))
 
-	// Create channels for job distribution and result collection
-	jobs := make(chan Job, len(cg.csv))
-	results := make(chan Result, len(cg.csv))
+	// Use copy instead of os.Rename to avoid invalid cross-device link
+	if err := copyFile(baseFile, outputFile); err != nil {
+		return nil, err
+	}
+	os.Remove(baseFile)
+
+	return []GeneratedResult{
+		{
+			Number:   1,
+			FilePath: outputFile,
+			ID:       uuid.NewString(),
+		},
+	}, nil
+}
+
+func (cg *CertificateGenerator) generateBatchCertificates(baseFile string) ([]GeneratedResult, error) {
+	maxWorkers := calculateWorkerCount(len(cg.csvData))
+
+	jobs := make(chan generationJob, len(cg.csvData))
+	results := make(chan generationResult, len(cg.csvData))
 
 	var wg sync.WaitGroup
 	for range maxWorkers {
 		wg.Add(1)
-		go cg.certificateWorker(jobs, results, baseFile, &wg)
+		go cg.processWorkerJobs(jobs, results, baseFile, &wg)
 	}
 
-	for i, row := range cg.csv {
-		// Create temp worker-specific directory for each job
+	for i, row := range cg.csvData {
 		workerID := fmt.Sprintf("worker-%d", i)
-		workerTmpDir := filepath.Join(cg.GetTmpDir(), workerID)
+		workerTmpDir := filepath.Join(cg.TempDir(), workerID)
 		if err := os.MkdirAll(workerTmpDir, 0755); err != nil {
-			results <- Result{index: i, outputFile: "", err: fmt.Errorf("failed to create worker tmp dir: %w", err)}
+			results <- generationResult{index: i, outputFile: "", err: fmt.Errorf("failed to create worker tmp dir: %w", err)}
 			continue
 		}
 
-		jobs <- Job{index: i, data: row, tmpDir: workerTmpDir}
+		jobs <- generationJob{index: i, data: row, tmpDir: workerTmpDir}
 	}
 	close(jobs)
 
@@ -296,10 +298,10 @@ func (cg *CertificateGenerator) generateFromCSV(baseFile string) ([]GeneratedRes
 		close(results)
 	}()
 
-	return cg.collectResults(results, len(cg.csv))
+	return cg.aggregateResults(results, len(cg.csvData))
 }
 
-func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
+func (cg *CertificateGenerator) loadCSVData() ([]map[string]string, error) {
 	if cg.CSVPath == "" {
 		return []map[string]string{}, nil
 	}
@@ -309,50 +311,35 @@ func (cg *CertificateGenerator) readCSVData() ([]map[string]string, error) {
 		return nil, err
 	}
 
-	dataMaps, err := ParseCSVToMap(records)
-	if err != nil {
-		return nil, err
-	}
-
-	return dataMaps, nil
+	return ParseCSVToMap(records)
 }
 
-// It defaults to the value of runtime.NumCPU (core count)
-// Note: Can change to more than core count if needed
-// max worker should be at least 1 and should not exceed job count
-func determineWorkerCount(jobCount int) int {
+func calculateWorkerCount(jobCount int) int {
 	maxWorkers := min(max(runtime.GOMAXPROCS(0)*2, 1), jobCount)
-
 	fmt.Printf("Using %d workers for processing\n", maxWorkers)
-
 	return maxWorkers
 }
 
-// Process certificate generation jobs.
-func (cg *CertificateGenerator) certificateWorker(jobs <-chan Job, results chan<- Result, baseFile string, wg *sync.WaitGroup) {
+func (cg *CertificateGenerator) processWorkerJobs(jobs <-chan generationJob, results chan<- generationResult, baseFile string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	for j := range jobs {
-		outputFile, certId, err := cg.processJob(j, baseFile)
-		results <- Result{
+	for job := range jobs {
+		outputFile, certId, err := cg.generateSingleCertificateFromJob(job, baseFile)
+		results <- generationResult{
 			id:         certId,
-			index:      j.index,
+			index:      job.index,
 			outputFile: outputFile,
 			err:        err,
 		}
 
-		// Clean up worker directory after processing
-		os.RemoveAll(j.tmpDir)
+		os.RemoveAll(job.tmpDir)
 	}
 }
 
-// Handle the processing of a single certificate job.
-// Return output file path, uuid, and error if any occurred.
-func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, string, error) {
+func (cg *CertificateGenerator) generateSingleCertificateFromJob(job generationJob, baseFile string) (string, string, error) {
 	certId := uuid.NewString()
 
-	// Copy the base file for this worker
-	workerBaseFile := filepath.Join(j.tmpDir, "base.pdf")
+	workerBaseFile := filepath.Join(job.tmpDir, "base.pdf")
 	if err := copyFile(baseFile, workerBaseFile); err != nil {
 		return "", certId, err
 	}
@@ -361,51 +348,54 @@ func (cg *CertificateGenerator) processJob(j Job, baseFile string) (string, stri
 
 	for page, colAnnots := range cg.Annotations.PageColumnAnnotations {
 		for _, annot := range colAnnots {
-			// Substitute the value from CSV data
 			modifiedAnnot := annot
-			modifiedAnnot.Value = j.data[annot.Value]
+			modifiedAnnot.Value = job.data[annot.Value]
 
 			var err error
-			currentFile, err = cg.applyTextAnnotation(currentFile, page, modifiedAnnot, j.tmpDir)
+			currentFile, err = cg.embedTextAnnotation(currentFile, page, modifiedAnnot, job.tmpDir)
 			if err != nil {
-				return "", certId, fmt.Errorf("failed to apply text annotation on page %d for row %d: %w", page, j.index, err)
+				return "", certId, fmt.Errorf("failed to apply text annotation on page %d for row %d: %w", page, job.index, err)
 			}
 		}
 	}
 
-	// After applying all annotations, we can finalize the PDF and embed the QR code if enabled
 	if cg.Settings.EmbedQRCode {
-		tmpQrCodeFile, err := os.CreateTemp(j.tmpDir, "autocert_qr_*.pdf")
+		_, err := cg.embedQRCode(currentFile, certId, job.tmpDir, job.index)
 		if err != nil {
 			return "", certId, err
 		}
-		defer os.Remove(tmpQrCodeFile.Name())
-
-		err = GenerateQRCodeAsPdf(fmt.Sprintf(cg.Settings.QrURLPattern, certId), tmpQrCodeFile.Name(), 50)
-		if err != nil {
-			return "", certId, fmt.Errorf("failed to generate QR code for row %d: %w", j.index, err)
-		}
-
-		err = EmbedQRCodeToPdf(currentFile, currentFile, tmpQrCodeFile.Name(), []string{})
-		if err != nil {
-			return "", certId, fmt.Errorf("failed to embed QR code for row %d: %w", j.index, err)
-		}
 	}
 
-	// Move the final output file to the output directory
-	outputFile := filepath.Join(cg.GetOutputDir(), fmt.Sprintf(cg.OutFilePattern, j.index+1))
+	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, job.index+1))
 	if err := os.Rename(currentFile, outputFile); err != nil {
-		return "", certId, fmt.Errorf("failed to finalize certificate for row %d: %w", j.index, err)
+		return "", certId, fmt.Errorf("failed to finalize certificate for row %d: %w", job.index, err)
 	}
 
 	return outputFile, certId, nil
 }
 
-// Collect and organize the results from worker goroutines.
-func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount int) ([]GeneratedResult, error) {
-	// A map of generated files indexed by their original CSV row index
-	// This is used to ensure the output files are in the correct order
-	resultMap := make(map[int]Result)
+func (cg *CertificateGenerator) embedQRCode(currentFile, certId, tmpDir string, index int) (string, error) {
+	tmpQrCodeFile, err := os.CreateTemp(tmpDir, "autocert_qr_*.pdf")
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(tmpQrCodeFile.Name())
+
+	err = GenerateQRCodeAsPdf(fmt.Sprintf(cg.Settings.QrURLPattern, certId), tmpQrCodeFile.Name(), 50)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate QR code for row %d: %w", index, err)
+	}
+
+	err = EmbedQRCodeToPdf(currentFile, currentFile, tmpQrCodeFile.Name(), []string{})
+	if err != nil {
+		return "", fmt.Errorf("failed to embed QR code for row %d: %w", index, err)
+	}
+
+	return currentFile, nil
+}
+
+func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult, totalCount int) ([]GeneratedResult, error) {
+	resultMap := make(map[int]generationResult)
 	var firstErr error
 
 	for r := range results {
@@ -422,7 +412,6 @@ func (cg *CertificateGenerator) collectResults(results <-chan Result, totalCount
 		return nil, firstErr
 	}
 
-	// Build result list in the correct order
 	generatedFiles := make([]GeneratedResult, 0, totalCount)
 	for i := range totalCount {
 		if r, ok := resultMap[i]; ok {

@@ -15,12 +15,10 @@ import (
 
 const DPI = 72
 
-// Converts pixels to millimeters
 func pxToMM(px float64) float64 {
 	return (px * 25.4) / DPI
 }
 
-// Converts millimeters to pixels
 func mmToPx(mm float64) float64 {
 	return (mm * DPI) / 25.4
 }
@@ -80,11 +78,10 @@ func NewTextRenderer(cfg Config, rect Rect, font Font, setting Settings) (*TextR
 }
 
 func (tr *TextRenderer) drawText(ctx *canvas.Context, text string, alignment TextAlign) {
-	// TODO: update font auto
-	// fontSize := tr.font.Size
-	// if tr.setting.TextFitRectBox {
-	fontSize := tr.getFontSizeFitRectBox(text)
-	// }
+	fontSize := tr.font.Size
+	if fontSize <= 0 {
+		fontSize = tr.getFontSizeFitRectBox(text)
+	}
 
 	face := tr.fontFamily.Face(fontSize, canvas.Hex(tr.font.Color), tr.font.GetFontStyle(), canvas.FontNormal)
 

@@ -188,7 +188,7 @@ func main() {
 		fmt.Println(absPath)
 	}
 
-	mergeOutPut := filepath.Join(cg.GetOutputDir(), "final.pdf")
+	mergeOutPut := filepath.Join(cg.OutputDir(), "final.pdf")
 	err = autocert.MergePdf(generatedFiles, mergeOutPut)
 	if err != nil {
 		log.Fatalf("Failed to merge PDFs: %v", err)

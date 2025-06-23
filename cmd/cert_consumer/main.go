@@ -223,7 +223,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 	outFilePattern := "certificate_%d.pdf"
 	cg := autocert.NewCertificateGenerator(project.ID, templatePath.Name(), csvPath.Name(), *cfg, pageAnnotations, *settings, outFilePattern)
 
-	defer os.RemoveAll(cg.GetOutputDir())
+	defer os.RemoveAll(cg.OutputDir())
 
 	nowGenerate := time.Now()
 	generatedResults, err := cg.Generate()
