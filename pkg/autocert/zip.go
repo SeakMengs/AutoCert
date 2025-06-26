@@ -22,6 +22,7 @@ func addFileToZip(archive *zip.Writer, filePath, archivePath string) error {
 		return err
 	}
 	header.Name = archivePath
+	header.Method = zip.Deflate
 
 	writer, err := archive.CreateHeader(header)
 	if err != nil {

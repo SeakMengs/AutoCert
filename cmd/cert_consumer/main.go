@@ -138,7 +138,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 	defer os.Remove(templatePath.Name())
 	defer os.Remove(csvPath.Name())
 
-	generatedResults, outputDir, generateDuration, err := generateCertificates(project, templatePath.Name(), csvPath.Name(), pageAnnotations, app)
+	generatedResults, outputDir, generateDuration, totalCert, err := generateCertificates(project, templatePath.Name(), csvPath.Name(), pageAnnotations, app)
 	if err != nil {
 		return true, err
 	}
@@ -150,7 +150,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 	}
 
 	totalDuration := generateDuration + uploadDuration
-	if err := logProjectSuccess(ctx, user, project, len(generatedResults), generateDuration, uploadDuration, totalDuration, queueWaitDuration, app); err != nil {
+	if err := logProjectSuccess(ctx, user, project, totalCert, generateDuration, uploadDuration, totalDuration, queueWaitDuration, app); err != nil {
 		app.Logger.Errorf("Failed to save project log: %v", err)
 		return true, fmt.Errorf("failed to save project log: %w", err)
 	}
@@ -282,7 +282,7 @@ func prepareFiles(ctx context.Context, project *model.Project, app *queue.Certif
 	return templatePath, csvPath, nil
 }
 
-func generateCertificates(project *model.Project, templatePath, csvPath string, pageAnnotations autocert.PageAnnotations, app *queue.CertificateConsumerContext) ([]autocert.GeneratedResult, string, time.Duration, error) {
+func generateCertificates(project *model.Project, templatePath, csvPath string, pageAnnotations autocert.PageAnnotations, app *queue.CertificateConsumerContext) ([]autocert.GeneratedResult, string, time.Duration, int, error) {
 	cfg := autocert.NewDefaultConfig()
 	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", app.Config.FRONTEND_URL) + "/%s")
 	settings.EmbedQRCode = project.EmbedQr
@@ -291,15 +291,26 @@ func generateCertificates(project *model.Project, templatePath, csvPath string, 
 
 	startTime := time.Now()
 	generatedResults, err := cg.Generate()
-	duration := time.Since(startTime)
 
 	if err != nil {
 		app.Logger.Error("failed to generate certificate", err)
-		return nil, cg.OutputDir(), 0, fmt.Errorf("failed to generate certificate: %w", err)
+		return nil, cg.OutputDir(), 0, 0, fmt.Errorf("failed to generate certificate: %w", err)
 	}
 
-	app.Logger.Infof("Time taken to generate %d certificates: %v", len(generatedResults), duration)
-	return generatedResults, cg.OutputDir(), duration, nil
+	duration := time.Since(startTime)
+	notNormalCertResult := 0
+
+	if settings.MergeAfterGenerate {
+		notNormalCertResult++
+	}
+	if settings.ZipAfterGenerate {
+		notNormalCertResult++
+	}
+
+	totalCertCount := len(generatedResults) - notNormalCertResult
+
+	app.Logger.Infof("Time taken to generate %d certificates: %v", totalCertCount, duration)
+	return generatedResults, cg.OutputDir(), duration, totalCertCount, nil
 }
 
 func uploadAndSaveCertificates(ctx context.Context, generatedResults []autocert.GeneratedResult, project *model.Project, app *queue.CertificateConsumerContext) (time.Duration, error) {
