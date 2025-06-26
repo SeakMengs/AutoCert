@@ -37,14 +37,16 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 	}
 
 	type Project struct {
-		ID           string                        `json:"id"`
-		Title        string                        `json:"title"`
-		IsPublic     bool                          `json:"isPublic"`
-		Status       constant.ProjectStatus        `json:"status"`
-		CreatedAt    *time.Time                    `json:"createdAt"`
-		Signatories  []repository.ProjectSignatory `json:"signatories"`
-		Logs         []ProjectLog                  `json:"logs"`
-		Certificates []Certificate                 `json:"certificates"`
+		ID                   string                        `json:"id"`
+		Title                string                        `json:"title"`
+		IsPublic             bool                          `json:"isPublic"`
+		Status               constant.ProjectStatus        `json:"status"`
+		CreatedAt            *time.Time                    `json:"createdAt"`
+		Signatories          []repository.ProjectSignatory `json:"signatories"`
+		Logs                 []ProjectLog                  `json:"logs"`
+		Certificates         []Certificate                 `json:"certificates"`
+		CertificateMergedUrl string                        `json:"certificateMergedUrl,omitempty"`
+		CertificateZipUrl    string                        `json:"certificateZipUrl,omitempty"`
 	}
 
 	type GetCertificatesByProjectIdResponse struct {
@@ -104,23 +106,44 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 		signatories = []repository.ProjectSignatory{}
 	}
 
-	certificateList := make([]Certificate, len(*certificates))
-	for i, ca := range *certificates {
-		certificateList[i] = Certificate{
-			ID:             ca.ID,
-			Number:         ca.Number,
-			CertificateUrl: "",
-			CreatedAt:      ca.CreatedAt.String(),
-		}
+	var certMergedUrl, certZipUrl string
+	certificateList := make([]Certificate, 0, len(*certificates))
 
-		if ca.CertificateFileId != "" {
-			url, err := ca.CertificateFile.ToPresignedUrl(ctx, cc.app.S3)
-			if err != nil {
-				util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get presigned URL for certificate", util.GenerateErrorMessages(err), nil)
-				return
+	for _, ca := range *certificates {
+		switch ca.Type {
+		case autocert.CertificateTypeNormal:
+			cert := Certificate{
+				ID:        ca.ID,
+				Number:    ca.Number,
+				CreatedAt: ca.CreatedAt.String(),
 			}
-
-			certificateList[i].CertificateUrl = url
+			if ca.CertificateFileId != "" {
+				url, err := ca.CertificateFile.ToPresignedUrl(ctx, cc.app.S3)
+				if err != nil {
+					util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get presigned URL for certificate", util.GenerateErrorMessages(err), nil)
+					return
+				}
+				cert.CertificateUrl = url
+			}
+			certificateList = append(certificateList, cert)
+		case autocert.CertificateTypeMerged:
+			if ca.CertificateFileId != "" {
+				url, err := ca.CertificateFile.ToPresignedUrl(ctx, cc.app.S3)
+				if err != nil {
+					util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get presigned URL for merged certificate", util.GenerateErrorMessages(err), nil)
+					return
+				}
+				certMergedUrl = url
+			}
+		case autocert.CertificateTypeZip:
+			if ca.CertificateFileId != "" {
+				url, err := ca.CertificateFile.ToPresignedUrl(ctx, cc.app.S3)
+				if err != nil {
+					util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get presigned URL for zip certificate", util.GenerateErrorMessages(err), nil)
+					return
+				}
+				certZipUrl = url
+			}
 		}
 	}
 
@@ -138,18 +161,21 @@ func (cc CertificateController) GetCertificatesByProjectId(ctx *gin.Context) {
 	util.ResponseSuccess(ctx, GetCertificatesByProjectIdResponse{
 		Roles: roles,
 		Project: Project{
-			ID:           project.ID,
-			Title:        project.Title,
-			Status:       project.Status,
-			IsPublic:     project.IsPublic,
-			CreatedAt:    project.CreatedAt,
-			Certificates: certificateList,
-			Logs:         logList,
-			Signatories:  signatories,
+			ID:                   project.ID,
+			Title:                project.Title,
+			Status:               project.Status,
+			IsPublic:             project.IsPublic,
+			CreatedAt:            project.CreatedAt,
+			Certificates:         certificateList,
+			Logs:                 logList,
+			Signatories:          signatories,
+			CertificateMergedUrl: certMergedUrl,
+			CertificateZipUrl:    certZipUrl,
 		},
 	})
 }
 
+// TODO: remove
 func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
@@ -184,7 +210,7 @@ func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 		return
 	}
 
-	tempDir, err := os.MkdirTemp("", "certificates_zip_*")
+	tempDir, err := util.MkdirTemp("certificates_zip_*")
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temporary directory", util.GenerateErrorMessages(err), nil)
 		return
@@ -212,7 +238,7 @@ func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 	defer os.Remove(zipFilePath.Name())
 	defer zipFilePath.Close()
 
-	err = util.ZipDir(tempDir, zipFilePath.Name())
+	err = autocert.ZipDir(tempDir, zipFilePath.Name())
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create zip file", util.GenerateErrorMessages(err), nil)
 		return
@@ -222,6 +248,7 @@ func (cc CertificateController) CertificatesToZipByProjectId(ctx *gin.Context) {
 	ctx.File(zipFilePath.Name())
 }
 
+// TODO: remove
 func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
@@ -256,7 +283,7 @@ func (cc CertificateController) MergeCertificatesByProjectId(ctx *gin.Context) {
 		return
 	}
 
-	tempDir, err := os.MkdirTemp("", "certificates_zip_*")
+	tempDir, err := util.MkdirTemp("certificates_zip_*")
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temporary directory", util.GenerateErrorMessages(err), nil)
 		return

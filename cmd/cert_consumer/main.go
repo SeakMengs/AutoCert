@@ -98,6 +98,7 @@ func main() {
 type uploadResult struct {
 	certificateID     string
 	certificateNumber int
+	certificateType   autocert.CertificateType
 	fileInfo          minio.UploadInfo
 	err               error
 }
@@ -285,7 +286,7 @@ func generateCertificates(project *model.Project, templatePath, csvPath string, 
 	cfg := autocert.NewDefaultConfig()
 	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", app.Config.FRONTEND_URL) + "/%s")
 	settings.EmbedQRCode = project.EmbedQr
-	outFilePattern := "certificate_%d.pdf"
+	outFilePattern := "certificate_%s"
 	cg := autocert.NewCertificateGenerator(project.ID, templatePath, csvPath, *cfg, pageAnnotations, *settings, outFilePattern)
 
 	startTime := time.Now()
@@ -316,6 +317,7 @@ func uploadAndSaveCertificates(ctx context.Context, generatedResults []autocert.
 				ID: result.certificateID,
 			},
 			Number:    result.certificateNumber,
+			Type:      result.certificateType,
 			ProjectID: project.ID,
 			CertificateFile: model.File{
 				FileName:       util.ToGeneratedCertificateDirectoryPath(project.ID, result.fileInfo.Key),
@@ -378,6 +380,7 @@ func uploadFilesWithCleanup(ctx context.Context, generatedResults []autocert.Gen
 				resultChan <- uploadResult{
 					certificateID:     result.ID,
 					certificateNumber: result.Number,
+					certificateType:   result.Type,
 					fileInfo:          info,
 					err:               err,
 				}
@@ -385,19 +388,16 @@ func uploadFilesWithCleanup(ctx context.Context, generatedResults []autocert.Gen
 		}()
 	}
 
-	// Send task to worker
 	for _, gr := range generatedResults {
 		taskChan <- gr
 	}
 	close(taskChan)
 
-	// Wait for all workers to finish
 	go func() {
 		wg.Wait()
 		close(resultChan)
 	}()
 
-	// Collect results and check for errors
 	var uploadedFiles []uploadResult
 	var uploadErrors []error
 

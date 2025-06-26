@@ -84,7 +84,7 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 	}
 	defer src.Close()
 
-	outDir, err := os.MkdirTemp("", "extracted-")
+	outDir, err := util.MkdirTemp("extracted-")
 	if err != nil {
 		pc.app.Logger.Error(err)
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to create temp directory", util.GenerateErrorMessages(err), nil)

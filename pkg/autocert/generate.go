@@ -12,16 +12,28 @@ import (
 	"github.com/google/uuid"
 )
 
+type CertificateType int
+
+const (
+	CertificateTypeNormal CertificateType = iota
+	CertificateTypeMerged
+	CertificateTypeZip
+)
+
 type GeneratedResult struct {
 	Number   int
 	FilePath string
+	FileName string
 	ID       string
+	Type     CertificateType
 }
 
 type Settings struct {
 	RemoveLineBreaksBool bool
 	EmbedQRCode          bool
 	QrURLPattern         string
+	MergeAfterGenerate   bool
+	ZipAfterGenerate     bool
 }
 
 func NewDefaultSettings(qrUrlPattern string) *Settings {
@@ -29,16 +41,19 @@ func NewDefaultSettings(qrUrlPattern string) *Settings {
 		RemoveLineBreaksBool: true,
 		EmbedQRCode:          true,
 		QrURLPattern:         qrUrlPattern,
+		MergeAfterGenerate:   true,
+		ZipAfterGenerate:     true,
 	}
 }
 
 type CertificateGenerator struct {
-	ID             string
-	TemplatePath   string
-	CSVPath        string
-	Cfg            Config
-	Annotations    PageAnnotations
-	Settings       Settings
+	ID           string
+	TemplatePath string
+	CSVPath      string
+	Cfg          Config
+	Annotations  PageAnnotations
+	Settings     Settings
+	// Eg: "certificate_%s"
 	OutFilePattern string
 	csvData        []map[string]string
 	textRenderers  map[string]*TextRenderer
@@ -252,7 +267,7 @@ func (cg *CertificateGenerator) Generate() ([]GeneratedResult, error) {
 }
 
 func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]GeneratedResult, error) {
-	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, 1))
+	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, "1")+".pdf")
 
 	// Use copy instead of os.Rename to avoid invalid cross-device link
 	if err := copyFile(baseFile, outputFile); err != nil {
@@ -365,7 +380,7 @@ func (cg *CertificateGenerator) generateSingleCertificateFromJob(job generationJ
 		}
 	}
 
-	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, job.index+1))
+	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, fmt.Sprint(job.index+1))+".pdf")
 	if err := os.Rename(currentFile, outputFile); err != nil {
 		return "", certId, fmt.Errorf("failed to finalize certificate for row %d: %w", job.index, err)
 	}
@@ -395,6 +410,7 @@ func (cg *CertificateGenerator) embedQRCode(currentFile, certId, tmpDir string, 
 
 func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult, totalCount int) ([]GeneratedResult, error) {
 	resultMap := make(map[int]generationResult)
+	inFile := make([]string, totalCount)
 	var firstErr error
 
 	for r := range results {
@@ -417,11 +433,44 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 			generatedFiles = append(generatedFiles, GeneratedResult{
 				Number:   i + 1,
 				FilePath: r.outputFile,
+				FileName: filepath.Base(r.outputFile),
+				Type:     CertificateTypeNormal,
 				ID:       r.id,
 			})
+			inFile[i] = r.outputFile
 		} else {
 			return nil, fmt.Errorf("missing result for row %d", i)
 		}
+	}
+
+	if cg.Settings.ZipAfterGenerate {
+		zipOut := filepath.Join(cg.OutputDir(), "certificates.zip")
+		err := ZipFiles(inFile, zipOut)
+		if err != nil {
+			return nil, fmt.Errorf("failed to zip generated files: %w", err)
+		}
+		generatedFiles = append(generatedFiles, GeneratedResult{
+			Number:   -2,
+			FilePath: zipOut,
+			FileName: filepath.Base(zipOut),
+			Type:     CertificateTypeZip,
+			ID:       uuid.NewString(),
+		})
+	}
+
+	if cg.Settings.MergeAfterGenerate {
+		mergeOut := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, "merged")+".pdf")
+		err := MergePdf(inFile, mergeOut)
+		if err != nil {
+			return nil, fmt.Errorf("failed to merge PDF files: %w", err)
+		}
+		generatedFiles = append(generatedFiles, GeneratedResult{
+			Number:   -1,
+			FilePath: mergeOut,
+			FileName: filepath.Base(mergeOut),
+			Type:     CertificateTypeMerged,
+			ID:       uuid.NewString(),
+		})
 	}
 
 	return generatedFiles, nil

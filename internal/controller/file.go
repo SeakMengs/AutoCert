@@ -47,7 +47,7 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 		return
 	}
 
-	tempOutDir, err := os.MkdirTemp("", "autocert_pdf_thumbnail_*")
+	tempOutDir, err := util.MkdirTemp("autocert_pdf_thumbnail_*")
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating temporary directory", util.GenerateErrorMessages(err), nil)
 		return
@@ -86,6 +86,7 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 	ctx.File(thumbnailPath)
 }
 
+// TODO: remove
 func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context) {
 	selectedPages := "1"
 	projectId := ctx.Params.ByName("projectId")
@@ -138,7 +139,7 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 		return
 	}
 
-	tempOutDir, err := os.MkdirTemp("", "autocert_cert_pdf_thumbnail_*")
+	tempOutDir, err := util.MkdirTemp("autocert_cert_pdf_thumbnail_*")
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Error creating temporary directory", util.GenerateErrorMessages(err), nil)
 		return
