@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
+	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
 	"github.com/minio/minio-go/v7"
 )
 
@@ -29,7 +30,7 @@ func ToGeneratedCertificateDirectoryPath(projectId string, filename string) stri
 	return filepath.Join(GetGeneratedCertificateDirectoryPath(projectId), filepath.Base(filename))
 }
 
-func createBucketIfNotExists(s3 *minio.Client, bucketName string) error {
+func createBucketIfNotExists(s3 *filestorage.MinioClient, bucketName string) error {
 	exists, err := s3.BucketExists(context.Background(), bucketName)
 	if err != nil {
 		return err
@@ -52,7 +53,7 @@ type FileUploadOptions struct {
 	DirectoryPath string
 	UniquePrefix  bool
 	Bucket        string
-	S3            *minio.Client
+	S3            *filestorage.MinioClient
 }
 
 func UploadFileToS3ByFileHeader(fileHeader *multipart.FileHeader, fuo *FileUploadOptions) (minio.UploadInfo, error) {

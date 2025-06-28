@@ -58,11 +58,12 @@ type MailConfig struct {
 }
 
 type MinioConfig struct {
-	ACCESS_KEY string
-	SECRET_KEY string
-	BUCKET     string
-	ENDPOINT   string
-	USE_SSL    bool
+	ACCESS_KEY        string
+	SECRET_KEY        string
+	BUCKET            string
+	ENDPOINT          string
+	INTERNAL_ENDPOINT string
+	USE_SSL           bool
 }
 
 type RabbitMQConfig struct {
@@ -135,9 +136,12 @@ func GetMinioConfig() MinioConfig {
 		ACCESS_KEY: env.GetString("MINIO_ACCESS_KEY", ""),
 		SECRET_KEY: env.GetString("MINIO_SECRET_KEY", ""),
 		BUCKET:     env.GetString("MINIO_BUCKET", "autocert"),
+		// Endpoint here will be used for public access, like presigned URLs
+		// In prod, use subdomain or public ip of the Minio server
+		ENDPOINT: env.GetString("MINIO_ENDPOINT", "172.17.0.1:9000"),
 		// If using docker, specify container service name or service host name
-		ENDPOINT: env.GetString("MINIO_ENDPOINT", "s3-minio:9000"),
-		USE_SSL:  env.GetBool("MINIO_USE_SSL", false),
+		INTERNAL_ENDPOINT: env.GetString("MINIO_INTERNAL_ENDPOINT", "172.17.0.1:9000"),
+		USE_SSL:           env.GetBool("MINIO_USE_SSL", false),
 	}
 }
 

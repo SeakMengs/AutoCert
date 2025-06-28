@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
 	"github.com/minio/minio-go/v7"
 )
 
@@ -24,7 +25,7 @@ func (f File) TableName() string {
 	return "files"
 }
 
-func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, error) {
+func (f File) ToPresignedUrl(ctx context.Context, s3 *filestorage.MinioClient) (string, error) {
 	if f.BucketName == "" || f.UniqueFileName == "" {
 		return "", errors.New("bucket name and unique file name cannot be empty")
 	}
@@ -44,7 +45,7 @@ func (f File) ToPresignedUrl(ctx context.Context, s3 *minio.Client) (string, err
 	return presignedURL.String(), nil
 }
 
-func (f File) DownloadToLocal(ctx context.Context, s3 *minio.Client, localPath string) error {
+func (f File) DownloadToLocal(ctx context.Context, s3 *filestorage.MinioClient, localPath string) error {
 	if f.BucketName == "" || f.UniqueFileName == "" || localPath == "" {
 		return fmt.Errorf("bucket name, unique file name, and local path cannot be empty: bucket=%s, uniqueFileName=%s, localPath=%s", f.BucketName, f.UniqueFileName, localPath)
 	}
@@ -63,7 +64,7 @@ func (f File) DownloadToLocal(ctx context.Context, s3 *minio.Client, localPath s
 	return nil
 }
 
-func (f File) Delete(ctx context.Context, s3 *minio.Client) error {
+func (f File) Delete(ctx context.Context, s3 *filestorage.MinioClient) error {
 	if f.BucketName == "" || f.UniqueFileName == "" {
 		return errors.New("bucket name and unique file name cannot be empty")
 	}

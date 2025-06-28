@@ -10,8 +10,8 @@ import (
 	"github.com/SeakMengs/AutoCert/internal/auth"
 	"github.com/SeakMengs/AutoCert/internal/config"
 	"github.com/SeakMengs/AutoCert/internal/constant"
+	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
 	"github.com/SeakMengs/AutoCert/internal/repository"
-	"github.com/minio/minio-go/v7"
 	"github.com/rabbitmq/amqp091-go"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,7 @@ type CertificateConsumerContext struct {
 	Logger     *zap.SugaredLogger
 	Repository *repository.Repository
 	JWTService auth.JWTInterface
-	S3         *minio.Client
+	S3         *filestorage.MinioClient
 }
 
 type CertificateGeneratePayload struct {

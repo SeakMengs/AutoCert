@@ -303,18 +303,23 @@ func prepareFiles(ctx context.Context, project *model.Project, app *queue.Certif
 func generateCertificates(project *model.Project, templatePath, csvPath string, pageAnnotations autocert.PageAnnotations, app *queue.CertificateConsumerContext) ([]autocert.GeneratedResult, string, time.Duration, int, error) {
 	cfg := autocert.NewDefaultConfig()
 	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", app.Config.FRONTEND_URL) + "/%s")
-	settings.ProgressCallback = func(progress autocert.ProgressInfo) {
-		app.Logger.Infof("\r[%s] - [%s] Progress: %d/%d (%.1f%%) | Elapsed: %v | ETA: %v | Time Left: %v \n",
-			project.ID,
-			progress.CurrentPhase,
-			progress.Generated,
-			progress.Total,
-			progress.Percentage,
-			progress.TimeElapsed.Truncate(time.Second),
-			progress.EstimatedETA.Format("15:04:05"),
-			progress.TimeLeft.Truncate(time.Second),
-		)
+
+	if !app.Config.IsProduction() {
+		settings.ProgressCallback = func(progress autocert.ProgressInfo) {
+			app.Logger.Infof("\r[%s] - [%s] Progress: %d/%d (%.1f%%) | Elapsed: %v | ETA: %v | Time Left: %v \n",
+				project.ID,
+				progress.CurrentPhase,
+				progress.Generated,
+				progress.Total,
+				progress.Percentage,
+				progress.TimeElapsed.Truncate(time.Second),
+				// use 24-hour format for ETA
+				progress.EstimatedETA.Format("15:04:05"),
+				progress.TimeLeft.Truncate(time.Second),
+			)
+		}
 	}
+
 	settings.EmbedQRCode = project.EmbedQr
 	outFilePattern := "certificate_%s"
 	cg := autocert.NewCertificateGenerator(project.ID, templatePath, csvPath, *cfg, pageAnnotations, *settings, outFilePattern)

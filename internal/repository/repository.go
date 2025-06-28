@@ -2,7 +2,7 @@ package repository
 
 import (
 	"github.com/SeakMengs/AutoCert/internal/auth"
-	"github.com/minio/minio-go/v7"
+	filestorage "github.com/SeakMengs/AutoCert/internal/file_storage"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -11,7 +11,7 @@ type baseRepository struct {
 	db         *gorm.DB
 	logger     *zap.SugaredLogger
 	jwtService auth.JWTInterface
-	s3         *minio.Client
+	s3         *filestorage.MinioClient
 }
 
 type Repository struct {
@@ -32,11 +32,11 @@ type Repository struct {
 	ProjectLog        *ProjectLogRepository
 }
 
-func newBaseRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface, s3 *minio.Client) *baseRepository {
+func newBaseRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface, s3 *filestorage.MinioClient) *baseRepository {
 	return &baseRepository{db: db, logger: logger, jwtService: jwtService, s3: s3}
 }
 
-func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface, s3 *minio.Client) *Repository {
+func NewRepository(db *gorm.DB, logger *zap.SugaredLogger, jwtService auth.JWTInterface, s3 *filestorage.MinioClient) *Repository {
 	br := newBaseRepository(db, logger, jwtService, s3)
 	_userRepo := &UserRepository{baseRepository: br}
 
