@@ -111,7 +111,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 		app.Logger.Errorf("Failed to parse created_at time: %v", err)
 		queueWaitDuration = "unknown"
 	} else {
-		queueWaitDuration = time.Since(createdAtTime).String()
+		queueWaitDuration = time.Since(createdAtTime).Truncate(time.Second).String()
 	}
 
 	user, project, _, shouldRequeue, err := validateUserAndProject(ctx, jobPayload, app)
@@ -138,6 +138,22 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 	defer os.Remove(templatePath.Name())
 	defer os.Remove(csvPath.Name())
 
+	records, err := autocert.ReadCSVFromFile(csvPath.Name())
+	if err != nil {
+		app.Logger.Error("Failed to read csv file: ", err)
+		return false, errors.New("invalid csv file")
+	}
+	csvData, err := autocert.ParseCSVToMap(records)
+	if err != nil {
+		app.Logger.Errorf("Failed to parse csv file: %v", err)
+		return true, errors.New("invalid csv file")
+	}
+
+	if len(csvData) > app.Config.APP.MAX_CERTIFICATES_PER_PROJECT {
+		app.Logger.Warnf("CSV file exceeds maximum number of certificates: %d", len(csvData))
+		return false, fmt.Errorf("csv file exceeds maximum number of certificates: %d", app.Config.APP.MAX_CERTIFICATES_PER_PROJECT)
+	}
+
 	generatedResults, outputDir, generateDuration, totalCert, err := generateCertificates(project, templatePath.Name(), csvPath.Name(), pageAnnotations, app)
 	if err != nil {
 		return true, err
@@ -155,7 +171,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 		return true, fmt.Errorf("failed to save project log: %w", err)
 	}
 
-	app.Logger.Infof("Successfully generated %d certificates for project %s", len(generatedResults), project.ID)
+	app.Logger.Infof("Successfully generated %d certificates for project %s", totalCert, project.ID)
 	return false, nil
 }
 
@@ -239,8 +255,8 @@ func cleanupTempFiles(files []string) {
 }
 
 func prepareFiles(ctx context.Context, project *model.Project, app *queue.CertificateConsumerContext) (*os.File, *os.File, error) {
-	ext := filepath.Ext(project.TemplateFile.FileName)
-	templatePath, err := util.CreateTemp("autocert-template-*" + ext)
+	templateExt := filepath.Ext(project.TemplateFile.FileName)
+	templatePath, err := util.CreateTemp("autocert-template-*" + templateExt)
 	if err != nil {
 		app.Logger.Error("failed to create temp file", err)
 		return nil, nil, err
@@ -249,11 +265,13 @@ func prepareFiles(ctx context.Context, project *model.Project, app *queue.Certif
 	err = project.TemplateFile.DownloadToLocal(ctx, app.S3, templatePath.Name())
 	if err != nil {
 		os.Remove(templatePath.Name())
-		app.Logger.Error("failed to download template file", err)
+		app.Logger.Error("failed to download template file: ", err)
 		return nil, nil, err
 	}
 
-	csvPath, err := util.CreateTemp("autocert-csv-*" + ext)
+	csvExt := filepath.Ext(project.CSVFile.FileName)
+	csvPath, err := util.CreateTemp("autocert-csv-*" + csvExt)
+	// Create a temporary file for the CSV file
 	if err != nil {
 		os.Remove(templatePath.Name())
 		app.Logger.Error("failed to create temp file", err)
@@ -285,6 +303,18 @@ func prepareFiles(ctx context.Context, project *model.Project, app *queue.Certif
 func generateCertificates(project *model.Project, templatePath, csvPath string, pageAnnotations autocert.PageAnnotations, app *queue.CertificateConsumerContext) ([]autocert.GeneratedResult, string, time.Duration, int, error) {
 	cfg := autocert.NewDefaultConfig()
 	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", app.Config.FRONTEND_URL) + "/%s")
+	settings.ProgressCallback = func(progress autocert.ProgressInfo) {
+		app.Logger.Infof("\r[%s] - [%s] Progress: %d/%d (%.1f%%) | Elapsed: %v | ETA: %v | Time Left: %v \n",
+			project.ID,
+			progress.CurrentPhase,
+			progress.Generated,
+			progress.Total,
+			progress.Percentage,
+			progress.TimeElapsed.Truncate(time.Second),
+			progress.EstimatedETA.Format("15:04:05"),
+			progress.TimeLeft.Truncate(time.Second),
+		)
+	}
 	settings.EmbedQRCode = project.EmbedQr
 	outFilePattern := "certificate_%s"
 	cg := autocert.NewCertificateGenerator(project.ID, templatePath, csvPath, *cfg, pageAnnotations, *settings, outFilePattern)
@@ -309,7 +339,7 @@ func generateCertificates(project *model.Project, templatePath, csvPath string, 
 
 	totalCertCount := len(generatedResults) - notNormalCertResult
 
-	app.Logger.Infof("Time taken to generate %d certificates: %v", totalCertCount, duration)
+	app.Logger.Infof("Time taken to generate %d certificates: %v", totalCertCount, duration.Truncate(time.Second))
 	return generatedResults, cg.OutputDir(), duration, totalCertCount, nil
 }
 
@@ -364,7 +394,7 @@ func uploadAndSaveCertificates(ctx context.Context, generatedResults []autocert.
 	}
 
 	duration := time.Since(startTime)
-	app.Logger.Infof("Time taken to upload and save all certificates: %v", duration)
+	app.Logger.Infof("Time taken to upload and save all certificates: %v", duration.Truncate(time.Second))
 	return duration, nil
 }
 
@@ -446,9 +476,9 @@ func logProjectSuccess(ctx context.Context, user *model.User, project *model.Pro
 		Description: fmt.Sprintf(
 			"Generated %d certificates in %s, upload and save in %s, total time taken: %s, total time waited in queue: %s",
 			certCount,
-			generateDuration.String(),
-			uploadDuration.String(),
-			totalDuration.String(),
+			generateDuration.Truncate(time.Second).String(),
+			uploadDuration.Truncate(time.Second).String(),
+			totalDuration.Truncate(time.Second).String(),
 			queueWaitDuration,
 		),
 		Timestamp: time.Now().Format(time.RFC3339),

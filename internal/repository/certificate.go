@@ -6,6 +6,7 @@ import (
 	constant "github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type CertificateRepository struct {
@@ -33,7 +34,11 @@ func (cr CertificateRepository) CreateMany(ctx context.Context, tx *gorm.DB, cer
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
 	defer cancel()
 
-	if err := db.WithContext(ctx).Model(&model.Certificate{}).Create(certificates).Error; err != nil {
+	silentDB := db.Session(&gorm.Session{
+		Logger: db.Logger.LogMode(logger.Silent),
+	})
+
+	if err := silentDB.WithContext(ctx).Model(&model.Certificate{}).Create(certificates).Error; err != nil {
 		return certificates, err
 	}
 

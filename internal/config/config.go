@@ -11,12 +11,17 @@ type Config struct {
 	Port         string
 	ENV          string
 	FRONTEND_URL string
+	APP          APPConfig
 	DB           DatabaseConfig
 	RateLimiter  RateLimiterConfig
 	Mail         MailConfig
 	Auth         AuthConfig
 	Minio        MinioConfig
 	RabbitMQ     RabbitMQConfig
+}
+
+type APPConfig struct {
+	MAX_CERTIFICATES_PER_PROJECT int
 }
 
 type RateLimiterConfig struct {
@@ -83,6 +88,12 @@ func GetRabbitMQConfig() RabbitMQConfig {
 
 func (rmqc RabbitMQConfig) GetConnectionString() string {
 	return "amqp://" + rmqc.User + ":" + rmqc.Password + "@" + rmqc.Host + ":" + rmqc.Port + "/"
+}
+
+func GetAppConfig() APPConfig {
+	return APPConfig{
+		MAX_CERTIFICATES_PER_PROJECT: env.GetInt("MAX_CERTIFICATES_PER_PROJECT", 1000),
+	}
 }
 
 func GetDBConfig() DatabaseConfig {
@@ -153,6 +164,7 @@ func GetConfig() Config {
 	return Config{
 		Port:         env.GetString("PORT", "8080"),
 		ENV:          GetEnvironment(),
+		APP:          GetAppConfig(),
 		FRONTEND_URL: env.GetString("FRONTEND_URL", "http://localhost:3000"),
 		DB:           GetDBConfig(),
 		RateLimiter:  GetRateLimiterConfig(),

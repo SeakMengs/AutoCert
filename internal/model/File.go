@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -46,6 +48,13 @@ func (f File) DownloadToLocal(ctx context.Context, s3 *minio.Client, localPath s
 	if f.BucketName == "" || f.UniqueFileName == "" || localPath == "" {
 		return fmt.Errorf("bucket name, unique file name, and local path cannot be empty: bucket=%s, uniqueFileName=%s, localPath=%s", f.BucketName, f.UniqueFileName, localPath)
 	}
+
+	localDir := filepath.Dir(localPath)
+	if err := os.MkdirAll(localDir, 0755); err != nil {
+		return fmt.Errorf("failed to create local directory %s: %w", localDir, err)
+	}
+
+	log.Printf("Downloading file %s from bucket %s to local path %s", f.UniqueFileName, f.BucketName, localPath)
 
 	err := s3.FGetObject(ctx, f.BucketName, f.UniqueFileName, localPath, minio.GetObjectOptions{})
 	if err != nil {

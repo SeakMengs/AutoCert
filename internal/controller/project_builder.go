@@ -658,9 +658,19 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 		return fmt.Errorf("failed to save table data")
 	}
 
-	_, err = autocert.ReadCSVFromFile(tmp.Name())
+	records, err := autocert.ReadCSVFromFile(tmp.Name())
 	if err != nil {
 		return errors.New("invalid csv file")
+	}
+	csvData, err := autocert.ParseCSVToMap(records)
+	if err != nil {
+		pbc.app.Logger.Errorf("Failed to parse csv file: %v", err)
+		return errors.New("invalid csv file")
+	}
+
+	if len(csvData) > pbc.app.Config.APP.MAX_CERTIFICATES_PER_PROJECT {
+		pbc.app.Logger.Warnf("CSV file exceeds maximum number of certificates: %d", len(csvData))
+		return fmt.Errorf("csv file exceeds maximum number of certificates: %d", pbc.app.Config.APP.MAX_CERTIFICATES_PER_PROJECT)
 	}
 
 	info, err := util.UploadFileToS3ByPath(tmp.Name(), &util.FileUploadOptions{

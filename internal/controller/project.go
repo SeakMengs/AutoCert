@@ -199,11 +199,12 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 	type ProjectById struct {
 		ID                 string                 `json:"id"`
 		Title              string                 `json:"title"`
-		TemplateUrl        string                 `json:"templateUrl"`
 		IsPublic           bool                   `json:"isPublic"`
 		Status             constant.ProjectStatus `json:"status"`
 		EmbedQr            bool                   `json:"embedQr"`
+		TemplateUrl        string                 `json:"templateUrl"`
 		CSVFileUrl         string                 `json:"csvFileUrl"`
+		MaxCertificate     int                    `json:"maxCertificate"`
 		ColumnAnnotates    []model.ColumnAnnotate `json:"columnAnnotates"`
 		SignatureAnnotates []SignatureAnnotate    `json:"signatureAnnotates"`
 	}
@@ -299,6 +300,7 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 			Status:             project.Status,
 			EmbedQr:            project.EmbedQr,
 			CSVFileUrl:         csvFileUrl,
+			MaxCertificate:     pc.app.Config.APP.MAX_CERTIFICATES_PER_PROJECT,
 			ColumnAnnotates:    project.ColumnAnnotates,
 			SignatureAnnotates: signatureAnnotates,
 		},

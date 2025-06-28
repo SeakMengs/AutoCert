@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -28,12 +30,25 @@ type GeneratedResult struct {
 	Type     CertificateType
 }
 
+type ProgressInfo struct {
+	Generated    int           `json:"generated"`
+	Total        int           `json:"total"`
+	Percentage   float64       `json:"percentage"`
+	TimeElapsed  time.Duration `json:"time_elapsed"`
+	TimeLeft     time.Duration `json:"time_left"`
+	CurrentPhase string        `json:"current_phase"`
+	EstimatedETA time.Time     `json:"estimated_eta"`
+}
+
+type ProgressCallback func(progress ProgressInfo)
+
 type Settings struct {
 	RemoveLineBreaksBool bool
 	EmbedQRCode          bool
 	QrURLPattern         string
 	MergeAfterGenerate   bool
 	ZipAfterGenerate     bool
+	ProgressCallback     ProgressCallback
 }
 
 func NewDefaultSettings(qrUrlPattern string) *Settings {
@@ -43,6 +58,8 @@ func NewDefaultSettings(qrUrlPattern string) *Settings {
 		QrURLPattern:         qrUrlPattern,
 		MergeAfterGenerate:   true,
 		ZipAfterGenerate:     true,
+		// Default to no callback
+		ProgressCallback: nil,
 	}
 }
 
@@ -57,6 +74,12 @@ type CertificateGenerator struct {
 	OutFilePattern string
 	csvData        []map[string]string
 	textRenderers  map[string]*TextRenderer
+
+	// Progress tracking fields
+	startTime      time.Time
+	completedCount int64
+	totalCount     int
+	progressMutex  sync.RWMutex
 }
 
 func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annotations PageAnnotations, settings Settings, outFilePattern string) *CertificateGenerator {
@@ -70,6 +93,58 @@ func NewCertificateGenerator(id, templatePath, csvPath string, cfg Config, annot
 		OutFilePattern: outFilePattern,
 		textRenderers:  make(map[string]*TextRenderer),
 	}
+}
+
+func (cg *CertificateGenerator) initializeProgress() {
+	cg.startTime = time.Now()
+	atomic.StoreInt64(&cg.completedCount, 0)
+	cg.totalCount = 0
+	cg.updateProgress("Initialization")
+}
+
+func (cg *CertificateGenerator) updateProgress(phase string) {
+	if cg.Settings.ProgressCallback == nil {
+		return
+	}
+
+	cg.progressMutex.RLock()
+	completed := atomic.LoadInt64(&cg.completedCount)
+	total := int64(cg.totalCount)
+	elapsed := time.Since(cg.startTime)
+	cg.progressMutex.RUnlock()
+
+	var percentage float64
+	var timeLeft time.Duration
+	var eta time.Time
+
+	if total > 0 {
+		percentage = float64(completed) / float64(total) * 100
+
+		if completed > 0 {
+			avgTimePerCert := elapsed / time.Duration(completed)
+			remaining := total - completed
+			timeLeft = avgTimePerCert * time.Duration(remaining)
+			eta = time.Now().Add(timeLeft)
+		}
+	}
+
+	progress := ProgressInfo{
+		Generated:    int(completed),
+		Total:        int(total),
+		Percentage:   percentage,
+		TimeElapsed:  elapsed,
+		TimeLeft:     timeLeft,
+		CurrentPhase: phase,
+		EstimatedETA: eta,
+	}
+
+	// Call the callback in a separate goroutine to avoid blocking
+	go cg.Settings.ProgressCallback(progress)
+}
+
+func (cg *CertificateGenerator) incrementProgress() {
+	atomic.AddInt64(&cg.completedCount, 1)
+	cg.updateProgress("Generating certificates")
 }
 
 func (cg *CertificateGenerator) OutputDir() string {
@@ -242,12 +317,18 @@ type generationResult struct {
 }
 
 func (cg *CertificateGenerator) Generate() ([]GeneratedResult, error) {
+	cg.initializeProgress()
+
 	defer os.RemoveAll(cg.TempDir())
+
+	cg.updateProgress("Preparing template")
 
 	baseFile, err := cg.embedSignatures(cg.TemplatePath)
 	if err != nil {
 		return nil, err
 	}
+
+	cg.updateProgress("Loading CSV data")
 
 	csvDataMaps, err := cg.loadCSVData()
 	if err != nil {
@@ -255,9 +336,17 @@ func (cg *CertificateGenerator) Generate() ([]GeneratedResult, error) {
 	}
 	cg.csvData = csvDataMaps
 
+	cg.totalCount = len(cg.csvData)
+	if cg.totalCount == 0 {
+		// For single certificate generation
+		cg.totalCount = 1
+	}
+
 	if len(cg.csvData) == 0 || len(cg.Annotations.PageColumnAnnotations) == 0 {
 		return cg.generateSingleCertificate(baseFile)
 	}
+
+	cg.updateProgress("Initializing text renderers")
 
 	if err := cg.initializeTextRenderers(); err != nil {
 		return nil, err
@@ -267,6 +356,8 @@ func (cg *CertificateGenerator) Generate() ([]GeneratedResult, error) {
 }
 
 func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]GeneratedResult, error) {
+	cg.updateProgress("Generating single certificate")
+
 	outputFile := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, "1")+".pdf")
 
 	// Use copy instead of os.Rename to avoid invalid cross-device link
@@ -274,6 +365,9 @@ func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]Ge
 		return nil, err
 	}
 	os.Remove(baseFile)
+
+	// Mark progress as complete
+	cg.incrementProgress()
 
 	return []GeneratedResult{
 		{
@@ -287,6 +381,8 @@ func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]Ge
 func (cg *CertificateGenerator) generateBatchCertificates(baseFile string) ([]GeneratedResult, error) {
 	maxWorkers := DeterminWorkers(len(cg.csvData))
 	fmt.Printf("Using %d workers for generating certificate for project id: %s\n", maxWorkers, cg.ID)
+
+	cg.updateProgress("Starting batch generation")
 
 	jobs := make(chan generationJob, len(cg.csvData))
 	results := make(chan generationResult, len(cg.csvData))
@@ -344,6 +440,11 @@ func (cg *CertificateGenerator) processWorkerJobs(jobs <-chan generationJob, res
 			index:      job.index,
 			outputFile: outputFile,
 			err:        err,
+		}
+
+		// Update progress after each certificate is generated
+		if err == nil {
+			cg.incrementProgress()
 		}
 
 		os.RemoveAll(job.tmpDir)
@@ -444,6 +545,7 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 	}
 
 	if cg.Settings.ZipAfterGenerate {
+		cg.updateProgress("Creating ZIP archive")
 		zipOut := filepath.Join(cg.OutputDir(), "certificates.zip")
 		err := ZipFiles(inFile, zipOut)
 		if err != nil {
@@ -459,6 +561,7 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 	}
 
 	if cg.Settings.MergeAfterGenerate {
+		cg.updateProgress("Merging PDF files")
 		mergeOut := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, "merged")+".pdf")
 		err := MergePdf(inFile, mergeOut)
 		if err != nil {
@@ -472,6 +575,8 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 			ID:       uuid.NewString(),
 		})
 	}
+
+	cg.updateProgress("Generation complete")
 
 	return generatedFiles, nil
 }
