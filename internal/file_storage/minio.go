@@ -2,6 +2,7 @@ package filestorage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/url"
 	"time"
@@ -24,7 +25,7 @@ func NewMinioClient(cfg *config.MinioConfig) (*MinioClient, error) {
 		Secure: false,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create internal Minio client: %w", err)
 	}
 
 	externalClient, err := minio.New(cfg.ENDPOINT, &minio.Options{
@@ -32,7 +33,7 @@ func NewMinioClient(cfg *config.MinioConfig) (*MinioClient, error) {
 		Secure: cfg.USE_SSL,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create external Minio client: %w", err)
 	}
 
 	return &MinioClient{
@@ -75,6 +76,10 @@ func (mc *MinioClient) ListObjects(ctx context.Context, bucketName string, opts 
 
 func (mc *MinioClient) RemoveObject(ctx context.Context, bucketName string, objectName string, opts minio.RemoveObjectOptions) error {
 	return mc.internalClient.RemoveObject(ctx, bucketName, objectName, opts)
+}
+
+func (mc *MinioClient) StatObject(ctx context.Context, bucketName string, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error) {
+	return mc.internalClient.StatObject(ctx, bucketName, objectName, opts)
 }
 
 func (mc *MinioClient) PresignedGetObject(ctx context.Context, bucketName string, objectName string, expires time.Duration, reqParams url.Values) (u *url.URL, err error) {

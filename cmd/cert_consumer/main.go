@@ -111,7 +111,7 @@ func certificateGenerateJobHandler(ctx context.Context, jobPayload queue.Certifi
 		app.Logger.Errorf("Failed to parse created_at time: %v", err)
 		queueWaitDuration = "unknown"
 	} else {
-		queueWaitDuration = time.Since(createdAtTime).Truncate(time.Second).String()
+		queueWaitDuration = time.Since(createdAtTime).Truncate(time.Millisecond).String()
 	}
 
 	user, project, _, shouldRequeue, err := validateUserAndProject(ctx, jobPayload, app)
@@ -304,21 +304,21 @@ func generateCertificates(project *model.Project, templatePath, csvPath string, 
 	cfg := autocert.NewDefaultConfig()
 	settings := autocert.NewDefaultSettings(fmt.Sprintf("%s/share/certificates", app.Config.FRONTEND_URL) + "/%s")
 
-	if !app.Config.IsProduction() {
-		settings.ProgressCallback = func(progress autocert.ProgressInfo) {
-			app.Logger.Infof("\r[%s] - [%s] Progress: %d/%d (%.1f%%) | Elapsed: %v | ETA: %v | Time Left: %v \n",
-				project.ID,
-				progress.CurrentPhase,
-				progress.Generated,
-				progress.Total,
-				progress.Percentage,
-				progress.TimeElapsed.Truncate(time.Second),
-				// use 24-hour format for ETA
-				progress.EstimatedETA.Format("15:04:05"),
-				progress.TimeLeft.Truncate(time.Second),
-			)
-		}
+	// if !app.Config.IsProduction() {
+	settings.ProgressCallback = func(progress autocert.ProgressInfo) {
+		app.Logger.Infof("\r[%s] - [%s] Progress: %d/%d (%.1f%%) | Elapsed: %v | ETA: %v | Time Left: %v \n",
+			project.ID,
+			progress.CurrentPhase,
+			progress.Generated,
+			progress.Total,
+			progress.Percentage,
+			progress.TimeElapsed.Truncate(time.Millisecond),
+			// use 24-hour format for ETA
+			progress.EstimatedETA.Format("15:04:05"),
+			progress.TimeLeft.Truncate(time.Millisecond),
+		)
 	}
+	// }
 
 	settings.EmbedQRCode = project.EmbedQr
 	outFilePattern := "certificate_%s"
@@ -344,7 +344,7 @@ func generateCertificates(project *model.Project, templatePath, csvPath string, 
 
 	totalCertCount := len(generatedResults) - notNormalCertResult
 
-	app.Logger.Infof("Time taken to generate %d certificates: %v", totalCertCount, duration.Truncate(time.Second))
+	app.Logger.Infof("Time taken to generate %d certificates: %v", totalCertCount, duration.Truncate(time.Millisecond))
 	return generatedResults, cg.OutputDir(), duration, totalCertCount, nil
 }
 
@@ -399,7 +399,7 @@ func uploadAndSaveCertificates(ctx context.Context, generatedResults []autocert.
 	}
 
 	duration := time.Since(startTime)
-	app.Logger.Infof("Time taken to upload and save all certificates: %v", duration.Truncate(time.Second))
+	app.Logger.Infof("Time taken to upload and save all certificates: %v", duration.Truncate(time.Millisecond))
 	return duration, nil
 }
 
@@ -481,9 +481,9 @@ func logProjectSuccess(ctx context.Context, user *model.User, project *model.Pro
 		Description: fmt.Sprintf(
 			"Generated %d certificates in %s, upload and save in %s, total time taken: %s, total time waited in queue: %s",
 			certCount,
-			generateDuration.Truncate(time.Second).String(),
-			uploadDuration.Truncate(time.Second).String(),
-			totalDuration.Truncate(time.Second).String(),
+			generateDuration.Truncate(time.Millisecond).String(),
+			uploadDuration.Truncate(time.Millisecond).String(),
+			totalDuration.Truncate(time.Millisecond).String(),
 			queueWaitDuration,
 		),
 		Timestamp: time.Now().Format(time.RFC3339),

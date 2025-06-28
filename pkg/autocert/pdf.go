@@ -239,8 +239,35 @@ func GetPageCount(rs io.ReadSeeker) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-
 	return ctx.PageCount, nil
+}
+
+// return as width and height in px
+func GetPdfPageSize(rs io.ReadSeeker, pageNum int) (float64, float64, error) {
+	ctx, err := api.ReadAndValidate(rs, model.NewDefaultConfiguration())
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if ctx.PageCount < 1 {
+		return 0, 0, fmt.Errorf("pdf has no pages")
+	}
+
+	if pageNum < 1 || pageNum > ctx.PageCount {
+		return 0, 0, fmt.Errorf("page number %d is out of range (max page count is %d)", pageNum, ctx.PageCount)
+	}
+
+	dims, err := ctx.PageDims()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get page dimensions: %v", err)
+	}
+
+	if pageNum-1 < 0 || pageNum-1 >= len(dims) {
+		return 0, 0, fmt.Errorf("failed to get dimensions for page %d", pageNum)
+	}
+
+	dim := dims[pageNum-1]
+	return dim.Width, dim.Height, nil
 }
 
 func ExtractPdfByPage(inFile string, outDir string, selectedPage string) (string, error) {

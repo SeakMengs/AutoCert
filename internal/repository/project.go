@@ -171,6 +171,7 @@ func (pr ProjectRepository) GetProjectsForOwner(ctx context.Context, tx *gorm.DB
 		if err != nil {
 			return nil, 0, err
 		}
+
 		projectRes = append(projectRes, ProjectResponse{
 			ID:          project.ID,
 			Title:       project.Title,

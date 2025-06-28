@@ -41,3 +41,37 @@ func GenerateQRCodeAsPdf(link, outFile string, size int) error {
 
 	return SvgToPdf(tmpQrSvg.Name(), outFile, float64(size), float64(size))
 }
+
+// Generate qr based on pdf page's dimension, the qr code size will 6% of the page width
+func GenerateQRCodeAsPdfByPdfPage(link, pdfFile string, pageNum int, outFile string) error {
+	if filepath.Ext(outFile) != ".pdf" {
+		return fmt.Errorf("output file is not a PDF: %s", outFile)
+	}
+
+	pdfSrc, err := os.Open(pdfFile)
+	if err != nil {
+		return fmt.Errorf("failed to open PDF file: %w", err)
+	}
+	defer pdfSrc.Close()
+
+	w, h, err := GetPdfPageSize(pdfSrc, pageNum)
+	if err != nil {
+		return fmt.Errorf("failed to get PDF page size: %w", err)
+	}
+	if w <= 0 || h <= 0 {
+		return fmt.Errorf("invalid PDF page size: width=%.2f, height=%.2f", w, h)
+	}
+	size := int(w * 0.06)
+	maxSize := 200
+	minSize := 50
+
+	if size > maxSize {
+		size = maxSize
+	}
+
+	if size < minSize {
+		size = minSize
+	}
+
+	return GenerateQRCodeAsPdf(link, outFile, size)
+}

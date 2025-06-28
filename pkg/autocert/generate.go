@@ -496,7 +496,7 @@ func (cg *CertificateGenerator) embedQRCode(currentFile, certId, tmpDir string, 
 	}
 	defer os.Remove(tmpQrCodeFile.Name())
 
-	err = GenerateQRCodeAsPdf(fmt.Sprintf(cg.Settings.QrURLPattern, certId), tmpQrCodeFile.Name(), 50)
+	err = GenerateQRCodeAsPdfByPdfPage(fmt.Sprintf(cg.Settings.QrURLPattern, certId), currentFile, 1, tmpQrCodeFile.Name())
 	if err != nil {
 		return "", fmt.Errorf("failed to generate QR code for row %d: %w", index, err)
 	}

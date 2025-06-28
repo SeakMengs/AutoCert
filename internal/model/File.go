@@ -30,6 +30,14 @@ func (f File) ToPresignedUrl(ctx context.Context, s3 *filestorage.MinioClient) (
 		return "", errors.New("bucket name and unique file name cannot be empty")
 	}
 
+	_, err := s3.StatObject(ctx, f.BucketName, f.UniqueFileName, minio.StatObjectOptions{})
+	if err != nil {
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return "", fmt.Errorf("file not found: bucket=%s, uniqueFileName=%s", f.BucketName, f.UniqueFileName)
+		}
+		return "", fmt.Errorf("failed to stat object: %w", err)
+	}
+
 	// Generate a presigned URL for the file
 	presignedURL, err := s3.PresignedGetObject(
 		ctx,
