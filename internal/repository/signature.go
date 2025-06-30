@@ -48,7 +48,7 @@ func (sr SignatureRepository) Delete(ctx context.Context, tx *gorm.DB, id string
 }
 
 func (sr SignatureRepository) GetById(ctx context.Context, tx *gorm.DB, id string, user auth.JWTPayload) (*model.Signature, error) {
-	sr.logger.Debugf("Get signature with id: %d \n", id)
+	sr.logger.Debugf("Get signature with id: %s3 \n", id)
 
 	db := sr.getDB(tx)
 	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)

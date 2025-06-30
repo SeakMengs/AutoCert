@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"slices"
 
 	"github.com/SeakMengs/AutoCert/internal/model"
 	"github.com/SeakMengs/AutoCert/internal/util"
@@ -32,28 +31,14 @@ func toSignatureDirectoryPath(userId string, filename string) string {
 	return filepath.Join(getSignatureDirectoryPath(userId), filepath.Base(filename))
 }
 
-// TODO: store pub key
 // TODO: limit file size
 func (sc SignatureController) AddSignature(ctx *gin.Context) {
-	// type Request struct {
-	// 	// Title string `json:"title" form:"title" binding:"required,strNotEmpty,min=1,max=100"`
-	// 	// Page  int    `json:"page" form:"page" binding:"required,number,gte=1"`
-	// }
-	// var body Request
-
 	user, err := sc.getAuthUser(ctx)
 	if err != nil {
 		sc.app.Logger.Errorf("Failed to get auth user: %v", err)
 		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
 		return
 	}
-
-	// err = ctx.ShouldBind(&body)
-	// if err != nil {
-	// 	sc.app.Logger.Errorf("Failed to bind request: %v", err)
-	// 	util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid request", util.GenerateErrorMessages(err), nil)
-	// 	return
-	// }
 
 	sigFile, err := ctx.FormFile("signatureFile")
 	if err != nil {
@@ -62,12 +47,25 @@ func (sc SignatureController) AddSignature(ctx *gin.Context) {
 		return
 	}
 
+	// 5mb
+	if sigFile.Size > 5*1024*1024 {
+		sc.app.Logger.Errorf("Failed to add signature: file size %d exceeds limit", sigFile.Size)
+		util.ResponseFailed(ctx, http.StatusBadRequest, "File size exceeds limit", util.GenerateErrorMessages(errors.New("file size exceeds limit"), "signatureFile"), nil)
+		return
+	}
+
 	ext := filepath.Ext(sigFile.Filename)
-	if !slices.Contains(ALLOWED_SIGNATURE_FILE_TYPE, ext) {
+	// .enc indicates that the file is encrypted
+	if ext != ".enc" {
 		sc.app.Logger.Errorf("Failed to add signature: invalid file type %s", ext)
 		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid file type", util.GenerateErrorMessages(errors.New("invalid file type"), "signatureFile"), nil)
 		return
 	}
+	// if !slices.Contains(ALLOWED_SIGNATURE_FILE_TYPE, ext) {
+	// 	sc.app.Logger.Errorf("Failed to add signature: invalid file type %s", ext)
+	// 	util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid file type", util.GenerateErrorMessages(errors.New("invalid file type"), "signatureFile"), nil)
+	// 	return
+	// }
 
 	info, err := util.UploadFileToS3ByFileHeader(sigFile, &util.FileUploadOptions{
 		DirectoryPath: getSignatureDirectoryPath(user.ID),

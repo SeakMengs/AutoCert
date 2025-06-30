@@ -78,7 +78,7 @@ func ResizePdf(inFile, outFile string, selectedPage []string, width, height floa
 			Height: height,
 		},
 		UserDim:       true,
-		EnforceOrient: true,
+		EnforceOrient: false,
 	}
 	err := api.ResizeFile(inFile, outFile, selectedPage, &resizeModel, nil)
 	if err != nil {
