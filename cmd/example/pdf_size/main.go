@@ -23,7 +23,7 @@ func main() {
 	if pageCount < 1 {
 		panic("pdf has no pages")
 	}
-	width, height, err := autocert.GetPdfPageSize(src, 1)
+	width, height, err := autocert.GetPdfSizeByPage(src, 1)
 	if err != nil {
 		panic(err)
 	}

@@ -54,7 +54,7 @@ func GenerateQRCodeAsPdfByPdfPage(link, pdfFile string, pageNum int, outFile str
 	}
 	defer pdfSrc.Close()
 
-	w, h, err := GetPdfPageSize(pdfSrc, pageNum)
+	w, h, err := GetPdfSizeByPage(pdfSrc, pageNum)
 	if err != nil {
 		return fmt.Errorf("failed to get PDF page size: %w", err)
 	}

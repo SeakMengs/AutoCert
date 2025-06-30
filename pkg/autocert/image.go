@@ -50,7 +50,8 @@ func SvgToPdf(inFile, outFile string, width, height float64) error {
 		return err
 	}
 
-	svg.Fit(pxToMM(0))
+	// Don't use fit, in order to keep svg's original size including margins, whitespace
+	// svg.Fit(pxToMM(0))
 
 	if err := renderers.Write(outFile, svg); err != nil {
 		return err

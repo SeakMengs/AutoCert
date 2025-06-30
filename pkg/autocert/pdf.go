@@ -243,7 +243,7 @@ func GetPageCount(rs io.ReadSeeker) (int, error) {
 }
 
 // return as width and height in px
-func GetPdfPageSize(rs io.ReadSeeker, pageNum int) (float64, float64, error) {
+func GetPdfSizeByPage(rs io.ReadSeeker, pageNum int) (float64, float64, error) {
 	ctx, err := api.ReadAndValidate(rs, model.NewDefaultConfiguration())
 	if err != nil {
 		return 0, 0, err
