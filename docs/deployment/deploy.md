@@ -1,6 +1,6 @@
 # AutoCert Production Deployment Guide
 
-This comprehensive guide provides step-by-step instructions for deploying the AutoCert application in a production environment using Ubuntu 22.04.
+This comprehensive guide provides step-by-step instructions for deploying the AutoCert application in a production environment using Ubuntu 24.04.
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
@@ -14,7 +14,7 @@ This comprehensive guide provides step-by-step instructions for deploying the Au
 
 ## Prerequisites
 
-- Ubuntu 22.04 server with root access
+- Ubuntu 24.04 server with root access
 - Domain names configured for the application components
 - Basic knowledge of Linux system administration
 

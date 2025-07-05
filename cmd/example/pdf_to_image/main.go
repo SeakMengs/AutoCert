@@ -16,11 +16,11 @@ func main() {
 	}
 
 	// thumbnail
-	thumbnailOutput, err := autocert.PdfToThumbnailByPage(pdfFilePath, outputDir, "1", 256, 256, autocert.ThumbnailFormatPNG)
-	if err != nil {
-		panic(err)
-	}
+	// thumbnailOutput, err := autocert.PdfToThumbnailByPage(pdfFilePath, outputDir, "1", 256, 256, autocert.ThumbnailFormatPNG)
+	// if err != nil {
+	// 	panic(err)
+	// }
 
 	fmt.Printf("PDF converted to PNG: %s\n", output)
-	fmt.Printf("PDF converted to thumbnail : %s\n", thumbnailOutput)
+	// fmt.Printf("PDF converted to thumbnail : %s\n", thumbnailOutput)
 }
