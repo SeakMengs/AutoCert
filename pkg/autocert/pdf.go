@@ -194,7 +194,6 @@ func MergePdf(inFiles []string, outFile string) error {
 
 // Optimize pdf will also validate the pdf itself
 func OptimizePdfFile(inFile, outFile string) error {
-	// Optimize the PDF context
 	if err := api.OptimizeFile(inFile, outFile, nil); err != nil {
 		return err
 	}
@@ -204,7 +203,6 @@ func OptimizePdfFile(inFile, outFile string) error {
 
 // OptimizePdf that accept multipart header and return path to the optimized file
 func OptimizePdf(srcFile multipart.FileHeader, outfile string) error {
-	// Open the uploaded file
 	src, err := srcFile.Open()
 	if err != nil {
 		return err
@@ -226,7 +224,6 @@ func OptimizePdf(srcFile multipart.FileHeader, outfile string) error {
 		return err
 	}
 
-	// Move the optimized file to the specified output path
 	if err := os.Rename(tmpFile.Name(), outfile); err != nil {
 		return err
 	}
@@ -271,19 +268,16 @@ func GetPdfSizeByPage(rs io.ReadSeeker, pageNum int) (float64, float64, error) {
 }
 
 func ExtractPdfByPage(inFile string, outDir string, selectedPage string) (string, error) {
-	// Create output directory if it doesn't exist
 	if _, err := os.Stat(outDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(outDir, 0755); err != nil {
 			return "", err
 		}
 	}
 
-	// Extract the selected page from the PDF
 	if err := api.ExtractPagesFile(inFile, outDir, []string{selectedPage}, nil); err != nil {
 		return "", err
 	}
 
-	// Build the path to the extracted PDF page
 	base := filepath.Base(inFile)
 	ext := filepath.Ext(inFile)
 	fileName := strings.TrimSuffix(base, ext)

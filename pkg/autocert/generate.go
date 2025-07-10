@@ -209,7 +209,7 @@ func (cg *CertificateGenerator) convertSignatureFormat(signatureFile string, ann
 			return "", fmt.Errorf("failed to create temporary image file: %w", err)
 		}
 
-		if err := ResizeImage(signatureFile, tmpImg.Name(), annot.Width, annot.Height); err != nil {
+		if err := ResizeImage(signatureFile, tmpImg.Name(), annot.Width, annot.Height, true); err != nil {
 			return "", fmt.Errorf("failed to resize image for annotation %s: %w", annot.ID, err)
 		}
 
