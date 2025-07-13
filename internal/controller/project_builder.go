@@ -90,9 +90,10 @@ type AnnotateSignatureReject struct {
 	Reason string `json:"reason" binding:"required" form:"reason"`
 }
 
-// type AnnotateSignatureApprove struct {
-// 	ID string `json:"id" binding:"required" form:"id"`
-// }
+type AnnotateSignatureApprove struct {
+	ID            string                `json:"id" binding:"required" form:"id"`
+	SignatureFile *multipart.FileHeader `json:"signatureFile" binding:"required" form:"signatureFile"`
+}
 
 type SettingsUpdate struct {
 	QrCodeEnabled bool `json:"qrCodeEnabled" binding:"required" form:"qrCodeEnabled"`
@@ -205,16 +206,17 @@ type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, roles []constant.Proje
 
 func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermission]EventHandlerType {
 	return map[constant.ProjectPermission]EventHandlerType{
-		constant.AnnotateColumnAdd:       pbc.handleAnnotateColumnAdd,
-		constant.AnnotateColumnUpdate:    pbc.handleAnnotateColumnUpdate,
-		constant.AnnotateColumnRemove:    pbc.handleAnnotateColumnRemove,
-		constant.AnnotateSignatureAdd:    pbc.handleAnnotateSignatureAdd,
-		constant.AnnotateSignatureUpdate: pbc.handleAnnotateSignatureUpdate,
-		constant.AnnotateSignatureRemove: pbc.handleAnnotateSignatureRemove,
-		constant.AnnotateSignatureInvite: pbc.handleAnnotateSignatureInvite,
-		constant.AnnotateSignatureReject: pbc.handleAnnotateSignatureReject,
-		constant.SettingsUpdate:          pbc.handleSettingsUpdate,
-		constant.TableUpdate:             pbc.handleTableUpdate,
+		constant.AnnotateColumnAdd:        pbc.handleAnnotateColumnAdd,
+		constant.AnnotateColumnUpdate:     pbc.handleAnnotateColumnUpdate,
+		constant.AnnotateColumnRemove:     pbc.handleAnnotateColumnRemove,
+		constant.AnnotateSignatureAdd:     pbc.handleAnnotateSignatureAdd,
+		constant.AnnotateSignatureUpdate:  pbc.handleAnnotateSignatureUpdate,
+		constant.AnnotateSignatureRemove:  pbc.handleAnnotateSignatureRemove,
+		constant.AnnotateSignatureInvite:  pbc.handleAnnotateSignatureInvite,
+		constant.AnnotateSignatureApprove: pbc.handleAnnotateSignatureApprove,
+		constant.AnnotateSignatureReject:  pbc.handleAnnotateSignatureReject,
+		constant.SettingsUpdate:           pbc.handleSettingsUpdate,
+		constant.TableUpdate:              pbc.handleTableUpdate,
 	}
 }
 
@@ -700,80 +702,52 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 	return nil
 }
 
-func (pbc ProjectBuilderController) ApproveSignature(ctx *gin.Context) {
-	projectId := ctx.Param("projectId")
-	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("projectId is required"), "projectId"), nil)
-		return
+func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+	var payload AnnotateSignatureApprove
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return errors.New("invalid payload for AnnotateSignatureApprove")
 	}
 
-	signatureAnnotId := ctx.Param("signatureId")
-	if signatureAnnotId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("signatureAnnotateId is required"), "signatureAnnotateId"), nil)
-		return
-	}
-
-	sigFile, err := ctx.FormFile("signatureFile")
+	sigFile, err := ctx.FormFile(fmt.Sprintf("signature_approve_file_%s", payload.ID))
 	if err != nil {
-		pbc.app.Logger.Error(err)
-		util.ResponseFailed(ctx, http.StatusBadRequest, "No signature file uploaded", util.GenerateErrorMessages(errors.New("signature file is required"), "signatureFile"), nil)
-		return
+		pbc.app.Logger.Errorf("Failed to approve signature: cannot get signature file for annotate id %s: %v", payload.ID, err)
+		return fmt.Errorf("failed to get signature file for annotate id %s", payload.ID)
+	}
+
+	if sigFile == nil {
+		return errors.New("signature file is required")
 	}
 
 	ext := filepath.Ext(sigFile.Filename)
 	if !slices.Contains(ALLOWED_SIGNATURE_FILE_TYPE, ext) {
 		pbc.app.Logger.Errorf("Failed to approve signature: invalid file type %s", ext)
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Invalid file type", util.GenerateErrorMessages(errors.New("invalid file type"), "signatureFile"), nil)
-		return
+		return errors.New("invalid file type")
+	}
+
+	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureApprove}) {
+		return errors.New("you do not have permission to approve signature")
 	}
 
 	user, err := pbc.getAuthUser(ctx)
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to get auth user: %v", err)
-		util.ResponseFailed(ctx, http.StatusUnauthorized, "Unauthorized", util.GenerateErrorMessages(err), nil)
-		return
+		return errors.New("failed to get authenticated user")
 	}
 
-	roles, project, err := pbc.getProjectRole(ctx, projectId)
-	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	if project == nil {
-		util.ResponseFailed(ctx, http.StatusNotFound, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project not found"), "project"), nil)
-		return
-	}
-
-	if project.Status != constant.ProjectStatusDraft {
-		util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New("project is not in draft status"), "project"), nil)
-		return
-	}
-
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureApprove}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to approve signature", util.GenerateErrorMessages(errors.New("you do not have permission to approve signature"), "forbidden"), nil)
-		return
-	}
-
-	sa, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, nil, signatureAnnotId, projectId)
+	sa, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, nil, payload.ID, project.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			util.ResponseFailed(ctx, http.StatusNotFound, "Signature not found", util.GenerateErrorMessages(errors.New("annotate signature not found"), "notFound"), nil)
-			return
+			return errors.New("annotate signature not found")
 		}
-
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get signature annotate", util.GenerateErrorMessages(err), nil)
-		return
+		return errors.New("failed to get signature annotate")
 	}
 
 	if !strings.EqualFold(sa.Email, user.Email) {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature approval failed", util.GenerateErrorMessages(errors.New("the signature cannot be approved because it is not assigned to you"), "notSignatory"), nil)
-		return
+		return errors.New("the signature cannot be approved because it is not assigned to you")
 	}
 
 	if sa.Status != constant.SignatoryStatusInvited {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Signature approval failed", util.GenerateErrorMessages(errors.New("the signature cannot be approved because it is not in the invited status"), "status"), nil)
-		return
+		return errors.New("the signature cannot be approved because it is not in the invited status")
 	}
 
 	info, err := util.UploadFileToS3ByFileHeader(sigFile, &util.FileUploadOptions{
@@ -783,37 +757,20 @@ func (pbc ProjectBuilderController) ApproveSignature(ctx *gin.Context) {
 		S3:            pbc.app.S3,
 	})
 	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to upload file", util.GenerateErrorMessages(err), nil)
-		return
+		return errors.New("failed to upload signature file")
 	}
 
-	tx := pbc.app.Repository.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(errors.New("failed to approve signature")), nil)
-			return
-		}
-	}()
-
-	err = pbc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, signatureAnnotId, &model.File{
-		FileName:       util.ToProjectDirectoryPath(projectId, sigFile.Filename),
+	err = pbc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, payload.ID, &model.File{
+		FileName:       util.ToProjectDirectoryPath(project.ID, sigFile.Filename),
 		UniqueFileName: info.Key,
 		BucketName:     info.Bucket,
 		Size:           info.Size,
 	})
 	if err != nil {
-		// delete the file from s3 if signature approval failed
-		if err := pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); err != nil {
-			pbc.app.Logger.Errorf("Failed to delete file: %v", err)
-			tx.Rollback()
-			util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to delete signature file", util.GenerateErrorMessages(err), nil)
-			return
+		if deleteErr := pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); deleteErr != nil {
+			pbc.app.Logger.Errorf("Failed to delete file after approval failure: %v", deleteErr)
 		}
-
-		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(err), nil)
-		return
+		return errors.New("failed to approve signature")
 	}
 
 	err = pbc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
@@ -828,16 +785,8 @@ func (pbc ProjectBuilderController) ApproveSignature(ctx *gin.Context) {
 	})
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
-		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to log project activity", util.GenerateErrorMessages(err), nil)
-		return
+		return errors.New("failed to log project activity")
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		tx.Rollback()
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to approve signature", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	util.ResponseSuccess(ctx, nil)
+	return nil
 }

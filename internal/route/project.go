@@ -18,7 +18,6 @@ func V1_Projects(r *gin.RouterGroup, pc *controller.ProjectController, pbc *cont
 
 		v1.PATCH("/:projectId/visibility", pc.UpdateProjectVisibility)
 		v1.PATCH("/:projectId/builder", pbc.ProjectBuilder)
-		v1.PATCH("/:projectId/builder/signature/:signatureId/approve", pbc.ApproveSignature)
 		v1.POST("/:projectId/builder/generate", pc.Generate)
 	}
 }
