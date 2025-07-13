@@ -8,10 +8,12 @@ import (
 )
 
 func main() {
-	// Make sure to change input, output as needed
-	input := "autocert_tmp/1751286159524726258_signature.svg"
-	output := "autocert_tmp/out_bluesign.pdf"
-	err := autocert.SvgToPdf(input, output, 219.44, 130.268)
+	input := "autocert_tmp/smallw_sign.svg"
+	output := "autocert_tmp/smallw_sign_resized.pdf"
+	w, h := 59.98, 593.1
+	// w, h := 132.983, 593.1
+	// w, h := 50.983, 30.1
+	err := autocert.SvgToPdf(input, output, w, h)
 	if err != nil {
 		fmt.Println("Error converting SVG to PDF:", err)
 	}
@@ -28,6 +30,7 @@ func main() {
 		fmt.Println("Error getting PDF size:", err)
 	}
 
+	fmt.Printf("Expected PDF Size: Width = %.2f px, Height = %.2f px\n", w, h)
 	fmt.Printf("PDF Size: Width = %.2f px, Height = %.2f px\n", wPx, hPx)
 	fmt.Println("PDF conversion completed successfully. Output file:", output)
 }

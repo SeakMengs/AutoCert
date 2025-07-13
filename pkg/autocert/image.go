@@ -38,6 +38,7 @@ func ResizeImage(inFile, outFile string, width, height float64, objectContain bo
 
 	var resized image.Image
 	if objectContain {
+		// Mimics object-contain w-full h-full where w and h are the specified width and height
 		origBounds := img.Bounds()
 		origWidth := float64(origBounds.Dx())
 		origHeight := float64(origBounds.Dy())
@@ -101,5 +102,5 @@ func SvgToPdf(inFile, outFile string, width, height float64) error {
 		return err
 	}
 
-	return ResizePdf(outFile, outFile, []string{"1"}, width, height)
+	return ResizePDFKeepOrientation(outFile, outFile, []string{"1"}, width, height)
 }

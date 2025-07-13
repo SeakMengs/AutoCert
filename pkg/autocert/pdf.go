@@ -1,10 +1,12 @@
 package autocert
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/png"
 	"io"
+	"math"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -73,6 +75,7 @@ func EmbedQRCodeToPdf(inFile, outFile, qrCodeFile string, selectedPages []string
 
 func ResizePdf(inFile, outFile string, selectedPage []string, width, height float64) error {
 	resizeModel := model.Resize{
+		PageSize: "A4L",
 		PageDim: &types.Dim{
 			Width:  width,
 			Height: height,
@@ -80,10 +83,98 @@ func ResizePdf(inFile, outFile string, selectedPage []string, width, height floa
 		UserDim:       true,
 		EnforceOrient: false,
 	}
-	err := api.ResizeFile(inFile, outFile, selectedPage, &resizeModel, nil)
+	err := api.ResizeFile(inFile, outFile, selectedPage, &resizeModel, model.NewDefaultConfiguration())
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// A modification of pdfcpu resize removing auto orientation
+// Source: https://github.com/pdfcpu/pdfcpu/blob/master/pkg/pdfcpu/resize.go#L232
+func ResizePDFKeepOrientation(inFile, outFile string, selectedPages []string, width, height float64) error {
+	rs, err := os.Open(inFile)
+	if err != nil {
+		return fmt.Errorf("failed to open PDF file: %w", err)
+	}
+	defer rs.Close()
+
+	ctx, err := api.ReadAndValidate(rs, model.NewDefaultConfiguration())
+	if err != nil {
+		return err
+	}
+
+	pages, err := api.PagesForPageSelection(ctx.PageCount, selectedPages, true, true)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range pages {
+		if v {
+			if err := resizePageKeepOrientation(ctx, k, width, height); err != nil {
+				return fmt.Errorf("failed to resize page %d: %w", k, err)
+			}
+		}
+	}
+	ctx.EnsureVersionForWriting()
+
+	return api.WriteContextFile(ctx, outFile)
+}
+
+func resizePageKeepOrientation(ctx *model.Context, pageNr int, width, height float64) error {
+	pageDict, _, inhPAttrs, err := ctx.PageDict(pageNr, false)
+	if err != nil {
+		return err
+	}
+
+	origMB := inhPAttrs.MediaBox
+	origWidth := origMB.Width()
+	origHeight := origMB.Height()
+
+	// Maintain aspect ratio
+	scale := math.Min(width/origWidth, height/origHeight)
+
+	// Center the content
+	dx := (width - origWidth*scale) / 2
+	dy := (height - origHeight*scale) / 2
+
+	// Apply uniform scale and translate
+	transform := fmt.Sprintf("q %.5f 0 0 %.5f %.5f %.5f cm ", scale, scale, dx, dy)
+
+	bb, err := ctx.PageContent(pageDict, pageNr)
+	if err != nil {
+		if err == model.ErrNoContent {
+			return nil
+		} else {
+			return err
+		}
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString(transform)
+	buf.Write(bb)
+	buf.WriteString(" Q")
+
+	sd, _ := ctx.NewStreamDictForBuf(buf.Bytes())
+	if err := sd.Encode(); err != nil {
+		return err
+	}
+
+	ir, err := ctx.IndRefForNewObject(*sd)
+	if err != nil {
+		return err
+	}
+
+	pageDict["Contents"] = *ir
+
+	// Set page size exactly
+	newBox := types.NewRectangle(0, 0, width, height)
+	inhPAttrs.MediaBox = newBox
+	pageDict.Update("MediaBox", newBox.Array())
+
+	pageDict.Delete("Rotate")
+	pageDict.Delete("CropBox")
 
 	return nil
 }
