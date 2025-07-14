@@ -150,19 +150,36 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		return
 	}
 
-	// sort events by making table update last since it involve updating file which is not transactional
-	var tableUpdateEvents []AutoCertChangeEvent
-	var otherEvents []AutoCertChangeEvent
+	var (
+		addEvents         []AutoCertChangeEvent
+		updateEvents      []AutoCertChangeEvent
+		removeEvents      []AutoCertChangeEvent
+		otherEvents       []AutoCertChangeEvent
+		tableUpdateEvents []AutoCertChangeEvent
+	)
 
 	for _, event := range events {
-		if event.Type == constant.TableUpdate {
+		switch event.Type {
+		case constant.TableUpdate:
 			tableUpdateEvents = append(tableUpdateEvents, event)
-		} else {
+		case constant.AnnotateColumnAdd, constant.AnnotateSignatureAdd:
+			addEvents = append(addEvents, event)
+		case constant.AnnotateColumnUpdate, constant.AnnotateSignatureUpdate, constant.SettingsUpdate, constant.AnnotateSignatureInvite, constant.AnnotateSignatureApprove, constant.AnnotateSignatureReject:
+			updateEvents = append(updateEvents, event)
+		case constant.AnnotateColumnRemove, constant.AnnotateSignatureRemove:
+			removeEvents = append(removeEvents, event)
+		default:
 			otherEvents = append(otherEvents, event)
 		}
 	}
 
-	events = append(otherEvents, tableUpdateEvents...)
+	// sort events by type such that the events are processed in the correct order
+	// sort events by making table update last since it involve updating file which is not transactional
+	events = slices.Clone(addEvents)
+	events = append(events, updateEvents...)
+	events = append(events, otherEvents...)
+	events = append(events, removeEvents...)
+	events = append(events, tableUpdateEvents...)
 
 	tx := pbc.app.Repository.DB.Begin()
 	defer tx.Commit()
