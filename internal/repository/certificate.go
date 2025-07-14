@@ -59,16 +59,16 @@ func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB
 	var certificateZip model.Certificate
 	total := int64(0)
 
-	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(map[string]interface{}{
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(map[string]any{
 		"project_id": projectId,
 		"type":       autocert.CertificateTypeNormal,
 	}).Count(&total).Error; err != nil {
 		return &certificates, &certificateMerged, &certificateZip, total, err
 	}
 
-	query := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
-		ProjectID: projectId,
-		Type:      autocert.CertificateTypeNormal,
+	query := db.WithContext(ctx).Model(&model.Certificate{}).Where(map[string]any{
+		"project_id": projectId,
+		"type":       autocert.CertificateTypeNormal,
 	}).Preload("CertificateFile").Order("number asc")
 
 	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&certificates).Error; err != nil {
