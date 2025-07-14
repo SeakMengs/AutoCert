@@ -5,6 +5,7 @@ import (
 
 	constant "github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/model"
+	"github.com/SeakMengs/AutoCert/pkg/autocert"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -45,7 +46,8 @@ func (cr CertificateRepository) CreateMany(ctx context.Context, tx *gorm.DB, cer
 	return certificates, nil
 }
 
-func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB, projectId string) (*[]model.Certificate, error) {
+// Return certificates, merged certificate, zip certificate, and total count
+func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB, projectId string, page, pageSize uint) (*[]model.Certificate, *model.Certificate, *model.Certificate, int64, error) {
 	plr.logger.Debugf("Get certificates by project id: %s", projectId)
 
 	db := plr.getDB(tx)
@@ -53,13 +55,45 @@ func (plr CertificateRepository) GetByProjectId(ctx context.Context, tx *gorm.DB
 	defer cancel()
 
 	var certificates []model.Certificate
-	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
-		ProjectID: projectId,
-	}).Preload("CertificateFile").Order("number asc").Find(&certificates).Error; err != nil {
-		return &certificates, err
+	var certificateMerged model.Certificate
+	var certificateZip model.Certificate
+	total := int64(0)
+
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(map[string]interface{}{
+		"project_id": projectId,
+		"type":       autocert.CertificateTypeNormal,
+	}).Count(&total).Error; err != nil {
+		return &certificates, &certificateMerged, &certificateZip, total, err
 	}
 
-	return &certificates, nil
+	query := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
+		ProjectID: projectId,
+		Type:      autocert.CertificateTypeNormal,
+	}).Preload("CertificateFile").Order("number asc")
+
+	if err := query.Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Find(&certificates).Error; err != nil {
+		return &certificates, &certificateMerged, &certificateZip, total, err
+	}
+
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
+		ProjectID: projectId,
+		Type:      autocert.CertificateTypeMerged,
+	}).Preload("CertificateFile").First(&certificateMerged).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return &certificates, &certificateMerged, &certificateZip, total, err
+		}
+	}
+
+	if err := db.WithContext(ctx).Model(&model.Certificate{}).Where(model.Certificate{
+		ProjectID: projectId,
+		Type:      autocert.CertificateTypeZip,
+	}).Preload("CertificateFile").First(&certificateZip).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return &certificates, &certificateMerged, &certificateZip, total, err
+		}
+	}
+
+	return &certificates, &certificateMerged, &certificateZip, total, nil
 }
 
 func (plr CertificateRepository) GetByNumber(ctx context.Context, tx *gorm.DB, projectId string, number int) (*model.Certificate, error) {

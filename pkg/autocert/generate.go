@@ -545,6 +545,8 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 	}
 
 	if cg.Settings.ZipAfterGenerate {
+		zipNow := time.Now()
+
 		cg.updateProgress("Creating ZIP archive")
 		zipOut := filepath.Join(cg.OutputDir(), "certificates.zip")
 		err := ZipFiles(inFile, zipOut)
@@ -558,9 +560,13 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 			Type:     CertificateTypeZip,
 			ID:       uuid.NewString(),
 		})
+
+		cg.updateProgress(fmt.Sprintf("ZIP archive created in %s", time.Since(zipNow).Truncate(time.Second)))
 	}
 
 	if cg.Settings.MergeAfterGenerate {
+		mergeNow := time.Now()
+
 		cg.updateProgress("Merging PDF files")
 		mergeOut := filepath.Join(cg.OutputDir(), fmt.Sprintf(cg.OutFilePattern, "merged")+".pdf")
 		err := MergePdf(inFile, mergeOut)
@@ -574,6 +580,8 @@ func (cg *CertificateGenerator) aggregateResults(results <-chan generationResult
 			Type:     CertificateTypeMerged,
 			ID:       uuid.NewString(),
 		})
+
+		cg.updateProgress(fmt.Sprintf("PDF files merged in %s", time.Since(mergeNow).Truncate(time.Second)))
 	}
 
 	cg.updateProgress("Generation complete")
