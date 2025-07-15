@@ -218,7 +218,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	util.ResponseSuccess(ctx, nil)
 }
 
-// TODO: add rerturn error key and defer functionof each event handler
+// TODO: add rerturn error key and defer function, onError of each event handler
 type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error
 
 func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermission]EventHandlerType {

@@ -4,7 +4,7 @@ services:
             context: .
             dockerfile: ./Dockerfile
         volumes:
-            # Important to bind/mount your codebase dir to /app dir for live reload
+            # Important to bind/mount codebase dir to /app dir for live reload
             - ./:/app
         ports:
             - 8080:8080
@@ -13,32 +13,35 @@ services:
         depends_on:
             - psql-db
             - rabbitmq
+        command: ["air", "-c", ".air.toml"]
     autocert-cert-worker:
         build:
             context: .
-            dockerfile: ./Dockerfile.cert_consumer
+            dockerfile: ./Dockerfile
         volumes:
-            # Important to bind/mount your codebase dir to /worker dir for live reload
-            - ./:/cert_worker
+            # Important to bind/mount codebase dir to /worker dir for live reload
+            - ./:/app
         environment:
             DB_HOST: psql-db
             RABBITMQ_HOST: rabbitmq
         depends_on:
             - psql-db
             - rabbitmq
+        command: ["go", "run", "./cmd/cert_consumer"]
     autocert-mail-worker:
         build:
             context: .
-            dockerfile: ./Dockerfile.mail_consumer
+            dockerfile: ./Dockerfile
         volumes:
-            # Important to bind/mount your codebase dir to /worker dir for live reload
-            - ./:/mail_worker
+            # Important to bind/mount codebase dir to /worker dir for live reload
+            - ./:/app
         environment:
             DB_HOST: psql-db
             RABBITMQ_HOST: rabbitmq
         depends_on:
             - psql-db
             - rabbitmq
+        command: ["go", "run", "./cmd/mail_consumer"]
     psql-db:
         image: postgres
         environment:
@@ -53,7 +56,7 @@ services:
             # Mount database data so that even if the container got deleted, the volume would still be there unless deleted by us
             - psql_db_data:/var/lib/postgresql/data
             # Uncomment below if you want to use an initialization script
-            # - "./<your_sql_file_name_here>.sql:/docker-entrypoint-initdb.d/1.sql"
+            # - "./_sql_file_name_here>.sql:/docker-entrypoint-initdb.d/1.sql"
     # Service name should be use '-' instead of '_'
     # See: https://github.com/minio/minio/issues/15006#issuecomment-1141639468
     s3-minio:
