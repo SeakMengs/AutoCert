@@ -243,7 +243,7 @@ func (cc CertificateController) GetGeneratedCertificateById(ctx *gin.Context) {
 		"id":             certificate.ID,
 		"certificateUrl": url,
 		"number":         certificate.Number,
-		"issuer":         certificate.Project.User.FirstName + " " + certificate.Project.User.LastName,
+		"issuer":         certificate.Project.User.LastName,
 		"issuedAt":       certificate.CreatedAt.String(),
 		"projectTitle":   certificate.Project.Title,
 	})

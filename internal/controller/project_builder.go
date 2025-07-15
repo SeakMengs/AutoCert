@@ -523,7 +523,7 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 		mailData, err := queue.NewSignatureRequestInvitationMailJob(annot.Email,
 			mailer.SignatureRequestInvitationData{
 				RecipientName:           recipientName,
-				InviterName:             fmt.Sprintf("%s %s (%s)", user.FirstName, user.LastName, user.Email),
+				InviterName:             fmt.Sprintf("%s (%s)", user.LastName, user.Email),
 				CertificateProjectTitle: project.Title,
 				SigningURL:              fmt.Sprintf("%s/dashboard/projects/%s/builder", pbc.app.Config.FRONTEND_URL, project.ID),
 				APP_NAME:                util.GetAppName(),

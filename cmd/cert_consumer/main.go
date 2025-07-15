@@ -328,7 +328,7 @@ func generateCertificates(project *model.Project, templatePath, csvPath string, 
 	generatedResults, err := cg.Generate()
 
 	if err != nil {
-		app.Logger.Error("failed to generate certificate", err)
+		app.Logger.Errorf("failed to generate certificate: %w", err)
 		return nil, cg.OutputDir(), 0, 0, fmt.Errorf("failed to generate certificate: %w", err)
 	}
 

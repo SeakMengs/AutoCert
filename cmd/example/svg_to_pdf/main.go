@@ -8,9 +8,9 @@ import (
 )
 
 func main() {
-	input := "autocert_tmp/smallw_sign.svg"
+	input := "autocert_tmp/image.svg"
 	output := "autocert_tmp/smallw_sign_resized.pdf"
-	w, h := 59.98, 593.1
+	w, h := 135.2, 74.1
 	// w, h := 132.983, 593.1
 	// w, h := 50.983, 30.1
 	err := autocert.SvgToPdf(input, output, w, h)
