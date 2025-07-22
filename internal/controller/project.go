@@ -46,6 +46,18 @@ func (pc ProjectController) CreateProject(ctx *gin.Context) {
 		return
 	}
 
+	userRole := []constant.ProjectRole{constant.ProjectRoleOwner}
+
+	if !util.HasRole(user.Email, userRole, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, userRole); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
+		return
+	}
+
 	err = ctx.ShouldBind(&body)
 	if err != nil {
 		pc.app.Logger.Error(err)
@@ -172,24 +184,6 @@ const (
 	ErrProjectNotFound   = "project not found"
 )
 
-func (pc ProjectController) GetProjectRole(ctx *gin.Context) {
-	projectId := ctx.Params.ByName("projectId")
-	if projectId == "" {
-		util.ResponseFailed(ctx, http.StatusBadRequest, "Project id is required", util.GenerateErrorMessages(errors.New(ErrProjectIdRequired), "projectId"), nil)
-		return
-	}
-
-	roles, _, err := pc.getProjectRole(ctx, projectId)
-	if err != nil {
-		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
-		return
-	}
-
-	util.ResponseSuccess(ctx, gin.H{
-		"roles": roles,
-	})
-}
-
 func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 	type SignatureAnnotate struct {
 		model.SignatureAnnotate
@@ -220,7 +214,7 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := pc.getProjectRole(ctx, projectId)
+	user, roles, project, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -231,8 +225,13 @@ func (pc ProjectController) GetProjectById(ctx *gin.Context) {
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 
@@ -412,7 +411,6 @@ func (pc ProjectController) GetSignatoryProjectList(ctx *gin.Context) {
 	})
 }
 
-// TODO: refactor and cleanup
 // TODO: handle remove signature file
 // TODO: handle empty annotates
 func (pc ProjectController) Generate(ctx *gin.Context) {
@@ -428,7 +426,7 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := pc.getProjectRole(ctx, projectId)
+	user, roles, project, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -439,8 +437,13 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 
@@ -449,10 +452,10 @@ func (pc ProjectController) Generate(ctx *gin.Context) {
 		return
 	}
 
-	// if len(project.SignatureAnnotates) == 0 && len(project.ColumnAnnotates) == 0 {
-	// 	util.ResponseFailed(ctx, http.StatusBadRequest, "Project must have at least one signature or column annotate", util.GenerateErrorMessages(errors.New("project must have at least one signature or column annotate"), "noAnnotate"), nil)
-	// 	return
-	// }
+	if len(project.SignatureAnnotates) == 0 && len(project.ColumnAnnotates) == 0 {
+		util.ResponseFailed(ctx, http.StatusBadRequest, "Project must have at least one signature or column annotate", util.GenerateErrorMessages(errors.New("project must have at least one signature or column annotate"), "noAnnotate"), nil)
+		return
+	}
 
 	tx := pc.app.Repository.DB.Begin()
 	defer tx.Commit()
@@ -527,7 +530,7 @@ func (pc ProjectController) UpdateProjectVisibility(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := pc.getProjectRole(ctx, projectId)
+	user, roles, project, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -538,8 +541,13 @@ func (pc ProjectController) UpdateProjectVisibility(ctx *gin.Context) {
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 
@@ -559,7 +567,7 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := pc.getProjectRole(ctx, projectId)
+	user, roles, project, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -570,8 +578,13 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 
@@ -582,7 +595,7 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 
 	sent := 0
 
-	// Stream status, update ever 2 seconds, if status is not processing, close the stream.
+	// Stream status, update ever 2 seconds
 	ctx.Stream(func(w io.Writer) bool {
 		status, err := pc.app.Repository.Project.GetProjectStatus(ctx, nil, projectId)
 		if err != nil {
@@ -602,15 +615,6 @@ func (pc ProjectController) ProjectStatusSSE(ctx *gin.Context) {
 			return true
 		}
 
-		// if status != constant.ProjectStatusProcessing {
-		// 	// If status is not processing, close the stream
-		// 	ctx.SSEvent("status", gin.H{
-		// 		"status": status,
-		// 	})
-		// 	return false
-		// }
-
-		// If status is processing, send the status every 2 seconds
 		ctx.SSEvent("status", gin.H{
 			"status": status,
 		})
@@ -632,7 +636,7 @@ func (pc ProjectController) DeleteProject(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := pc.getProjectRole(ctx, projectId)
+	user, roles, project, err := pc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -643,8 +647,13 @@ func (pc ProjectController) DeleteProject(ctx *gin.Context) {
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), "forbidden"), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 

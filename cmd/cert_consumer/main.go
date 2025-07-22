@@ -207,7 +207,7 @@ func validateUserAndProject(ctx context.Context, jobPayload queue.CertificateGen
 		return nil, nil, nil, false, errors.New("project not found")
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner}) {
 		app.Logger.Warnf("User %s does not have permission to generate certificates for project %s", user.Email, project.ID)
 		return nil, nil, nil, false, errors.New("user does not have permission to generate certificates for this project")
 	}

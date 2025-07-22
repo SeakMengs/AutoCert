@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SeakMengs/AutoCert/internal/auth"
 	"github.com/SeakMengs/AutoCert/internal/constant"
 	"github.com/SeakMengs/AutoCert/internal/mailer"
 	"github.com/SeakMengs/AutoCert/internal/model"
@@ -122,7 +123,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := pbc.getProjectRole(ctx, projectId)
+	user, roles, project, err := pbc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project role", util.GenerateErrorMessages(err), nil)
 		return
@@ -192,6 +193,8 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	}()
 
 	handlers := pbc.getEventHandlers()
+	var onCompleteFuncs []func()
+	var onErrorFuncs []func()
 
 	for idx, event := range events {
 		pbc.app.Logger.Debugf("Processing event #%d, type %s", idx+1, event.Type)
@@ -202,11 +205,41 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 			continue
 		}
 
-		if err := handler(ctx, tx, roles, project, event.Data); err != nil {
+		errorKey, onComplete, onError, err := handler(ctx, tx, user, roles, project, event.Data)
+		if err != nil {
 			tx.Rollback()
+			// Execute all onError functions for previous events
+			for _, onErrorFunc := range onErrorFuncs {
+				if onErrorFunc != nil {
+					onErrorFunc()
+				}
+			}
+			// Execute current event's onError function
+			if onError != nil {
+				onError()
+			}
 			pbc.app.Logger.Errorf("Failed to handle event %s: %v", event.Type, err)
-			util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(err, nil, "events"), nil)
+			errorMessage := err.Error()
+			if errorKey != "" {
+				errorMessage = errorKey
+			}
+			util.ResponseFailed(ctx, http.StatusBadRequest, ErrFailedToUpdateProjectBuilder, util.GenerateErrorMessages(errors.New(errorMessage), nil, "events"), nil)
 			return
+		}
+
+		// Store onComplete and onError functions for later execution
+		if onComplete != nil {
+			onCompleteFuncs = append(onCompleteFuncs, onComplete)
+		}
+		if onError != nil {
+			onErrorFuncs = append(onErrorFuncs, onError)
+		}
+	}
+
+	// Execute all onComplete functions after successful transaction
+	for _, onCompleteFunc := range onCompleteFuncs {
+		if onCompleteFunc != nil {
+			onCompleteFunc()
 		}
 	}
 
@@ -218,8 +251,9 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	util.ResponseSuccess(ctx, nil)
 }
 
-// TODO: add rerturn error key and defer function, onError of each event handler
-type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error
+// return error key and defer function, onError of each event handler
+// error key will be used in error response such that frontend can translate specific known error message
+type EventHandlerType func(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error)
 
 func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermission]EventHandlerType {
 	return map[constant.ProjectPermission]EventHandlerType{
@@ -237,15 +271,15 @@ func (pbc ProjectBuilderController) getEventHandlers() map[constant.ProjectPermi
 	}
 }
 
-func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateColumnAdd
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateColumnAdd")
+		return "invalid_payload_annotate_column_add", nil, nil, errors.New("invalid payload for AnnotateColumnAdd")
 	}
 	pbc.app.Logger.Debugf("AnnotateColumnAdd: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateColumnAdd}) {
-		return errors.New("you do not have permission to add column annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateColumnAdd}) {
+		return "permission_denied_annotate_column_add", nil, nil, errors.New("you do not have permission to add column annotate")
 	}
 
 	err := pbc.app.Repository.ColumnAnnotate.Create(ctx, tx, &model.ColumnAnnotate{
@@ -269,21 +303,21 @@ func (pbc ProjectBuilderController) handleAnnotateColumnAdd(ctx *gin.Context, tx
 		TextFitRectBox: payload.TextFitRectBox,
 	})
 	if err != nil {
-		return errors.New("failed to add column annotate")
+		return "failed_to_add_column_annotate", nil, nil, errors.New("failed to add column annotate")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateColumnUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateColumnUpdate")
+		return "invalid_payload_annotate_column_update", nil, nil, errors.New("invalid payload for AnnotateColumnUpdate")
 	}
 	pbc.app.Logger.Debugf("AnnotateColumnUpdate: %+v \n", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateColumnUpdate}) {
-		return errors.New("you do not have permission to update column annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateColumnUpdate}) {
+		return "permission_denied_annotate_column_update", nil, nil, errors.New("you do not have permission to update column annotate")
 	}
 
 	err := pbc.app.Repository.ColumnAnnotate.Update(ctx, tx, map[string]any{
@@ -303,40 +337,40 @@ func (pbc ProjectBuilderController) handleAnnotateColumnUpdate(ctx *gin.Context,
 		"text_fit_rect_box": payload.TextFitRectBox,
 	})
 	if err != nil {
-		return errors.New("failed to update column annotate")
+		return "failed_to_update_column_annotate", nil, nil, errors.New("failed to update column annotate")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateColumnRemove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateColumnRemove(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateColumnRemove
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateColumnRemove")
+		return "invalid_payload_annotate_column_remove", nil, nil, errors.New("invalid payload for AnnotateColumnRemove")
 	}
 	pbc.app.Logger.Debugf("AnnotateColumnRemove: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateColumnRemove}) {
-		return errors.New("you do not have permission to remove column annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateColumnRemove}) {
+		return "permission_denied_annotate_column_remove", nil, nil, errors.New("you do not have permission to remove column annotate")
 	}
 
 	err := pbc.app.Repository.ColumnAnnotate.Delete(ctx, tx, payload.ID)
 	if err != nil {
-		return errors.New("failed to remove column annotate")
+		return "failed_to_remove_column_annotate", nil, nil, errors.New("failed to remove column annotate")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateSignatureAdd
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateSignatureAdd")
+		return "invalid_payload_annotate_signature_add", nil, nil, errors.New("invalid payload for AnnotateSignatureAdd")
 	}
 	pbc.app.Logger.Debugf("AnnotateSignatureAdd: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureAdd}) {
-		return errors.New("you do not have permission to add signature annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateSignatureAdd}) {
+		return "permission_denied_annotate_signature_add", nil, nil, errors.New("you do not have permission to add signature annotate")
 	}
 
 	err := pbc.app.Repository.SignatureAnnotate.Create(ctx, tx, &model.SignatureAnnotate{
@@ -356,30 +390,30 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureAdd(ctx *gin.Context,
 		Email:  payload.Email,
 	})
 	if err != nil {
-		return errors.New("failed to add signature annotate")
+		return "failed_to_add_signature_annotate", nil, nil, errors.New("failed to add signature annotate")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	pbc.app.Logger.Infof("Paylod json : %s", string(data))
 	var payload AnnotateSignatureUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateSignatureUpdate")
+		return "invalid_payload_annotate_signature_update", nil, nil, errors.New("invalid payload for AnnotateSignatureUpdate")
 	}
 	pbc.app.Logger.Debugf("AnnotateSignatureUpdate: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureUpdate}) {
-		return errors.New("you do not have permission to update signature annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateSignatureUpdate}) {
+		return "permission_denied_annotate_signature_update", nil, nil, errors.New("you do not have permission to update signature annotate")
 	}
 
 	annot, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, tx, payload.ID, project.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("signature annotate not found")
+			return "signature_annotate_not_found", nil, nil, errors.New("signature annotate not found")
 		}
-		return errors.New("failed to get signature annotate")
+		return "failed_to_get_signature_annotate", nil, nil, errors.New("failed to get signature annotate")
 	}
 
 	err = pbc.app.Repository.SignatureAnnotate.Update(ctx, tx, map[string]any{
@@ -393,13 +427,9 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Conte
 		"project_id": project.ID,
 	})
 	if err != nil {
-		return errors.New("failed to update signature annotate")
+		return "failed_to_update_signature_annotate", nil, nil, errors.New("failed to update signature annotate")
 	}
 
-	user, err := pbc.getAuthUser(ctx)
-	if err != nil {
-		return errors.New("failed to get authenticated user")
-	}
 	err = pbc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
 		Role:      user.Email,
 		ProjectID: project.ID,
@@ -412,40 +442,36 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureUpdate(ctx *gin.Conte
 	})
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
-		return errors.New("failed to log project activity")
+		return "failed_to_log_project_activity", nil, nil, errors.New("failed to log project activity")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateSignatureRemove
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateSignatureRemove")
+		return "invalid_payload_annotate_signature_remove", nil, nil, errors.New("invalid payload for AnnotateSignatureRemove")
 	}
 	pbc.app.Logger.Debugf("AnnotateSignatureRemove: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureRemove}) {
-		return errors.New("you do not have permission to remove signature annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateSignatureRemove}) {
+		return "permission_denied_annotate_signature_remove", nil, nil, errors.New("you do not have permission to remove signature annotate")
 	}
 
 	annot, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, tx, payload.ID, project.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("signature annotate not found")
+			return "signature_annotate_not_found", nil, nil, errors.New("signature annotate not found")
 		}
-		return errors.New("failed to get signature annotate")
+		return "failed_to_get_signature_annotate", nil, nil, errors.New("failed to get signature annotate")
 	}
 
 	err = pbc.app.Repository.SignatureAnnotate.Delete(ctx, tx, payload.ID)
 	if err != nil {
-		return errors.New("failed to remove signature annotate")
+		return "failed_to_remove_signature_annotate", nil, nil, errors.New("failed to remove signature annotate")
 	}
 
-	user, err := pbc.getAuthUser(ctx)
-	if err != nil {
-		return errors.New("failed to get authenticated user")
-	}
 	err = pbc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
 		Role:      user.Email,
 		ProjectID: project.ID,
@@ -458,45 +484,44 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureRemove(ctx *gin.Conte
 	})
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
-		return errors.New("failed to log project activity")
+		return "failed_to_log_project_activity", nil, nil, errors.New("failed to log project activity")
 	}
 
-	// TODO: remove signature file if exist
+	onComplete := func() {
+		if annot.SignatureFile.UniqueFileName != "" {
+			annot.SignatureFile.Delete(ctx, pbc.app.S3)
+		}
+	}
 
-	return nil
+	return "", onComplete, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateSignatureInvite
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateSignatureInvite")
+		return "invalid_payload_annotate_signature_invite", nil, nil, errors.New("invalid payload for AnnotateSignatureInvite")
 	}
 	pbc.app.Logger.Debugf("AnnotateSignatureInvite: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureInvite}) {
-		return errors.New("you do not have permission to invite signature annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateSignatureInvite}) {
+		return "permission_denied_annotate_signature_invite", nil, nil, errors.New("you do not have permission to invite signature annotate")
 	}
 
 	annot, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, tx, payload.ID, project.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("signature annotate not found")
+			return "signature_annotate_not_found", nil, nil, errors.New("signature annotate not found")
 		}
-		return errors.New("failed to get signature annotate")
+		return "failed_to_get_signature_annotate", nil, nil, errors.New("failed to get signature annotate")
 	}
 
 	if annot.Status != constant.SignatoryStatusNotInvited {
-		return errors.New("signature annotate is not in the correct status to invite signatory")
+		return "invalid_signature_status_for_invite", nil, nil, errors.New("signature annotate is not in the correct status to invite signatory")
 	}
 
 	err = pbc.app.Repository.SignatureAnnotate.InviteSignatory(ctx, tx, payload.ID)
 	if err != nil {
-		return errors.New("failed to invite signatory")
-	}
-
-	user, err := pbc.getAuthUser(ctx)
-	if err != nil {
-		return errors.New("failed to get authenticated user")
+		return "failed_to_invite_signatory", nil, nil, errors.New("failed to invite signatory")
 	}
 
 	err = pbc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
@@ -511,8 +536,10 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 	})
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
-		return errors.New("failed to log project activity")
+		return "failed_to_log_project_activity", nil, nil, errors.New("failed to log project activity")
 	}
+
+	var mailJobPayload []byte
 
 	if payload.SendMail {
 		recipientName := annot.Email
@@ -533,53 +560,53 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureInvite(ctx *gin.Conte
 			})
 		if err != nil {
 			pbc.app.Logger.Errorf("Failed to create signature request invitation mail job: %v", err)
-			return errors.New("failed to create signature request invitation mail job")
+			return "failed_to_create_mail_job", nil, nil, errors.New("failed to create signature request invitation mail job")
 		}
 
 		payloadBytes, err := json.Marshal(mailData)
 		if err != nil {
 			pbc.app.Logger.Errorf("Failed to marshal signature request invitation mail job payload: %v", err)
-			return errors.New("failed to create signature request invitation mail job")
+			return "failed_to_marshal_mail_job", nil, nil, errors.New("failed to create signature request invitation mail job")
 		}
 
-		if err := pbc.app.Queue.Publish(queue.QueueMail, payloadBytes); err != nil {
-			pbc.app.Logger.Errorf("Failed to publish signature request invitation mail job: %v", err)
-			return errors.New("failed to create signature request invitation mail job")
-		}
+		mailJobPayload = payloadBytes
 	} else {
 		pbc.app.Logger.Debugf("Skip sending mail for signature invite for signature id: %s and project id: %s because SendMail is false", annot.ID, project.ID)
 	}
 
-	return nil
+	onComplete := func() {
+		if payload.SendMail && len(mailJobPayload) > 0 {
+			if err := pbc.app.Queue.Publish(queue.QueueMail, mailJobPayload); err != nil {
+				pbc.app.Logger.Errorf("Failed to publish signature request invitation mail job: %v", err)
+			}
+		}
+	}
+
+	return "", onComplete, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureReject(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureReject(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateSignatureReject
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateSignatureReject")
+		return "invalid_payload_annotate_signature_reject", nil, nil, errors.New("invalid payload for AnnotateSignatureReject")
 	}
 	pbc.app.Logger.Debugf("AnnotateSignatureReject: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureReject}) {
-		return errors.New("you do not have permission to reject signature annotate")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateSignatureReject}) {
+		return "permission_denied_annotate_signature_reject", nil, nil, errors.New("you do not have permission to reject signature annotate")
 	}
 
 	annot, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, tx, payload.ID, project.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("signature annotate not found")
+			return "signature_annotate_not_found", nil, nil, errors.New("signature annotate not found")
 		}
-		return errors.New("failed to get signature annotate")
+		return "failed_to_get_signature_annotate", nil, nil, errors.New("failed to get signature annotate")
 	}
 
 	err = pbc.app.Repository.SignatureAnnotate.RejectSignature(ctx, tx, payload.ID, payload.Reason)
 	if err != nil {
-		return errors.New("failed to reject signatory")
-	}
-
-	user, err := pbc.getAuthUser(ctx)
-	if err != nil {
-		return errors.New("failed to get authenticated user")
+		return "failed_to_reject_signatory", nil, nil, errors.New("failed to reject signatory")
 	}
 
 	var description string
@@ -604,56 +631,56 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureReject(ctx *gin.Conte
 	})
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
-		return errors.New("failed to log project activity")
+		return "failed_to_log_project_activity", nil, nil, errors.New("failed to log project activity")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleSettingsUpdate(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload SettingsUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for SettingsUpdate")
+		return "invalid_payload_settings_update", nil, nil, errors.New("invalid payload for SettingsUpdate")
 	}
 	pbc.app.Logger.Debugf("SettingsUpdate: %+v", payload)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.SettingsUpdate}) {
-		return errors.New("you do not have permission to update settings")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.SettingsUpdate}) {
+		return "permission_denied_settings_update", nil, nil, errors.New("you do not have permission to update settings")
 	}
 
 	err := pbc.app.Repository.Project.UpdateSetting(ctx, tx, project.ID, payload.QrCodeEnabled)
 	if err != nil {
-		return errors.New("failed to update project settings")
+		return "failed_to_update_project_settings", nil, nil, errors.New("failed to update project settings")
 	}
 
-	return nil
+	return "", nil, nil, nil
 }
 
-func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload TableUpdate
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for TableUpdate")
+		return "invalid_payload_table_update", nil, nil, errors.New("invalid payload for TableUpdate")
 	}
 
 	file, err := ctx.FormFile("csvFile")
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to get csv file: %v", err)
-		return errors.New("failed to get csv file")
+		return "failed_to_get_csv_file", nil, nil, errors.New("failed to get csv file")
 	}
 	if file == nil {
-		return errors.New("csv file is required")
+		return "csv_file_required", nil, nil, errors.New("csv file is required")
 	}
 	payload.CSVFile = file
 
 	pbc.app.Logger.Debugf("TableUpdate: %+v", payload.CSVFile.Filename)
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.TableUpdate}) {
-		return errors.New("you do not have permission to update table")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.TableUpdate}) {
+		return "permission_denied_table_update", nil, nil, errors.New("you do not have permission to update table")
 	}
 
 	f, err := payload.CSVFile.Open()
 	if err != nil {
-		return errors.New("failed to open csv file")
+		return "failed_to_open_csv_file", nil, nil, errors.New("failed to open csv file")
 	}
 	defer f.Close()
 
@@ -661,7 +688,7 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 	tmp, err := util.CreateTemp("autocert-*.csv")
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to create temp file: %v", err)
-		return fmt.Errorf("failed to save table data")
+		return "failed_to_save_table_data", nil, nil, fmt.Errorf("failed to save table data")
 	}
 	defer func() {
 		tmp.Close()
@@ -670,26 +697,26 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 
 	if _, err := io.Copy(tmp, f); err != nil {
 		pbc.app.Logger.Errorf("Failed to copy file: %v", err)
-		return fmt.Errorf("failed to save table data")
+		return "failed_to_save_table_data", nil, nil, fmt.Errorf("failed to save table data")
 	}
 	if err := tmp.Close(); err != nil {
 		pbc.app.Logger.Errorf("Failed to close temp file: %v", err)
-		return fmt.Errorf("failed to save table data")
+		return "failed_to_save_table_data", nil, nil, fmt.Errorf("failed to save table data")
 	}
 
 	records, err := autocert.ReadCSVFromFile(tmp.Name())
 	if err != nil {
-		return errors.New("invalid csv file")
+		return "invalid_csv_file", nil, nil, errors.New("invalid csv file")
 	}
 	csvData, err := autocert.ParseCSVToMap(records)
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to parse csv file: %v", err)
-		return errors.New("invalid csv file")
+		return "invalid_csv_file", nil, nil, errors.New("invalid csv file")
 	}
 
 	if len(csvData) > pbc.app.Config.APP.MAX_CERTIFICATES_PER_PROJECT {
 		pbc.app.Logger.Warnf("CSV file exceeds maximum number of certificates: %d", len(csvData))
-		return fmt.Errorf("csv file exceeds maximum number of certificates: %d", pbc.app.Config.APP.MAX_CERTIFICATES_PER_PROJECT)
+		return "csv_file_too_large", nil, nil, fmt.Errorf("csv file exceeds maximum number of certificates: %d", pbc.app.Config.APP.MAX_CERTIFICATES_PER_PROJECT)
 	}
 
 	info, err := util.UploadFileToS3ByPath(tmp.Name(), &util.FileUploadOptions{
@@ -700,7 +727,13 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 	})
 	if err != nil {
 		pbc.app.Logger.Warnf("Failed to upload csv file: %v", err)
-		return errors.New("failed to upload csv file")
+		return "failed_to_upload_csv_file", nil, nil, errors.New("failed to upload csv file")
+	}
+
+	onError := func() {
+		if deleteErr := pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); deleteErr != nil {
+			pbc.app.Logger.Errorf("Failed to cleanup uploaded csv file on error: %v", deleteErr)
+		}
 	}
 
 	err = pbc.app.Repository.Project.UpdateCSVFile(ctx, tx, *project, &model.File{
@@ -710,61 +743,53 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 		Size:           info.Size,
 	})
 	if err != nil {
-		pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{})
-
 		pbc.app.Logger.Warnf("Failed to update project table: %v", err)
-		return errors.New("failed to update project table")
+		return "failed_to_update_project_table", nil, onError, errors.New("failed to update project table")
 	}
 
-	return nil
+	return "", nil, onError, nil
 }
 
-func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Context, tx *gorm.DB, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) error {
+func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
 	var payload AnnotateSignatureApprove
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return errors.New("invalid payload for AnnotateSignatureApprove")
+		return "invalid_payload_annotate_signature_approve", nil, nil, errors.New("invalid payload for AnnotateSignatureApprove")
 	}
 
 	sigFile, err := ctx.FormFile(fmt.Sprintf("signature_approve_file_%s", payload.ID))
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to approve signature: cannot get signature file for annotate id %s: %v", payload.ID, err)
-		return fmt.Errorf("failed to get signature file for annotate id %s", payload.ID)
+		return "failed_to_get_signature_file", nil, nil, fmt.Errorf("failed to get signature file for annotate id %s", payload.ID)
 	}
 
 	if sigFile == nil {
-		return errors.New("signature file is required")
+		return "signature_file_required", nil, nil, errors.New("signature file is required")
 	}
 
 	ext := filepath.Ext(sigFile.Filename)
 	if !slices.Contains(ALLOWED_SIGNATURE_FILE_TYPE, ext) {
 		pbc.app.Logger.Errorf("Failed to approve signature: invalid file type %s", ext)
-		return errors.New("invalid file type")
+		return "invalid_file_type", nil, nil, errors.New("invalid file type")
 	}
 
-	if !util.HasPermission(roles, []constant.ProjectPermission{constant.AnnotateSignatureApprove}) {
-		return errors.New("you do not have permission to approve signature")
-	}
-
-	user, err := pbc.getAuthUser(ctx)
-	if err != nil {
-		pbc.app.Logger.Errorf("Failed to get auth user: %v", err)
-		return errors.New("failed to get authenticated user")
+	if !util.HasPermission(user.Email, roles, []constant.ProjectPermission{constant.AnnotateSignatureApprove}) {
+		return "permission_denied_annotate_signature_approve", nil, nil, errors.New("you do not have permission to approve signature")
 	}
 
 	sa, err := pbc.app.Repository.SignatureAnnotate.GetById(ctx, nil, payload.ID, project.ID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("annotate signature not found")
+			return "annotate_signature_not_found", nil, nil, errors.New("annotate signature not found")
 		}
-		return errors.New("failed to get signature annotate")
+		return "failed_to_get_signature_annotate", nil, nil, errors.New("failed to get signature annotate")
 	}
 
 	if !strings.EqualFold(sa.Email, user.Email) {
-		return errors.New("the signature cannot be approved because it is not assigned to you")
+		return "signature_not_assigned_to_user", nil, nil, errors.New("the signature cannot be approved because it is not assigned to you")
 	}
 
 	if sa.Status != constant.SignatoryStatusInvited {
-		return errors.New("the signature cannot be approved because it is not in the invited status")
+		return "invalid_signature_status_for_approve", nil, nil, errors.New("the signature cannot be approved because it is not in the invited status")
 	}
 
 	info, err := util.UploadFileToS3ByFileHeader(sigFile, &util.FileUploadOptions{
@@ -774,7 +799,13 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Cont
 		S3:            pbc.app.S3,
 	})
 	if err != nil {
-		return errors.New("failed to upload signature file")
+		return "failed_to_upload_signature_file", nil, nil, errors.New("failed to upload signature file")
+	}
+
+	onError := func() {
+		if deleteErr := pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); deleteErr != nil {
+			pbc.app.Logger.Errorf("Failed to delete file after signature approval failure: %v", deleteErr)
+		}
 	}
 
 	err = pbc.app.Repository.SignatureAnnotate.ApproveSignature(ctx, tx, payload.ID, &model.File{
@@ -784,10 +815,7 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Cont
 		Size:           info.Size,
 	})
 	if err != nil {
-		if deleteErr := pbc.app.S3.RemoveObject(ctx, info.Bucket, info.Key, minio.RemoveObjectOptions{}); deleteErr != nil {
-			pbc.app.Logger.Errorf("Failed to delete file after approval failure: %v", deleteErr)
-		}
-		return errors.New("failed to approve signature")
+		return "failed_to_approve_signature", nil, onError, errors.New("failed to approve signature")
 	}
 
 	err = pbc.app.Repository.ProjectLog.Save(ctx, tx, &model.ProjectLog{
@@ -802,8 +830,8 @@ func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Cont
 	})
 	if err != nil {
 		pbc.app.Logger.Errorf("Failed to save project log: %v", err)
-		return errors.New("failed to log project activity")
+		return "failed_to_log_project_activity", nil, onError, errors.New("failed to log project activity")
 	}
 
-	return nil
+	return "", nil, onError, nil
 }

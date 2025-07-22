@@ -23,6 +23,4 @@ const (
 	AnnotateSignatureReject  ProjectPermission = "annotate:signature:reject"
 	SettingsUpdate           ProjectPermission = "settings:update"
 	TableUpdate              ProjectPermission = "table:update"
-
-	// For other
 )

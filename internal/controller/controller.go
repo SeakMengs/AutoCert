@@ -78,16 +78,16 @@ func (b *baseController) getAuthUser(ctx *gin.Context) (*auth.JWTPayload, error)
 	return authUser, nil
 }
 
-func (b *baseController) getProjectRole(ctx *gin.Context, projectId string) ([]constant.ProjectRole, *model.Project, error) {
+func (b *baseController) getProjectRole(ctx *gin.Context, projectId string) (*auth.JWTPayload, []constant.ProjectRole, *model.Project, error) {
 	user, err := b.getAuthUser(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get auth user: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get auth user: %w", err)
 	}
 
-	role, project, err := b.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
+	roles, project, err := b.app.Repository.Project.GetRoleOfProject(ctx, nil, projectId, user)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get project role: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to get project role: %w", err)
 	}
 
-	return role, project, nil
+	return user, roles, project, nil
 }

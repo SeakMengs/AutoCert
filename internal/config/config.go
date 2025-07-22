@@ -22,6 +22,11 @@ type Config struct {
 
 type APPConfig struct {
 	MAX_CERTIFICATES_PER_PROJECT int
+	// Restrict full access to specific email domains.
+	// Set FULL_ACCESS_EMAIL_DOMAIN to limit full access to emails ending with this domain.
+	// Leave empty ("") to allow all emails full access.
+	// Emails outside this domain can only be project signatories.
+	FULL_ACCESS_EMAIL_DOMAIN string
 }
 
 type RateLimiterConfig struct {
@@ -94,6 +99,7 @@ func (rmqc RabbitMQConfig) GetConnectionString() string {
 func GetAppConfig() APPConfig {
 	return APPConfig{
 		MAX_CERTIFICATES_PER_PROJECT: env.GetInt("MAX_CERTIFICATES_PER_PROJECT", 1000),
+		FULL_ACCESS_EMAIL_DOMAIN:     env.GetString("FULL_ACCESS_EMAIL_DOMAIN", ""),
 	}
 }
 

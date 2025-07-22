@@ -31,7 +31,7 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 		return
 	}
 
-	roles, project, err := fc.getProjectRole(ctx, projectId)
+	user, roles, project, err := fc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -42,8 +42,13 @@ func (fc FileController) ServeProjectThumbnail(ctx *gin.Context) {
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project")), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 
@@ -101,7 +106,7 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 		return
 	}
 
-	roles, project, err := fc.getProjectRole(ctx, projectId)
+	user, roles, project, err := fc.getProjectRole(ctx, projectId)
 	if err != nil {
 		util.ResponseFailed(ctx, http.StatusInternalServerError, "Failed to get project roles", util.GenerateErrorMessages(err), nil)
 		return
@@ -112,8 +117,13 @@ func (fc FileController) ServeProjectCertificateNumberThumbnail(ctx *gin.Context
 		return
 	}
 
-	if !util.HasRole(roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
-		util.ResponseFailed(ctx, http.StatusForbidden, "You do not have permission to access this project", util.GenerateErrorMessages(errors.New("you do not have permission to access this project"), nil), nil)
+	if !util.HasRole(user.Email, roles, []constant.ProjectRole{constant.ProjectRoleOwner, constant.ProjectRoleSignatory}) {
+		if restricted, domain := util.IsRestrictedByEmailDomain(user.Email, roles); restricted {
+			util.ResponseRestrictDomain(ctx, domain)
+			return
+		}
+
+		util.ResponseNoPermission(ctx)
 		return
 	}
 
