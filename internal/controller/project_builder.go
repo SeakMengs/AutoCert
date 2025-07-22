@@ -205,7 +205,6 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 	events = append(events, tableUpdateEvents...)
 
 	tx := pbc.app.Repository.DB.Begin()
-	defer tx.Commit()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
@@ -213,6 +212,7 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 			return
 		}
 	}()
+	defer tx.Commit()
 
 	handlers := pbc.getEventHandlers()
 	var onCompleteFuncs []func()
@@ -260,11 +260,6 @@ func (pbc ProjectBuilderController) ProjectBuilder(ctx *gin.Context) {
 		if onCompleteFunc != nil {
 			onCompleteFunc()
 		}
-	}
-
-	// delete the existing csv file after transaction is committed
-	if len(tableUpdateEvents) > 0 && project.CSVFile.UniqueFileName != "" {
-		pbc.app.S3.RemoveObject(ctx, project.CSVFile.BucketName, project.CSVFile.UniqueFileName, minio.RemoveObjectOptions{})
 	}
 
 	util.ResponseSuccess(ctx, nil)
@@ -766,7 +761,16 @@ func (pbc ProjectBuilderController) handleTableUpdate(ctx *gin.Context, tx *gorm
 		return ErrKeyDatabaseError, nil, onError, errors.New("failed to update project table")
 	}
 
-	return "", nil, onError, nil
+	onComplete := func() {
+		// remove old project csv file if exists
+		if project.CSVFile.UniqueFileName != "" {
+			if err := project.CSVFile.Delete(ctx, pbc.app.S3); err != nil {
+				pbc.app.Logger.Errorf("Failed to delete old project csv file: %v", err)
+			}
+		}
+	}
+
+	return "", onComplete, onError, nil
 }
 
 func (pbc ProjectBuilderController) handleAnnotateSignatureApprove(ctx *gin.Context, tx *gorm.DB, user *auth.JWTPayload, roles []constant.ProjectRole, project *model.Project, data json.RawMessage) (string, func(), func(), error) {
