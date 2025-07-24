@@ -28,6 +28,7 @@ services:
             - psql-db
             - rabbitmq
         command: ["go", "run", "./cmd/cert_consumer"]
+        # command: ["air", "-c", ".air.cert_consumer.toml"]
     autocert-mail-worker:
         build:
             context: .
@@ -42,6 +43,7 @@ services:
             - psql-db
             - rabbitmq
         command: ["go", "run", "./cmd/mail_consumer"]
+        # command: ["air", "-c", ".air.mail_consumer.toml"]
     psql-db:
         image: postgres
         environment:

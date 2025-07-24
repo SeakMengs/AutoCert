@@ -9,7 +9,7 @@ func GetAppName() string {
 }
 
 func GetAppLogoURL(frontURL string) string {
-	return frontURL + "/logo.svg"
+	return frontURL + "/logo.png"
 }
 
 func DetermineWorkers(jobCount int) int {

@@ -37,7 +37,20 @@ func (oc OAuthController) ContinueWithGoogle(ctx *gin.Context) {
 		return
 	}
 
-	url := oc.googleOAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	// Accept 'source' param and store in state as JSON so callback can redirect to source page
+	source := ctx.Query("source")
+	stateObj := map[string]string{
+		"state":  state,
+		"source": source,
+	}
+	stateBytes, err := json.Marshal(stateObj)
+	if err != nil {
+		util.ResponseFailed(ctx, http.StatusInternalServerError, "", util.GenerateErrorMessages(err, nil), nil)
+		return
+	}
+	stateStr := string(stateBytes)
+
+	url := oc.googleOAuthConfig.AuthCodeURL(stateStr, oauth2.AccessTypeOffline)
 
 	oc.app.Logger.Infof("OAuth: Google, Redirect to: %s", url)
 	ctx.Redirect(http.StatusTemporaryRedirect, url)
