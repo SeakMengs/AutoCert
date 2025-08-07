@@ -8,7 +8,8 @@ import (
 
 func main() {
 	// pdfFilePath := "autocert_tmp/certificate_merged.pdf"
-	pdfFilePath := "autocert_tmp/signature.pdf"
+	// pdfFilePath := "autocert_tmp/signature.pdf"
+	pdfFilePath := "autocert_tmp/smallw_sign_resized.pdf"
 	outputDir := "autocert_tmp/tmp"
 	output, err := autocert.PdfToPngByPage(pdfFilePath, outputDir, "1")
 	if err != nil {

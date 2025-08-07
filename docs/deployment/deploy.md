@@ -59,6 +59,13 @@ Install PM2 process manager:
 npm install -g pm2
 ```
 
+Install depdencies:
+
+```bash
+sudo chmod +x scripts/*
+sudo ./scripts/setup_check.sh
+```
+
 ## Database Configuration
 
 ### 1. Install PostgreSQL

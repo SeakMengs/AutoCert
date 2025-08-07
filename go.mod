@@ -6,6 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/chai2010/webp v1.4.0
+	github.com/chromedp/chromedp v0.14.0
 	github.com/gen2brain/go-fitz v1.24.14
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-gonic/gin v1.10.0
@@ -45,6 +46,8 @@ require (
 	github.com/benoitkugler/textprocessing v0.0.3 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
+	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -53,10 +56,14 @@ require (
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-fonts/latin-modern v0.3.3 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20250725192818-e39067aee2d2 // indirect
 	github.com/go-latex/latex v0.0.0-20240709081214-31cef3c7570e // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-text/typesetting v0.2.1 // indirect
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/hhrutter/lzw v1.0.0 // indirect
@@ -96,7 +103,7 @@ require (
 	golang.org/x/arch v0.11.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.14.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	gonum.org/v1/plot v0.15.0 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect

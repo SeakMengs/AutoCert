@@ -1,18 +1,20 @@
 package autocert
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"image/draw"
 	"math"
 	"os"
-	"path/filepath"
+	"sync"
 
+	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/chromedp"
 	"github.com/nfnt/resize"
 	"github.com/noelyahan/impexp"
 	"github.com/noelyahan/mergi"
-	"github.com/tdewolff/canvas"
-	"github.com/tdewolff/canvas/renderers"
 )
 
 /*
@@ -75,32 +77,143 @@ func ResizeImage(inFile, outFile string, width, height float64, objectContain bo
 	return nil
 }
 
+func svgHtml(width, height float64, base64Svg string) string {
+	return fmt.Sprintf(`
+<html>
+<head>
+  <style>
+	html, body {
+	  margin: 0;
+	  padding: 0;
+	  width: %fin;
+	  height: %fin;
+	}
+	body {
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+	}
+	img {
+	  object-fit: contain;
+	  width: 100%%;
+	  height: 100%%;
+	  display: block;
+	}
+  </style>
+</head>
+<body>
+  <img src="data:image/svg+xml;base64,%s" alt="Signature" />
+</body>
+</html>`, width, height, base64Svg)
+}
+
 func SvgToPdf(inFile, outFile string, width, height float64) error {
-	if filepath.Ext(inFile) != ".svg" {
-		return fmt.Errorf("input file is not an SVG: %s", inFile)
-	}
+	ctx, cancel := chromedp.NewContext(context.Background())
+	defer cancel()
 
-	if filepath.Ext(outFile) != ".pdf" {
-		return fmt.Errorf("output file is not a PDF: %s", outFile)
-	}
-
-	svgData, err := os.Open(inFile)
+	svgBytes, err := os.ReadFile(inFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read SVG: %w", err)
 	}
-	defer svgData.Close()
 
-	svg, err := canvas.ParseSVG(svgData)
+	DPI := 72.0
+	// chrome print page use inch
+	widthInch := width / DPI
+	heightInch := height / DPI
+
+	base64Svg := base64.StdEncoding.EncodeToString(svgBytes)
+	if base64Svg == "" {
+		return fmt.Errorf("failed to encode SVG to base64")
+	}
+
+	html := svgHtml(widthInch, heightInch, base64Svg)
+
+	fmt.Printf("Converting SVG to PDF: %s -> %s (%.2f x %.2f px)\n", inFile, outFile, width, height)
+
+	var pdfBuf []byte
+	err = chromedp.Run(ctx,
+		// Credit: https://stackoverflow.com/questions/75339208/golang-chromedp-pdf-file-download-without-saving-in-server
+		chromedp.Navigate("about:blank"),
+		// set the page content and wait until the page is loaded (including its resources).
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			lctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			var wg sync.WaitGroup
+			wg.Add(1)
+			chromedp.ListenTarget(lctx, func(ev interface{}) {
+				if _, ok := ev.(*page.EventLoadEventFired); ok {
+					// It's a good habit to remove the event listener if we don't need it anymore.
+					cancel()
+					wg.Done()
+				}
+			})
+
+			frameTree, err := page.GetFrameTree().Do(ctx)
+			if err != nil {
+				return err
+			}
+
+			if err := page.SetDocumentContent(frameTree.Frame.ID, html).Do(ctx); err != nil {
+				return err
+			}
+			wg.Wait()
+			return nil
+		}),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			var err error
+			pdfBuf, _, err = page.PrintToPDF().
+				WithPreferCSSPageSize(true).
+				WithPaperWidth(widthInch).
+				WithPaperHeight(heightInch).
+				WithMarginTop(0).
+				WithMarginBottom(0).
+				WithMarginLeft(0).
+				WithMarginRight(0).
+				WithPrintBackground(true).Do(ctx)
+			if err != nil {
+				return err
+			}
+			return nil
+		}),
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to render PDF: %w", err)
 	}
 
-	// Don't use fit, in order to keep svg's original size including margins, whitespace
-	// svg.Fit(pxToMM(0))
-
-	if err := renderers.Write(outFile, svg); err != nil {
-		return err
+	if err := os.WriteFile(outFile, pdfBuf, 0644); err != nil {
+		return fmt.Errorf("failed to write PDF: %w", err)
 	}
 
 	return ResizePDFKeepOrientation(outFile, outFile, []string{"1"}, width, height)
 }
+
+// Another way to convert SVG to PDF using tdewolff/canvas but has error when resizing
+// func SvgToPdf(inFile, outFile string, width, height float64) error {
+// 	if filepath.Ext(inFile) != ".svg" {
+// 		return fmt.Errorf("input file is not an SVG: %s", inFile)
+// 	}
+
+// 	if filepath.Ext(outFile) != ".pdf" {
+// 		return fmt.Errorf("output file is not a PDF: %s", outFile)
+// 	}
+
+// 	svgData, err := os.Open(inFile)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer svgData.Close()
+
+// 	svg, err := canvas.ParseSVG(svgData)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	// Don't use fit, in order to keep svg's original size including margins, whitespace
+// 	// svg.Fit(pxToMM(0))
+
+// 	if err := renderers.Write(outFile, svg); err != nil {
+// 		return err
+// 	}
+
+// 	return ResizePDFKeepOrientation(outFile, outFile, []string{"1"}, width, height)
+// }
