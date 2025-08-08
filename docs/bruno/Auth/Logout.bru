@@ -1,0 +1,27 @@
+meta {
+  name: Logout
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{url}}/api/v1/auth/logout
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Refresh {{refreshToken}}
+}
+
+docs {
+  Suuccess response
+  
+  {
+    "success": true,
+    "message": "Request successful.",
+    "data": {
+    }
+  }
+  
+}

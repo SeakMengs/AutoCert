@@ -133,3 +133,19 @@ func (jr JWTRepository) RefreshToken(ctx context.Context, tx *gorm.DB, refreshTo
 
 	return newRefreshToken, newAccessToken, txErr
 }
+
+func (jr JWTRepository) DeleteToken(ctx context.Context, tx *gorm.DB, refreshToken string) error {
+	jr.logger.Debugf("Delete token using refresh token: %s \n", refreshToken)
+
+	db := jr.getDB(tx)
+	ctx, cancel := context.WithTimeout(ctx, constant.QUERY_TIMEOUT_DURATION)
+	defer cancel()
+
+	if err := db.WithContext(ctx).Model(&model.Token{}).Where(model.Token{
+		RefreshToken: refreshToken,
+	}).Delete(&model.Token{}).Error; err != nil {
+		return err
+	}
+
+	return nil
+}

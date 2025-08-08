@@ -411,8 +411,6 @@ func (pc ProjectController) GetSignatoryProjectList(ctx *gin.Context) {
 	})
 }
 
-// TODO: handle remove signature file
-// TODO: handle empty annotates
 func (pc ProjectController) Generate(ctx *gin.Context) {
 	projectId := ctx.Params.ByName("projectId")
 	if projectId == "" {
