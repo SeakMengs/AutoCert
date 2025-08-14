@@ -366,16 +366,18 @@ func (cg *CertificateGenerator) generateSingleCertificate(baseFile string) ([]Ge
 	}
 	os.Remove(baseFile)
 
-	// Mark progress as complete
 	cg.incrementProgress()
 
-	return []GeneratedResult{
-		{
-			Number:   1,
-			FilePath: outputFile,
-			ID:       uuid.NewString(),
-		},
-	}, nil
+	results := make(chan generationResult, 1)
+	results <- generationResult{
+		id:         uuid.NewString(),
+		index:      0,
+		outputFile: outputFile,
+		err:        nil,
+	}
+	close(results)
+
+	return cg.aggregateResults(results, 1)
 }
 
 func (cg *CertificateGenerator) generateBatchCertificates(baseFile string) ([]GeneratedResult, error) {
