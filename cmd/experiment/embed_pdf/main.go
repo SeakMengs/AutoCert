@@ -32,10 +32,27 @@ func main() {
 	fmt.Printf("PDF Size: Width = %.2f px, Height = %.2f px\n", wPx, hPx)
 	fmt.Println("PDF conversion completed successfully. Output file:", output)
 
-	x, y := 0.0, 514.07996
+	// x, y := 0.0, 514.07996
+	x, y := 0.0, 505.50
 
 	pdf := "autocert_tmp/ChongCham template.pdf"
+	// pdf := "autocert_tmp/certificate_merged.pdf"
 	outpdf := "autocert_tmp/embeded_watermark.pdf"
+
+	srcPdf, err := os.Open(pdf)
+	if err != nil {
+		fmt.Println("Error opening PDF file:", err)
+		return
+	}
+	defer srcPdf.Close()
+
+	pdfWidth, pdfHeight, err := autocert.GetPdfSizeByPage(srcPdf, 1)
+	if err != nil {
+		fmt.Println("Error getting PDF size:", err)
+		return
+	}
+	fmt.Printf("PDF to embed Width: %.2f, PDF Height: %.2f\n", pdfWidth, pdfHeight)
+
 	err = autocert.ApplyWatermarkToPdf(pdf, outpdf, []string{"1"}, output, x, y)
 	if err != nil {
 		fmt.Println("Error applying watermark to PDF:", err)
